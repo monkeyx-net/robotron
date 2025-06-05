@@ -4,28 +4,57 @@
     // window.gameState, window.player, window.demoPlayer, window.humanTexture are available.
 
     function createHuman(x, y) {
-        if (!window.PIXI || !window.humanTexture || !window.humansContainer || !window.humansAndProgs || !window.GameConfig || !window.GameConfig.HUMAN_SPEED) {
-            console.warn("Humans.createHuman: Missing dependencies.");
+        console.log("[Humans.createHuman] Called with x:", x, "y:", y);
+
+        if (!window.PIXI) {
+            console.warn("[Humans.createHuman] FAILED: window.PIXI is missing.");
             return null;
         }
+        if (!window.humanTexture || !window.humanTexture.baseTexture || !window.humanTexture.baseTexture.valid) { // Added more detailed texture check
+            console.warn("[Humans.createHuman] FAILED: window.humanTexture is missing or invalid. Valid:", window.humanTexture && window.humanTexture.baseTexture ? window.humanTexture.baseTexture.valid : 'N/A');
+            return null;
+        }
+        if (!window.humansContainer) {
+            console.warn("[Humans.createHuman] FAILED: window.humansContainer is missing.");
+            return null;
+        }
+        if (!window.humansAndProgs) {
+            console.warn("[Humans.createHuman] FAILED: window.humansAndProgs array is missing.");
+            return null;
+        }
+        if (!window.GameConfig || !window.GameConfig.HUMAN_SPEED) {
+            console.warn("[Humans.createHuman] FAILED: window.GameConfig or HUMAN_SPEED is missing. GameConfig exists:", !!window.GameConfig, "HUMAN_SPEED exists:", !!(window.GameConfig && window.GameConfig.HUMAN_SPEED));
+            return null;
+        }
+
+        console.log("[Humans.createHuman] All dependencies seem OK.");
+
         const humanSprite = new window.PIXI.Sprite(window.humanTexture);
         humanSprite.anchor.set(0.5);
         humanSprite.x = x;
         humanSprite.y = y;
+
+        console.log("[Humans.createHuman] Human sprite created at x:", humanSprite.x, "y:", humanSprite.y);
+
         window.humansContainer.addChild(humanSprite);
+        console.log("[Humans.createHuman] Human sprite added to humansContainer. Container children:", window.humansContainer.children.length);
+
         const human = {
             sprite: humanSprite,
             type: 'human',
-            originalColor: 0xFFFFFF, // Not used in current logic but was in original struct
-            isEvil: false,           // For brain interaction
-            reprogramTimer: 0,     // For brain interaction
-            isRescued: false,        // Added to track if human was rescued, for brain targeting logic
-            dx: (Math.random() - 0.5) * window.GameConfig.HUMAN_SPEED * 2, // Original had HUMAN_SPEED * 2 effectively
-            dy: (Math.random() - 0.5) * window.GameConfig.HUMAN_SPEED * 2, // Original had HUMAN_SPEED * 2 effectively
+            originalColor: 0xFFFFFF,
+            isEvil: false,
+            reprogramTimer: 0,
+            isRescued: false,
+            dx: (Math.random() - 0.5) * window.GameConfig.HUMAN_SPEED * 2,
+            dy: (Math.random() - 0.5) * window.GameConfig.HUMAN_SPEED * 2,
             wanderTimer: Math.random() * 100 + 50,
-            flashTimer: 0 // Not used in current human logic but was in original struct
+            flashTimer: 0
         };
+
         window.humansAndProgs.push(human);
+        console.log("[Humans.createHuman] Human object pushed to humansAndProgs array. Array length:", window.humansAndProgs.length);
+
         return human;
     }
 
