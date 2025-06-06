@@ -29,7 +29,8 @@
 
         console.log("[Humans.createHuman] All dependencies seem OK.");
 
-        const humanSprite = new window.PIXI.Sprite(window.humanTexture);
+        const humanSprite = new window.PIXI.Sprite(window.gruntTexture); // TEMP: Using gruntTexture for humans
+        console.log("[Humans.createHuman] Attempting to use texture:", window.gruntTexture ? "gruntTexture" : "MISSING gruntTexture", "for human sprite. Original humanTexture valid:", window.humanTexture && window.humanTexture.baseTexture ? window.humanTexture.baseTexture.valid : 'N/A');
         humanSprite.anchor.set(0.5);
         humanSprite.x = x;
         humanSprite.y = y;
