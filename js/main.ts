@@ -2,8 +2,11 @@ import * as PIXI from 'pixi.js';
 import { GameConfig } from './config';
 import { RobotronGame } from './core/GameModule';
 import { testFoundationalSystems } from './core/test-integration';
+import { runMilestone1Tests, testGameLoading } from './core/milestone-test';
 import { Attract } from './attractMode';
 import { loadHighScore, resetGameVariables, startNextWave, checkCollisions, checkForExtraLife, checkWaveCompletion, updateBonusDecay } from './gameLogic';
+import { collisionIntegration, IntegrationUtils } from './core/CollisionIntegration';
+import { gameEngine, GameSystem, EngineUtils } from './core/GameEngine';
 import { createPlayer, Player } from './player';
 import { Projectiles } from './projectiles';
 import { Enemies } from './enemies';
@@ -233,9 +236,6 @@ const initializeGame = async () => {
         app.stage.addChild(playerContainer);
         app.stage.addChild(effectsContainer);
         
-        // Start the game loop
-        app.ticker.add(gameLoop);
-        
         // Initialize the new game module
         console.log('Initializing foundational systems...');
         const moduleInitialized = RobotronGame.init();
@@ -256,6 +256,26 @@ const initializeGame = async () => {
             console.warn('Some foundational system tests failed, but continuing...');
         }
         
+        // Run Milestone 1 tests
+        console.log('Running Milestone 1 comprehensive tests...');
+        const milestone1Pass = runMilestone1Tests();
+        if (milestone1Pass) {
+            console.log('🎉 Milestone 1: All foundational systems are working correctly!');
+        } else {
+            console.warn('⚠️ Milestone 1: Some tests failed, but game will continue...');
+        }
+        
+        // Test game loading after a short delay
+        setTimeout(() => {
+            const gameLoadingPass = testGameLoading();
+            if (gameLoadingPass) {
+                console.log('✅ Game loading verification passed');
+            }
+        }, 1000);
+        
+        // Set up collision system debugging
+        setupCollisionDebugging();
+        
         // Initialize game systems after async setup is complete
         loadHighScore();
         InputManager.init();
@@ -263,12 +283,203 @@ const initializeGame = async () => {
         resetGameVariables();
         Attract.showTitleScreen();
         
+        // Set up the new GameEngine
+        setupGameEngine();
+        
         console.log('Game initialization completed successfully');
         
     } catch (error) {
         console.error('Failed to initialize game:', error);
     }
 };
+
+// --- Collision System Debugging Setup ---
+function setupCollisionDebugging() {
+    // Make collision debugging functions available globally for console access
+    (window as any).collisionDebug = {
+        enableTesting: () => IntegrationUtils.enableTesting(),
+        enableHybrid: () => IntegrationUtils.enableHybrid(),
+        enableFull: () => IntegrationUtils.enableFull(),
+        getStats: () => collisionIntegration.getStats(),
+        getDebugData: () => collisionIntegration.getDebugData(),
+        
+        // Quick test functions
+        testSpatialGrid: () => {
+            console.log('🔍 Spatial Grid Stats:', collisionIntegration.getStats().collisionSystem.spatialGridStats);
+        },
+        
+        logPerformance: () => {
+            const stats = collisionIntegration.getStats();
+            console.log('📊 Collision Performance:', {
+                integration: stats.integration.performance,
+                spatialGrid: stats.collisionSystem.spatialGridStats
+            });
+        }
+    };
+    
+    console.log('🔧 Collision debugging setup complete. Use window.collisionDebug for testing.');
+    console.log('   - collisionDebug.enableTesting() - Enable new system for testing');
+    console.log('   - collisionDebug.enableHybrid() - Run both systems');
+    console.log('   - collisionDebug.getStats() - Get performance stats');
+}
+
+// --- GameEngine Setup ---
+function setupGameEngine() {
+    // Create game systems for different parts of the game
+    const inputSystem = EngineUtils.createSystem(
+        'InputSystem',
+        (deltaTime: number) => {
+            InputManager.pollGamepads();
+        },
+        undefined,
+        100 // High priority
+    );
+    
+    const attractModeSystem = EngineUtils.createSystem(
+        'AttractModeSystem',
+        (deltaTime: number) => {
+            if (gameState.currentGameState === 'TITLE_SCREEN' || 
+                gameState.currentGameState === 'HIGH_SCORE_DISPLAY_SCREEN' || 
+                gameState.currentGameState === 'DEMO_PLAY') {
+                
+                Attract.updateAttractMode(deltaTime / (1000 / 60)); // Convert to PIXI delta format
+                
+                // Check for start game input
+                if (InputManager.isKeyDown('Enter') || InputManager.isKeyDown('Space') || 
+                    (InputManager.isGamepadConnected() && 
+                     (navigator.getGamepads()[0]?.buttons[GameConfig.GAMEPAD_START_BUTTON_INDEX]?.pressed || 
+                      navigator.getGamepads()[0]?.buttons[GameConfig.GAMEPAD_A_BUTTON_INDEX]?.pressed))) {
+                    startGameFromTitle();
+                }
+            }
+        },
+        undefined,
+        90
+    );
+    
+    const gameplaySystem = EngineUtils.createSystem(
+        'GameplaySystem',
+        (deltaTime: number) => {
+            if (gameState.currentGameState === 'PLAYING') {
+                if (!player) {
+                    console.error("Game in PLAYING state but no player object!");
+                    gameState.currentGameState = 'TITLE_SCREEN';
+                    Attract.showTitleScreen();
+                    return;
+                }
+                
+                // Update player invulnerability
+                if (gameState.playerInvulnerableTime > 0) {
+                    gameState.playerInvulnerableTime -= deltaTime;
+                    if (gameState.playerInvulnerableTime < 0) gameState.playerInvulnerableTime = 0;
+                }
+                
+                // Update game entities
+                const normalizedDelta = deltaTime / (1000 / 60); // Convert to expected delta format
+                
+                player.handleKeyboardInput();
+                if(InputManager.isGamepadConnected()) player.handleGamepadInput();
+                player.update(normalizedDelta);
+                
+                Projectiles.updatePlayerProjectiles(normalizedDelta);
+                Projectiles.updateEnemyProjectiles(normalizedDelta);
+                Enemies.updateEnemies(normalizedDelta);
+                Humans.updateHumansAndProgs(normalizedDelta);
+                Obstacles.updateObstacles(normalizedDelta);
+                updateBonusDecay(normalizedDelta);
+                Effects.updateEffects(normalizedDelta);
+                
+                // Collision detection
+                checkCollisions();
+                
+                // Register objects with new collision system for testing
+                collisionIntegration.registerGameObjects(
+                    playerProjectiles,
+                    enemyProjectiles,
+                    enemies,
+                    humansAndProgs,
+                    obstacles,
+                    player
+                );
+                
+                // Run new collision system (currently in testing mode)
+                collisionIntegration.checkCollisions();
+                
+                checkForExtraLife();
+                checkWaveCompletion();
+            }
+        },
+        undefined,
+        80
+    );
+    
+    const uiSystem = EngineUtils.createSystem(
+        'UISystem',
+        (deltaTime: number) => {
+            // UI updates can happen every frame
+            if (gameState.currentGameState === 'PLAYING') {
+                UI.updateUI();
+            }
+        },
+        undefined,
+        10 // Lower priority
+    );
+    
+    // Add systems to the game engine
+    gameEngine.addSystem(inputSystem);
+    gameEngine.addSystem(attractModeSystem);
+    gameEngine.addSystem(gameplaySystem);
+    gameEngine.addSystem(uiSystem);
+    
+    // Set up performance monitoring
+    gameEngine.setPerformanceCallback((metrics) => {
+        // Make performance metrics available globally for debugging
+        (window as any).gamePerformance = metrics;
+        
+        // Log performance warnings if needed
+        if (metrics.fps < 30) {
+            console.warn('Low FPS detected:', metrics.fps.toFixed(1));
+        }
+    });
+    
+    // Start the game engine
+    gameEngine.start();
+    
+    // Make game engine available globally for debugging
+    (window as any).gameEngine = gameEngine;
+    (window as any).engineDebug = {
+        getMetrics: () => gameEngine.getMetrics(),
+        getState: () => gameEngine.getState(),
+        pause: () => gameEngine.pause(),
+        resume: () => gameEngine.resume(),
+        stop: () => gameEngine.stop(),
+        start: () => gameEngine.start(),
+        
+        // System management
+        enableSystem: (name: string) => gameEngine.setSystemEnabled(name, true),
+        disableSystem: (name: string) => gameEngine.setSystemEnabled(name, false),
+        getSystem: (name: string) => gameEngine.getSystem(name),
+        
+        // Performance testing
+        logPerformance: () => {
+            const metrics = gameEngine.getMetrics();
+            console.log('🎮 GameEngine Performance:', {
+                fps: metrics.fps.toFixed(1),
+                averageFps: metrics.averageFps.toFixed(1),
+                frameTime: metrics.frameTime.toFixed(2) + 'ms',
+                updateTime: metrics.updateTime.toFixed(2) + 'ms',
+                renderTime: metrics.renderTime.toFixed(2) + 'ms',
+                totalFrames: metrics.totalFrames,
+                droppedFrames: metrics.droppedFrames
+            });
+        }
+    };
+    
+    console.log('🚀 GameEngine setup complete. Use window.engineDebug for testing.');
+    console.log('   - engineDebug.getMetrics() - Get performance metrics');
+    console.log('   - engineDebug.logPerformance() - Log detailed performance');
+    console.log('   - engineDebug.pause() / engineDebug.resume() - Control game loop');
+}
 
 initializeGame();
 
@@ -367,64 +578,7 @@ function startGameFromTitle() {
     if(messageBox) messageBox.style.display = 'none';
 }
 
-// --- Main Game Loop ---
-function gameLoop(delta: number) {
-    // delta is PIXI's deltaTime, which is 1 by default for 60 FPS.
-    const elapsedMS = app.ticker.elapsedMS;
-    accumulator += elapsedMS;
-
-    InputManager.pollGamepads(); // Poll gamepads via InputManager
-
-    if (gameState.currentGameState === 'TITLE_SCREEN' || gameState.currentGameState === 'HIGH_SCORE_DISPLAY_SCREEN' || gameState.currentGameState === 'DEMO_PLAY') {
-        Attract.updateAttractMode(delta);
-        // Check for start game input from InputManager
-        if (InputManager.isKeyDown('Enter') || InputManager.isKeyDown('Space') || 
-            (InputManager.isGamepadConnected() && 
-             (navigator.getGamepads()[0]?.buttons[GameConfig.GAMEPAD_START_BUTTON_INDEX]?.pressed || 
-              navigator.getGamepads()[0]?.buttons[GameConfig.GAMEPAD_A_BUTTON_INDEX]?.pressed))) {
-            startGameFromTitle();
-        }
-    } else if (gameState.currentGameState === 'PLAYING') {
-        if (!player) {
-            console.error("Game in PLAYING state but no player object!");
-            gameState.currentGameState = 'TITLE_SCREEN';
-            Attract.showTitleScreen();
-            return;
-        }
-
-        // Fixed timestep updates for physics and game logic
-        while (accumulator >= FIXED_TIME_STEP) {
-            if (gameState.playerInvulnerableTime > 0) {
-                gameState.playerInvulnerableTime -= FIXED_TIME_STEP;
-                if (gameState.playerInvulnerableTime < 0) gameState.playerInvulnerableTime = 0;
-            }
-
-            player.handleKeyboardInput();
-            if(InputManager.isGamepadConnected()) player.handleGamepadInput();
-            player.update(FIXED_TIME_STEP / (1000 / 60)); // Pass a consistent delta for updates
-
-            Projectiles.updatePlayerProjectiles(FIXED_TIME_STEP / (1000 / 60));
-            Projectiles.updateEnemyProjectiles(FIXED_TIME_STEP / (1000 / 60));
-            Enemies.updateEnemies(FIXED_TIME_STEP / (1000 / 60));
-            Humans.updateHumansAndProgs(FIXED_TIME_STEP / (1000 / 60));
-            Obstacles.updateObstacles(FIXED_TIME_STEP / (1000 / 60));
-            updateBonusDecay(FIXED_TIME_STEP / (1000 / 60));
-            Effects.updateEffects(FIXED_TIME_STEP / (1000 / 60));
-
-            checkCollisions();
-            checkForExtraLife();
-            checkWaveCompletion();
-
-            accumulator -= FIXED_TIME_STEP;
-        }
-
-        // Render updates (can be frame-rate dependent)
-        UI.updateUI();
-
-    } else if (gameState.currentGameState === 'WAVE_TRANSITION') {
-        // Handled by GameLogic.checkWaveCompletion's setTimeout
-    } else if (gameState.currentGameState === 'GAME_OVER') {
-        // Handled by UI.showGameOverScreen
-    }
-}
+// --- Legacy Game Loop (Replaced by GameEngine) ---
+// The old game loop has been replaced by the new GameEngine system.
+// All game logic is now handled by the GameEngine's system-based architecture.
 

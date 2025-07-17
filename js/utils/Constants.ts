@@ -1,1 +1,198 @@
-/**\n * Constants - Centralized configuration and constants module\n * \n * This module provides a centralized location for all game constants,\n * configuration values, and magic numbers used throughout the Robotron game.\n * It organizes constants by category and provides type-safe configuration\n * interfaces with validation and default value handling.\n */\n\n/**\n * Game dimensions and viewport constants\n */\nexport const GAME_DIMENSIONS = {\n    WIDTH: 292,\n    HEIGHT: 240,\n    ASPECT_RATIO: 292 / 240,\n    CENTER_X: 292 / 2,\n    CENTER_Y: 240 / 2\n} as const;\n\n/**\n * Player-related constants\n */\nexport const PLAYER_CONSTANTS = {\n    SPEED: 2,\n    INITIAL_LIVES: 30,\n    RESPAWN_INVULNERABILITY_TIME: 2000,\n    SHOOT_RATE: 100, // milliseconds between shots\n    MAX_PROJECTILES: 10,\n    SIZE: 8, // sprite size\n    COLLISION_RADIUS: 6\n} as const;\n\n/**\n * Projectile constants\n */\nexport const PROJECTILE_CONSTANTS = {\n    PLAYER_SPEED: 4,\n    ENFORCER_SPEED: 2.5,\n    BRAIN_SPEED: 2,\n    TANK_SHELL_SPEED: 1.8,\n    TANK_SHELL_BOUNCES: 2,\n    LIFETIME: 180, // frames before auto-destruction\n    SIZE: 2,\n    COLLISION_RADIUS: 3\n} as const;\n\n/**\n * Enemy speed constants\n */\nexport const ENEMY_SPEEDS = {\n    GRUNT: 0.6,\n    GRUNT_ACCELERATION: 0.03,\n    GRUNT_MAX_SPEED: 1.0,\n    GRUNT_TURN_RATE: 0.08,\n    HULK: 0.3,\n    HULK_CHARGE_SPEED: 1.2,\n    ENFORCER: 0.8,\n    BRAIN: 0.6,\n    TANK: 0.4,\n    SPHEROID: 0.7,\n    QUARK: 1.2,\n    SUB_QUARK: 1.5,\n    PROG: 1.3\n} as const;\n\n/**\n * Enemy timing constants (in frames)\n */\nexport const ENEMY_TIMINGS = {\n    ENFORCER_SHOOT_DELAY: 120,\n    BRAIN_SHOOT_DELAY: 150,\n    TANK_SHOOT_DELAY: 180,\n    BRAIN_REPROGRAM_RANGE: 20,\n    BRAIN_REPROGRAM_DURATION: 120,\n    SPHEROID_SPAWN_ENFORCER_DELAY: 300,\n    QUARK_SPAWN_SUB_QUARK_DELAY: 180,\n    MAX_SUB_QUARKS_PER_QUARK: 3,\n    ELECTRODE_FLASH_RATE: 0.1\n} as const;\n\n/**\n * Human-related constants\n */\nexport const HUMAN_CONSTANTS = {\n    SPEED: 1.5, // Updated from original 0.4\n    SCALE: 2.0,\n    WANDER_RADIUS: 60,\n    WANDER_INTERVAL: 2000,\n    RESCUE_RADIUS: 18,\n    INITIAL_RESCUE_BONUS: 1000,\n    MAX_RESCUE_BONUS: 5000,\n    RESCUE_BONUS_INCREMENT: 1000,\n    RESCUE_BONUS_DECAY_DURATION: 300,\n    SIZE: 8,\n    COLLISION_RADIUS: 6\n} as const;\n\n/**\n * Point values for different enemies and actions\n */\nexport const POINT_VALUES = {\n    GRUNT: 100,\n    HULK: 200,\n    ENFORCER: 150,\n    SPHEROID: 1000,\n    BRAIN: 500,\n    TANK: 300,\n    PROG: 100,\n    QUARK: 1000,\n    SUB_QUARK: 500,\n    HUMAN_RESCUE: 1000,\n    EXTRA_LIFE_INTERVAL: 25000\n} as const;\n\n/**\n * Color constants for consistent theming\n */\nexport const COLORS = {\n    // Primary colors\n    WHITE: 0xFFFFFF,\n    BLACK: 0x000000,\n    RED: 0xFF0000,\n    GREEN: 0x00FF00,\n    BLUE: 0x0000FF,\n    YELLOW: 0xFFFF00,\n    CYAN: 0x00FFFF,\n    MAGENTA: 0xFF00FF,\n    \n    // Game-specific colors\n    PLAYER: 0xFFFFFF,\n    PLAYER_PROJECTILE: 0xFFFFFF,\n    \n    // Enemy colors\n    GRUNT: 0xFFFF00,\n    HULK: 0x00FF00,\n    SPHEROID: 0xFF0000,\n    ENFORCER: 0x0000FF,\n    BRAIN: 0xFF69B4,\n    BRAIN_ACCENT: 0xFF88FF,\n    TANK: 0x888888,\n    TANK_ACCENT: 0x666666,\n    PROG: 0x8A2BE2,\n    PROG_BORDER: 0x4B0082,\n    QUARK: 0xFFFFFF,\n    SUB_QUARK: 0xEEEEEE,\n    \n    // Human colors\n    HUMAN_MAN: 0xF0F0F0,\n    HUMAN_WOMAN: 0xFF69B4,\n    HUMAN_CHILD: 0x40E0D0,\n    \n    // Explosion colors\n    EXPLOSION_DEFAULT: 0xFF0000,\n    EXPLOSION_SPHEROID: 0xFF8800,\n    EXPLOSION_ENFORCER: 0x00AAFF,\n    EXPLOSION_BRAIN: 0xFF88FF,\n    EXPLOSION_TANK: 0xAAAAAA,\n    EXPLOSION_QUARK: 0xF0F0F0,\n    EXPLOSION_SUB_QUARK: 0xD0D0D0,\n    EXPLOSION_PROG: 0xFF55FF,\n    EXPLOSION_HUMAN: 0xCCCCCC,\n    \n    // UI colors\n    UI_TITLE: 0xFFFF00,\n    UI_TITLE_SHADOW: 0xFF0000,\n    UI_TEXT: 0xFFFFFF,\n    UI_START_TEXT: 0x00FF00,\n    UI_HIGH_SCORE: 0x00FFFF,\n    UI_HIGH_SCORE_VALUE: 0xFFFF00,\n    UI_GAME_OVER: 0xFF0000,\n    UI_SCORE: 0xFFFFFF,\n    UI_LIVES: 0x00FF00,\n    UI_WAVE: 0xFFFF00,\n    \n    // Effect colors\n    RESCUE_EFFECT: 0x00FF00,\n    ELECTRODE_COLORS: [0xFF0000, 0xFFFF00, 0x00FFFF, 0xFF00FF, 0x00FF00],\n    \n    // Particle effect colors\n    PARTICLE_INNER: 0xFFFFFF,\n    PARTICLE_OUTER: 0xFF8800\n} as const;\n\n/**\n * Audio constants\n */\nexport const AUDIO_CONSTANTS = {\n    MASTER_VOLUME: 0.7,\n    SFX_VOLUME: 0.8,\n    MUSIC_VOLUME: 0.6,\n    \n    // Sound effect keys\n    SOUNDS: {\n        PLAYER_SHOOT: 'shoot',\n        PLAYER_DEATH: 'playerDeath',\n        ENEMY_SHOOT: 'enemyShoot',\n        GRUNT_POP: 'gruntPop',\n        HULK_POP: 'hulkPop',\n        ENFORCER_FIRE: 'enforcerFire',\n        ENFORCER_POP: 'enforcerPop',\n        BRAIN_FIRE: 'brainFire',\n        BRAIN_POP: 'brainPop',\n        TANK_FIRE: 'tankFire',\n        TANK_POP: 'tankPop',\n        SPHEROID_POP: 'spheroidPop',\n        QUARK_POP: 'quarkPop',\n        SUB_QUARK_POP: 'subQuarkPop',\n        PROG_DESTROY: 'progDestroy',\n        PROG_ACTIVATE: 'progActivate',\n        HUMAN_RESCUE: 'humanRescue',\n        HUMAN_DEATH: 'humanDeath',\n        HUMAN_DEATH_BY_ENEMY: 'humanDeathByEnemy',\n        HUMAN_TO_PROG: 'humanToProg',\n        SHELL_BOUNCE: 'shellBounce',\n        EXTRA_LIFE: 'extraLife',\n        GAME_OVER: 'gameOver',\n        WAVE_START: 'waveStart',\n        INSERT_COIN: 'insertCoin',\n        HIGH_SCORE_TOP: 'highScoreTop'\n    }\n} as const;\n\n/**\n * Input constants\n */\nexport const INPUT_CONSTANTS = {\n    GAMEPAD_DEADZONE: 0.2,\n    \n    // Gamepad button indices\n    GAMEPAD_BUTTONS: {\n        A: 0,\n        B: 1,\n        X: 2,\n        Y: 3,\n        LEFT_BUMPER: 4,\n        RIGHT_BUMPER: 5,\n        LEFT_TRIGGER: 6,\n        RIGHT_TRIGGER: 7,\n        SELECT: 8,\n        START: 9,\n        LEFT_STICK: 10,\n        RIGHT_STICK: 11,\n        DPAD_UP: 12,\n        DPAD_DOWN: 13,\n        DPAD_LEFT: 14,\n        DPAD_RIGHT: 15\n    },\n    \n    // Key codes\n    KEYS: {\n        ENTER: 'Enter',\n        SPACE: ' ',\n        ESCAPE: 'Escape',\n        ARROW_UP: 'ArrowUp',\n        ARROW_DOWN: 'ArrowDown',\n        ARROW_LEFT: 'ArrowLeft',\n        ARROW_RIGHT: 'ArrowRight',\n        W: 'w',\n        A: 'a',\n        S: 's',\n        D: 'd',\n        SHIFT: 'Shift'\n    }\n} as const;\n\n/**\n * Attract mode and timing constants\n */\nexport const ATTRACT_MODE_CONSTANTS = {\n    TITLE_SCREEN_DURATION: 300,\n    HIGH_SCORE_DURATION: 180,\n    DEMO_PLAY_DURATION: 450,\n    CYCLE_TIME: 400,\n    INSERT_COIN_FLASH_INTERVAL: 30\n} as const;\n\n/**\n * Visual effects constants\n */\nexport const EFFECTS_CONSTANTS = {\n    // Explosion particles\n    EXPLOSION_PARTICLES: 16,\n    EXPLOSION_RINGS: 2,\n    EXPLOSION_INNER_SPEED: 3,\n    EXPLOSION_OUTER_SPEED: 2,\n    EXPLOSION_INNER_LIFE: 15,\n    EXPLOSION_OUTER_LIFE: 25,\n    EXPLOSION_LIFE_VARIANCE: 10,\n    \n    // Particle physics\n    PARTICLE_FRICTION: 0.98,\n    PARTICLE_ROTATION_SPEED: 0.2,\n    PARTICLE_SCALE_MIN: 0.8,\n    PARTICLE_SCALE_MAX: 1.0,\n    PARTICLE_SIZE_INNER_MIN: 2,\n    PARTICLE_SIZE_INNER_MAX: 4,\n    PARTICLE_SIZE_OUTER_MIN: 1,\n    PARTICLE_SIZE_OUTER_MAX: 2.5,\n    \n    // Rescue effect\n    RESCUE_EFFECT_SCALE_SPEED: 0.3,\n    RESCUE_EFFECT_ALPHA_DECAY: 0.05,\n    RESCUE_EFFECT_INITIAL_ALPHA: 0.8,\n    RESCUE_EFFECT_SIZE: 5\n} as const;\n\n/**\n * Collision detection constants\n */\nexport const COLLISION_CONSTANTS = {\n    PLAYER_RADIUS: 6,\n    PROJECTILE_RADIUS: 3,\n    HUMAN_RADIUS: 6,\n    GRUNT_RADIUS: 8,\n    HULK_RADIUS: 10,\n    ENFORCER_RADIUS: 6,\n    BRAIN_RADIUS: 8,\n    TANK_RADIUS: 12,\n    SPHEROID_RADIUS: 6,\n    QUARK_RADIUS: 4,\n    SUB_QUARK_RADIUS: 2,\n    PROG_RADIUS: 6,\n    \n    // Collision tolerances\n    RESCUE_TOLERANCE: 18,\n    ENEMY_COLLISION_TOLERANCE: 10,\n    PROJECTILE_TOLERANCE: 5,\n    BOUNDARY_PADDING: 15\n} as const;\n\n/**\n * Performance and optimization constants\n */\nexport const PERFORMANCE_CONSTANTS = {\n    TARGET_FPS: 60,\n    MAX_DELTA_TIME: 1000 / 30, // Cap delta time to 30 FPS minimum\n    \n    // Object pooling\n    PROJECTILE_POOL_SIZE: 50,\n    PARTICLE_POOL_SIZE: 100,\n    ENEMY_POOL_SIZE: 30,\n    \n    // Culling distances\n    OFFSCREEN_CULL_MARGIN: 50,\n    \n    // Update frequencies\n    COLLISION_CHECK_FREQUENCY: 1, // Every frame\n    AI_UPDATE_FREQUENCY: 1, // Every frame\n    EFFECT_UPDATE_FREQUENCY: 1 // Every frame\n} as const;\n\n/**\n * Development and debugging constants\n */\nexport const DEBUG_CONSTANTS = {\n    SHOW_COLLISION_BOXES: false,\n    SHOW_FPS: false,\n    SHOW_ENTITY_COUNT: false,\n    LOG_PERFORMANCE: false,\n    LOG_COLLISIONS: false,\n    LOG_AI_DECISIONS: false,\n    \n    // Debug colors\n    COLLISION_BOX_COLOR: 0xFF0000,\n    VELOCITY_VECTOR_COLOR: 0x00FF00,\n    TARGET_INDICATOR_COLOR: 0x0000FF\n} as const;\n\n/**\n * Font and text styling constants\n */\nexport const TEXT_CONSTANTS = {\n    FONT_FAMILY: 'Press Start 2P',\n    \n    // Font sizes\n    TITLE_SIZE: 28,\n    SUBTITLE_SIZE: 20,\n    BODY_SIZE: 12,\n    SMALL_SIZE: 10,\n    SCORE_SIZE: 14,\n    \n    // Text styles\n    DROP_SHADOW_DISTANCE: 2,\n    LINE_HEIGHT: 1.2,\n    LETTER_SPACING: 1\n} as const;\n\n/**\n * Animation constants\n */\nexport const ANIMATION_CONSTANTS = {\n    // Brain animation\n    BRAIN_ANIMATION_SPEED: 0.2,\n    BRAIN_FRAME_COUNT: 2,\n    \n    // Flashing effects\n    PROG_FLASH_SPEED: 0.15,\n    INSERT_COIN_FLASH_SPEED: 0.1,\n    ELECTRODE_FLASH_SPEED: 0.1,\n    \n    // Scaling animations\n    SCALE_ANIMATION_SPEED: 0.05,\n    ROTATION_ANIMATION_SPEED: 0.02\n} as const;\n\n/**\n * Game balance constants\n */\nexport const BALANCE_CONSTANTS = {\n    // Wave progression\n    ENEMIES_PER_WAVE_BASE: 8,\n    ENEMIES_PER_WAVE_INCREMENT: 2,\n    MAX_ENEMIES_PER_WAVE: 20,\n    \n    // Difficulty scaling\n    DIFFICULTY_SCALE_FACTOR: 1.1,\n    MAX_DIFFICULTY_MULTIPLIER: 3.0,\n    \n    // Spawn rates\n    HUMAN_SPAWN_RATE: 0.3,\n    ELECTRODE_SPAWN_RATE: 0.2,\n    \n    // Bonus multipliers\n    RESCUE_STREAK_MULTIPLIER: 1.5,\n    PERFECT_WAVE_BONUS: 5000,\n    NO_DEATH_BONUS: 2000\n} as const;\n\n/**\n * Validation functions for configuration\n */\nexport const ConfigValidation = {\n    /**\n     * Validate that a number is within a specified range\n     */\n    validateRange(value: number, min: number, max: number, name: string): number {\n        if (value < min || value > max) {\n            console.warn(`${name} value ${value} is outside valid range [${min}, ${max}]. Clamping to range.`);\n            return Math.max(min, Math.min(max, value));\n        }\n        return value;\n    },\n    \n    /**\n     * Validate that a color value is a valid hex color\n     */\n    validateColor(color: number, name: string): number {\n        if (color < 0 || color > 0xFFFFFF) {\n            console.warn(`${name} color value ${color.toString(16)} is not a valid hex color. Using white.`);\n            return 0xFFFFFF;\n        }\n        return color;\n    },\n    \n    /**\n     * Validate that a string is not empty\n     */\n    validateString(value: string, name: string): string {\n        if (!value || value.trim().length === 0) {\n            console.warn(`${name} is empty or invalid. Using default.`);\n            return 'default';\n        }\n        return value;\n    }\n};\n\n/**\n * Configuration presets for different difficulty levels\n */\nexport const DIFFICULTY_PRESETS = {\n    EASY: {\n        playerSpeed: PLAYER_CONSTANTS.SPEED * 1.2,\n        enemySpeedMultiplier: 0.8,\n        projectileSpeed: PROJECTILE_CONSTANTS.PLAYER_SPEED * 1.1,\n        lives: PLAYER_CONSTANTS.INITIAL_LIVES + 10,\n        rescueBonus: HUMAN_CONSTANTS.INITIAL_RESCUE_BONUS * 1.5\n    },\n    NORMAL: {\n        playerSpeed: PLAYER_CONSTANTS.SPEED,\n        enemySpeedMultiplier: 1.0,\n        projectileSpeed: PROJECTILE_CONSTANTS.PLAYER_SPEED,\n        lives: PLAYER_CONSTANTS.INITIAL_LIVES,\n        rescueBonus: HUMAN_CONSTANTS.INITIAL_RESCUE_BONUS\n    },\n    HARD: {\n        playerSpeed: PLAYER_CONSTANTS.SPEED * 0.9,\n        enemySpeedMultiplier: 1.3,\n        projectileSpeed: PROJECTILE_CONSTANTS.PLAYER_SPEED * 0.9,\n        lives: PLAYER_CONSTANTS.INITIAL_LIVES - 10,\n        rescueBonus: HUMAN_CONSTANTS.INITIAL_RESCUE_BONUS * 0.8\n    },\n    NIGHTMARE: {\n        playerSpeed: PLAYER_CONSTANTS.SPEED * 0.8,\n        enemySpeedMultiplier: 1.6,\n        projectileSpeed: PROJECTILE_CONSTANTS.PLAYER_SPEED * 0.8,\n        lives: PLAYER_CONSTANTS.INITIAL_LIVES - 20,\n        rescueBonus: HUMAN_CONSTANTS.INITIAL_RESCUE_BONUS * 0.5\n    }\n} as const;\n\n/**\n * Runtime configuration interface\n */\nexport interface GameConfiguration {\n    difficulty: keyof typeof DIFFICULTY_PRESETS;\n    audioEnabled: boolean;\n    debugMode: boolean;\n    showFPS: boolean;\n    masterVolume: number;\n    sfxVolume: number;\n    musicVolume: number;\n}\n\n/**\n * Default game configuration\n */\nexport const DEFAULT_CONFIG: GameConfiguration = {\n    difficulty: 'NORMAL',\n    audioEnabled: true,\n    debugMode: false,\n    showFPS: false,\n    masterVolume: AUDIO_CONSTANTS.MASTER_VOLUME,\n    sfxVolume: AUDIO_CONSTANTS.SFX_VOLUME,\n    musicVolume: AUDIO_CONSTANTS.MUSIC_VOLUME\n};\n\n/**\n * Configuration manager for runtime settings\n */\nexport class ConfigManager {\n    private config: GameConfiguration;\n    \n    constructor(initialConfig: Partial<GameConfiguration> = {}) {\n        this.config = { ...DEFAULT_CONFIG, ...initialConfig };\n        this.validateConfig();\n    }\n    \n    /**\n     * Get current configuration\n     */\n    getConfig(): GameConfiguration {\n        return { ...this.config };\n    }\n    \n    /**\n     * Update configuration\n     */\n    updateConfig(updates: Partial<GameConfiguration>): void {\n        this.config = { ...this.config, ...updates };\n        this.validateConfig();\n    }\n    \n    /**\n     * Get difficulty preset values\n     */\n    getDifficultyPreset() {\n        return DIFFICULTY_PRESETS[this.config.difficulty];\n    }\n    \n    /**\n     * Validate configuration values\n     */\n    private validateConfig(): void {\n        this.config.masterVolume = ConfigValidation.validateRange(\n            this.config.masterVolume, 0, 1, 'Master Volume'\n        );\n        this.config.sfxVolume = ConfigValidation.validateRange(\n            this.config.sfxVolume, 0, 1, 'SFX Volume'\n        );\n        this.config.musicVolume = ConfigValidation.validateRange(\n            this.config.musicVolume, 0, 1, 'Music Volume'\n        );\n    }\n    \n    /**\n     * Save configuration to localStorage\n     */\n    saveConfig(): void {\n        try {\n            localStorage.setItem('robotron-config', JSON.stringify(this.config));\n        } catch (error) {\n            console.warn('Failed to save configuration to localStorage:', error);\n        }\n    }\n    \n    /**\n     * Load configuration from localStorage\n     */\n    loadConfig(): void {\n        try {\n            const saved = localStorage.getItem('robotron-config');\n            if (saved) {\n                const parsedConfig = JSON.parse(saved);\n                this.updateConfig(parsedConfig);\n            }\n        } catch (error) {\n            console.warn('Failed to load configuration from localStorage:', error);\n        }\n    }\n}\n\n/**\n * Global configuration manager instance\n */\nexport const configManager = new ConfigManager();\n\n/**\n * Utility functions for working with constants\n */\nexport const ConstantUtils = {\n    /**\n     * Get a random color from the electrode colors array\n     */\n    getRandomElectrodeColor(): number {\n        const colors = COLORS.ELECTRODE_COLORS;\n        return colors[Math.floor(Math.random() * colors.length)];\n    },\n    \n    /**\n     * Get explosion color for a specific enemy type\n     */\n    getExplosionColor(enemyType: string): number {\n        switch (enemyType) {\n            case 'spheroid': return COLORS.EXPLOSION_SPHEROID;\n            case 'enforcer': return COLORS.EXPLOSION_ENFORCER;\n            case 'brain': return COLORS.EXPLOSION_BRAIN;\n            case 'tank': return COLORS.EXPLOSION_TANK;\n            case 'quark': return COLORS.EXPLOSION_QUARK;\n            case 'sub_quark': return COLORS.EXPLOSION_SUB_QUARK;\n            case 'prog_enemy': return COLORS.EXPLOSION_PROG;\n            case 'human': return COLORS.EXPLOSION_HUMAN;\n            default: return COLORS.EXPLOSION_DEFAULT;\n        }\n    },\n    \n    /**\n     * Get sound key for enemy destruction\n     */\n    getEnemyDeathSound(enemyType: string): string {\n        switch (enemyType) {\n            case 'grunt': return AUDIO_CONSTANTS.SOUNDS.GRUNT_POP;\n            case 'hulk': return AUDIO_CONSTANTS.SOUNDS.HULK_POP;\n            case 'enforcer': return AUDIO_CONSTANTS.SOUNDS.ENFORCER_POP;\n            case 'brain': return AUDIO_CONSTANTS.SOUNDS.BRAIN_POP;\n            case 'tank': return AUDIO_CONSTANTS.SOUNDS.TANK_POP;\n            case 'spheroid': return AUDIO_CONSTANTS.SOUNDS.SPHEROID_POP;\n            case 'quark': return AUDIO_CONSTANTS.SOUNDS.QUARK_POP;\n            case 'sub_quark': return AUDIO_CONSTANTS.SOUNDS.SUB_QUARK_POP;\n            case 'prog_enemy': return AUDIO_CONSTANTS.SOUNDS.PROG_DESTROY;\n            default: return AUDIO_CONSTANTS.SOUNDS.GRUNT_POP;\n        }\n    },\n    \n    /**\n     * Get collision radius for an entity type\n     */\n    getCollisionRadius(entityType: string): number {\n        switch (entityType) {\n            case 'player': return COLLISION_CONSTANTS.PLAYER_RADIUS;\n            case 'projectile': return COLLISION_CONSTANTS.PROJECTILE_RADIUS;\n            case 'human': return COLLISION_CONSTANTS.HUMAN_RADIUS;\n            case 'grunt': return COLLISION_CONSTANTS.GRUNT_RADIUS;\n            case 'hulk': return COLLISION_CONSTANTS.HULK_RADIUS;\n            case 'enforcer': return COLLISION_CONSTANTS.ENFORCER_RADIUS;\n            case 'brain': return COLLISION_CONSTANTS.BRAIN_RADIUS;\n            case 'tank': return COLLISION_CONSTANTS.TANK_RADIUS;\n            case 'spheroid': return COLLISION_CONSTANTS.SPHEROID_RADIUS;\n            case 'quark': return COLLISION_CONSTANTS.QUARK_RADIUS;\n            case 'sub_quark': return COLLISION_CONSTANTS.SUB_QUARK_RADIUS;\n            case 'prog': return COLLISION_CONSTANTS.PROG_RADIUS;\n            default: return 8; // Default radius\n        }\n    },\n    \n    /**\n     * Calculate scaled value based on difficulty\n     */\n    getScaledValue(baseValue: number, scaleType: 'speed' | 'health' | 'damage'): number {\n        const preset = configManager.getDifficultyPreset();\n        \n        switch (scaleType) {\n            case 'speed':\n                return baseValue * preset.enemySpeedMultiplier;\n            case 'health':\n                return Math.ceil(baseValue * preset.enemySpeedMultiplier);\n            case 'damage':\n                return Math.ceil(baseValue * preset.enemySpeedMultiplier);\n            default:\n                return baseValue;\n        }\n    }\n};\n\n/**\n * Export all constant categories for easy access\n */\nexport const Constants = {\n    GAME_DIMENSIONS,\n    PLAYER_CONSTANTS,\n    PROJECTILE_CONSTANTS,\n    ENEMY_SPEEDS,\n    ENEMY_TIMINGS,\n    HUMAN_CONSTANTS,\n    POINT_VALUES,\n    COLORS,\n    AUDIO_CONSTANTS,\n    INPUT_CONSTANTS,\n    ATTRACT_MODE_CONSTANTS,\n    EFFECTS_CONSTANTS,\n    COLLISION_CONSTANTS,\n    PERFORMANCE_CONSTANTS,\n    DEBUG_CONSTANTS,\n    TEXT_CONSTANTS,\n    ANIMATION_CONSTANTS,\n    BALANCE_CONSTANTS,\n    DIFFICULTY_PRESETS\n} as const;\n\n/**\n * Type definitions for better TypeScript support\n */\nexport type ColorValue = number;\nexport type SoundKey = keyof typeof AUDIO_CONSTANTS.SOUNDS;\nexport type DifficultyLevel = keyof typeof DIFFICULTY_PRESETS;\nexport type EntityType = 'player' | 'projectile' | 'human' | 'grunt' | 'hulk' | 'enforcer' | 'brain' | 'tank' | 'spheroid' | 'quark' | 'sub_quark' | 'prog';\n\n/**\n * Legacy compatibility - re-export as GameConfig for existing code\n */\nexport const GameConfig = {\n    // Game dimensions\n    GAME_WIDTH: GAME_DIMENSIONS.WIDTH,\n    GAME_HEIGHT: GAME_DIMENSIONS.HEIGHT,\n    \n    // Player constants\n    PLAYER_SPEED: PLAYER_CONSTANTS.SPEED,\n    INITIAL_LIVES: PLAYER_CONSTANTS.INITIAL_LIVES,\n    RESPAWN_INVULNERABILITY_TIME: PLAYER_CONSTANTS.RESPAWN_INVULNERABILITY_TIME,\n    PLAYER_SHOOT_RATE: PLAYER_CONSTANTS.SHOOT_RATE,\n    MAX_PLAYER_PROJECTILES: PLAYER_CONSTANTS.MAX_PROJECTILES,\n    \n    // Projectile speeds\n    PROJECTILE_SPEED: PROJECTILE_CONSTANTS.PLAYER_SPEED,\n    ENFORCER_PROJECTILE_SPEED: PROJECTILE_CONSTANTS.ENFORCER_SPEED,\n    BRAIN_PROJECTILE_SPEED: PROJECTILE_CONSTANTS.BRAIN_SPEED,\n    TANK_SHELL_SPEED: PROJECTILE_CONSTANTS.TANK_SHELL_SPEED,\n    TANK_SHELL_BOUNCES: PROJECTILE_CONSTANTS.TANK_SHELL_BOUNCES,\n    \n    // Enemy speeds\n    GRUNT_SPEED: ENEMY_SPEEDS.GRUNT,\n    GRUNT_ACCELERATION: ENEMY_SPEEDS.GRUNT_ACCELERATION,\n    GRUNT_MAX_SPEED: ENEMY_SPEEDS.GRUNT_MAX_SPEED,\n    GRUNT_TURN_RATE: ENEMY_SPEEDS.GRUNT_TURN_RATE,\n    HULK_SPEED: ENEMY_SPEEDS.HULK,\n    HULK_CHARGE_SPEED: ENEMY_SPEEDS.HULK_CHARGE_SPEED,\n    ENFORCER_SPEED: ENEMY_SPEEDS.ENFORCER,\n    BRAIN_SPEED: ENEMY_SPEEDS.BRAIN,\n    TANK_SPEED: ENEMY_SPEEDS.TANK,\n    SPHEROID_SPEED: ENEMY_SPEEDS.SPHEROID,\n    QUARK_SPEED: ENEMY_SPEEDS.QUARK,\n    SUB_QUARK_SPEED: ENEMY_SPEEDS.SUB_QUARK,\n    PROG_SPEED: ENEMY_SPEEDS.PROG,\n    \n    // Human constants\n    HUMAN_SPEED: HUMAN_CONSTANTS.SPEED,\n    HUMAN_SCALE: HUMAN_CONSTANTS.SCALE,\n    HUMAN_WANDER_RADIUS: HUMAN_CONSTANTS.WANDER_RADIUS,\n    HUMAN_WANDER_INTERVAL: HUMAN_CONSTANTS.WANDER_INTERVAL,\n    HUMAN_RESCUE_RADIUS: HUMAN_CONSTANTS.RESCUE_RADIUS,\n    INITIAL_HUMAN_RESCUE_BONUS: HUMAN_CONSTANTS.INITIAL_RESCUE_BONUS,\n    MAX_HUMAN_RESCUE_BONUS: HUMAN_CONSTANTS.MAX_RESCUE_BONUS,\n    HUMAN_RESCUE_BONUS_INCREMENT: HUMAN_CONSTANTS.RESCUE_BONUS_INCREMENT,\n    HUMAN_RESCUE_BONUS_DECAY_DURATION: HUMAN_CONSTANTS.RESCUE_BONUS_DECAY_DURATION,\n    \n    // Enemy timings\n    ENFORCER_SHOOT_DELAY: ENEMY_TIMINGS.ENFORCER_SHOOT_DELAY,\n    BRAIN_SHOOT_DELAY: ENEMY_TIMINGS.BRAIN_SHOOT_DELAY,\n    TANK_SHOOT_DELAY: ENEMY_TIMINGS.TANK_SHOOT_DELAY,\n    BRAIN_REPROGRAM_RANGE: ENEMY_TIMINGS.BRAIN_REPROGRAM_RANGE,\n    BRAIN_REPROGRAM_DURATION: ENEMY_TIMINGS.BRAIN_REPROGRAM_DURATION,\n    SPHEROID_SPAWN_ENFORCER_DELAY: ENEMY_TIMINGS.SPHEROID_SPAWN_ENFORCER_DELAY,\n    QUARK_SPAWN_SUB_QUARK_DELAY: ENEMY_TIMINGS.QUARK_SPAWN_SUB_QUARK_DELAY,\n    MAX_SUB_QUARKS_PER_QUARK: ENEMY_TIMINGS.MAX_SUB_QUARKS_PER_QUARK,\n    ELECTRODE_FLASH_RATE: ENEMY_TIMINGS.ELECTRODE_FLASH_RATE,\n    \n    // Attract mode\n    TITLE_SCREEN_DURATION: ATTRACT_MODE_CONSTANTS.TITLE_SCREEN_DURATION,\n    HIGH_SCORE_DURATION: ATTRACT_MODE_CONSTANTS.HIGH_SCORE_DURATION,\n    DEMO_PLAY_DURATION: ATTRACT_MODE_CONSTANTS.DEMO_PLAY_DURATION,\n    ATTRACT_MODE_CYCLE_TIME: ATTRACT_MODE_CONSTANTS.CYCLE_TIME,\n    INSERT_COIN_FLASH_INTERVAL: ATTRACT_MODE_CONSTANTS.INSERT_COIN_FLASH_INTERVAL,\n    \n    // Input\n    GAMEPAD_DEADZONE: INPUT_CONSTANTS.GAMEPAD_DEADZONE,\n    GAMEPAD_START_BUTTON_INDEX: INPUT_CONSTANTS.GAMEPAD_BUTTONS.START,\n    GAMEPAD_SELECT_BUTTON_INDEX: INPUT_CONSTANTS.GAMEPAD_BUTTONS.SELECT,\n    GAMEPAD_A_BUTTON_INDEX: INPUT_CONSTANTS.GAMEPAD_BUTTONS.A,\n    \n    // Scoring\n    EXTRA_LIFE_SCORE_INTERVAL: POINT_VALUES.EXTRA_LIFE_INTERVAL,\n    \n    // Points\n    POINTS: POINT_VALUES\n} as const;"
+/**
+ * Constants - Centralized configuration and constants module
+ * 
+ * This module provides a centralized location for all game constants,
+ * configuration values, and magic numbers used throughout the Robotron game.
+ * It organizes constants by category and provides type-safe configuration
+ * interfaces with validation and default value handling.
+ */
+
+/**
+ * Game dimensions and viewport constants
+ */
+export const GAME_DIMENSIONS = {
+    WIDTH: 292,
+    HEIGHT: 240,
+    ASPECT_RATIO: 292 / 240,
+    CENTER_X: 292 / 2,
+    CENTER_Y: 240 / 2
+} as const;
+
+/**
+ * Player-related constants
+ */
+export const PLAYER_CONSTANTS = {
+    SPEED: 2,
+    INITIAL_LIVES: 30,
+    RESPAWN_INVULNERABILITY_TIME: 2000,
+    SHOOT_RATE: 100, // milliseconds between shots
+    MAX_PROJECTILES: 10,
+    SIZE: 8, // sprite size
+    COLLISION_RADIUS: 6
+} as const;
+
+/**
+ * Projectile constants
+ */
+export const PROJECTILE_CONSTANTS = {
+    PLAYER_SPEED: 4,
+    ENFORCER_SPEED: 2.5,
+    BRAIN_SPEED: 2,
+    TANK_SHELL_SPEED: 1.8,
+    TANK_SHELL_BOUNCES: 2,
+    LIFETIME: 180, // frames before auto-destruction
+    SIZE: 2,
+    COLLISION_RADIUS: 3
+} as const;
+
+/**
+ * Enemy speed constants
+ */
+export const ENEMY_SPEEDS = {
+    GRUNT: 0.6,
+    GRUNT_ACCELERATION: 0.03,
+    GRUNT_MAX_SPEED: 1.0,
+    GRUNT_TURN_RATE: 0.08,
+    HULK: 0.3,
+    HULK_CHARGE_SPEED: 1.2,
+    ENFORCER: 0.8,
+    BRAIN: 0.6,
+    TANK: 0.4,
+    SPHEROID: 0.7,
+    QUARK: 1.2,
+    SUB_QUARK: 1.5,
+    PROG: 1.3
+} as const;
+
+/**
+ * Point values for different enemies and actions
+ */
+export const POINT_VALUES = {
+    GRUNT: 100,
+    HULK: 200,
+    ENFORCER: 150,
+    SPHEROID: 1000,
+    BRAIN: 500,
+    TANK: 300,
+    PROG: 100,
+    QUARK: 1000,
+    SUB_QUARK: 500,
+    HUMAN_RESCUE: 1000,
+    EXTRA_LIFE_INTERVAL: 25000
+} as const;
+
+/**
+ * Human-related constants
+ */
+export const HUMAN_CONSTANTS = {
+    SPEED: 1.5,
+    SCALE: 2.0,
+    WANDER_RADIUS: 60,
+    WANDER_INTERVAL: 2000,
+    RESCUE_RADIUS: 18,
+    INITIAL_RESCUE_BONUS: 1000,
+    MAX_RESCUE_BONUS: 5000,
+    RESCUE_BONUS_INCREMENT: 1000,
+    RESCUE_BONUS_DECAY_DURATION: 300,
+    SIZE: 8,
+    COLLISION_RADIUS: 6
+} as const;
+
+/**
+ * Input constants
+ */
+export const INPUT_CONSTANTS = {
+    GAMEPAD_DEADZONE: 0.2,
+    GAMEPAD_BUTTONS: {
+        A: 0,
+        B: 1,
+        X: 2,
+        Y: 3,
+        LEFT_BUMPER: 4,
+        RIGHT_BUMPER: 5,
+        LEFT_TRIGGER: 6,
+        RIGHT_TRIGGER: 7,
+        SELECT: 8,
+        START: 9,
+        LEFT_STICK: 10,
+        RIGHT_STICK: 11,
+        DPAD_UP: 12,
+        DPAD_DOWN: 13,
+        DPAD_LEFT: 14,
+        DPAD_RIGHT: 15
+    }
+} as const;
+
+/**
+ * Export all constant categories for easy access
+ */
+export const Constants = {
+    GAME_DIMENSIONS,
+    PLAYER_CONSTANTS,
+    PROJECTILE_CONSTANTS,
+    ENEMY_SPEEDS,
+    POINT_VALUES,
+    HUMAN_CONSTANTS,
+    INPUT_CONSTANTS
+} as const;
+
+/**
+ * Legacy compatibility - re-export as GameConfig for existing code
+ */
+export const GameConfig = {
+    // Game dimensions
+    GAME_WIDTH: GAME_DIMENSIONS.WIDTH,
+    GAME_HEIGHT: GAME_DIMENSIONS.HEIGHT,
+    
+    // Player constants
+    PLAYER_SPEED: PLAYER_CONSTANTS.SPEED,
+    INITIAL_LIVES: PLAYER_CONSTANTS.INITIAL_LIVES,
+    RESPAWN_INVULNERABILITY_TIME: PLAYER_CONSTANTS.RESPAWN_INVULNERABILITY_TIME,
+    PLAYER_SHOOT_RATE: PLAYER_CONSTANTS.SHOOT_RATE,
+    MAX_PLAYER_PROJECTILES: PLAYER_CONSTANTS.MAX_PROJECTILES,
+    
+    // Projectile speeds
+    PROJECTILE_SPEED: PROJECTILE_CONSTANTS.PLAYER_SPEED,
+    ENFORCER_PROJECTILE_SPEED: PROJECTILE_CONSTANTS.ENFORCER_SPEED,
+    BRAIN_PROJECTILE_SPEED: PROJECTILE_CONSTANTS.BRAIN_SPEED,
+    TANK_SHELL_SPEED: PROJECTILE_CONSTANTS.TANK_SHELL_SPEED,
+    TANK_SHELL_BOUNCES: PROJECTILE_CONSTANTS.TANK_SHELL_BOUNCES,
+    
+    // Enemy speeds
+    GRUNT_SPEED: ENEMY_SPEEDS.GRUNT,
+    GRUNT_ACCELERATION: ENEMY_SPEEDS.GRUNT_ACCELERATION,
+    GRUNT_MAX_SPEED: ENEMY_SPEEDS.GRUNT_MAX_SPEED,
+    GRUNT_TURN_RATE: ENEMY_SPEEDS.GRUNT_TURN_RATE,
+    HULK_SPEED: ENEMY_SPEEDS.HULK,
+    HULK_CHARGE_SPEED: ENEMY_SPEEDS.HULK_CHARGE_SPEED,
+    ENFORCER_SPEED: ENEMY_SPEEDS.ENFORCER,
+    BRAIN_SPEED: ENEMY_SPEEDS.BRAIN,
+    TANK_SPEED: ENEMY_SPEEDS.TANK,
+    SPHEROID_SPEED: ENEMY_SPEEDS.SPHEROID,
+    QUARK_SPEED: ENEMY_SPEEDS.QUARK,
+    SUB_QUARK_SPEED: ENEMY_SPEEDS.SUB_QUARK,
+    PROG_SPEED: ENEMY_SPEEDS.PROG,
+    
+    // Human constants
+    HUMAN_SPEED: HUMAN_CONSTANTS.SPEED,
+    HUMAN_SCALE: HUMAN_CONSTANTS.SCALE,
+    HUMAN_WANDER_RADIUS: HUMAN_CONSTANTS.WANDER_RADIUS,
+    HUMAN_WANDER_INTERVAL: HUMAN_CONSTANTS.WANDER_INTERVAL,
+    HUMAN_RESCUE_RADIUS: HUMAN_CONSTANTS.RESCUE_RADIUS,
+    INITIAL_HUMAN_RESCUE_BONUS: HUMAN_CONSTANTS.INITIAL_RESCUE_BONUS,
+    MAX_HUMAN_RESCUE_BONUS: HUMAN_CONSTANTS.MAX_RESCUE_BONUS,
+    HUMAN_RESCUE_BONUS_INCREMENT: HUMAN_CONSTANTS.RESCUE_BONUS_INCREMENT,
+    HUMAN_RESCUE_BONUS_DECAY_DURATION: HUMAN_CONSTANTS.RESCUE_BONUS_DECAY_DURATION,
+    
+    // Input
+    GAMEPAD_DEADZONE: INPUT_CONSTANTS.GAMEPAD_DEADZONE,
+    GAMEPAD_START_BUTTON_INDEX: INPUT_CONSTANTS.GAMEPAD_BUTTONS.START,
+    GAMEPAD_SELECT_BUTTON_INDEX: INPUT_CONSTANTS.GAMEPAD_BUTTONS.SELECT,
+    GAMEPAD_A_BUTTON_INDEX: INPUT_CONSTANTS.GAMEPAD_BUTTONS.A,
+    
+    // Scoring
+    EXTRA_LIFE_SCORE_INTERVAL: POINT_VALUES.EXTRA_LIFE_INTERVAL,
+    
+    // Points
+    POINTS: POINT_VALUES
+} as const;
