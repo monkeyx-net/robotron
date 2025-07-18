@@ -3,6 +3,7 @@ import { GameConfig } from './config';
 import { RobotronGame } from './core/GameModule';
 import { testFoundationalSystems } from './core/test-integration';
 import { runMilestone1Tests, testGameLoading } from './core/milestone-test';
+import { runMilestone2Tests } from './core/milestone2-test';
 import { Attract } from './attractMode';
 import { loadHighScore, resetGameVariables, startNextWave, checkCollisions, checkForExtraLife, checkWaveCompletion, updateBonusDecay } from './gameLogic';
 import { collisionIntegration, IntegrationUtils } from './core/CollisionIntegration';
@@ -479,6 +480,17 @@ function setupGameEngine() {
     console.log('   - engineDebug.getMetrics() - Get performance metrics');
     console.log('   - engineDebug.logPerformance() - Log detailed performance');
     console.log('   - engineDebug.pause() / engineDebug.resume() - Control game loop');
+    
+    // Run Milestone 2 tests after GameEngine is running
+    setTimeout(() => {
+        console.log('Running Milestone 2 comprehensive tests...');
+        const milestone2Pass = runMilestone2Tests();
+        if (milestone2Pass) {
+            console.log('🎉 Milestone 2: Core systems integration is working correctly!');
+        } else {
+            console.warn('⚠️ Milestone 2: Some integration tests failed, but game will continue...');
+        }
+    }, 3000); // Wait 3 seconds for systems to stabilize
 }
 
 initializeGame();

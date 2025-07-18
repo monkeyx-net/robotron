@@ -95,7 +95,7 @@
   - Test game loop performance and stability
   - _Requirements: 6.1, 6.2, 6.3, 6.4_
 
-- [ ] **MILESTONE 2: Test core systems integration**
+- [x] **MILESTONE 2: Test core systems integration**
   - Verify collision detection works correctly with spatial partitioning
   - Test game loop runs smoothly with consistent frame rate
   - Confirm all entities still move and behave as expected
