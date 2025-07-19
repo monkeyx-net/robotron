@@ -121,6 +121,21 @@ export class EventEmitter {
     }
     
     /**
+     * Alias for subscribe (for compatibility)
+     */
+    on<T extends GameEvent>(
+        eventType: string,
+        listener: EventListener<T>,
+        options: {
+            priority?: number;
+            filter?: (event: T) => boolean;
+            once?: boolean;
+        } = {}
+    ): string {
+        return this.subscribe(eventType, listener, options);
+    }
+    
+    /**
      * Unsubscribe from an event
      */
     unsubscribe(subscriptionId: string): boolean {

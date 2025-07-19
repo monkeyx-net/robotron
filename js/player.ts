@@ -1,106 +1,276 @@
 import * as PIXI from 'pixi.js';
 import { GameConfig } from './config';
 import { playerContainer, playerTexture, player } from './main';
-import { InputManager } from './inputManager';
+// Removed old InputManager - using unified input manager instead
+import { inputManager, InputAction } from './core/InputManager';
 import { gameState } from './gameState';
 import { Projectiles } from './projectiles';
 import { GameObject } from './gameObject';
+import { Vector2 } from './utils/Vector2';
+import { gameEvents } from './core/EventSystem';
+import { Constants } from './utils/Constants';
 
-export class Player extends GameObject {
-    dx: number;
-    dy: number;
-    lastShootTime: number;
+/**
+ * Player state interface for better state management
+ */
+export interface PlayerState {
     isAlive: boolean;
-    shieldEffect: PIXI.Graphics | null;
-    isDemoPlayer?: boolean; // Optional for demo player
-    aiMoveTimer?: number;   // Optional for demo player
-    aiShootTimer?: number;  // Optional for demo player
-    shootDelay?: number;    // Optional for demo player
-    speed?: number;         // Optional for demo player
+    invulnerabilityTime: number;
+    lives: number;
+    score: number;
+    lastShootTime: number;
+    isDemoPlayer: boolean;
+}
 
-    constructor(sprite: PIXI.Sprite, type: string = 'player') {
-        super(sprite, type);
-        this.dx = 0;
-        this.dy = 0;
-        this.lastShootTime = 0;
-        this.isAlive = true;
-        this.shieldEffect = null;
+/**
+ * Player input component for handling different input types
+ */
+export class PlayerInputComponent {
+    private player: Player;
+
+    constructor(player: Player) {
+        this.player = player;
     }
 
-    handleKeyboardInput(): void {
-        if (!this.isAlive || !GameConfig || !Projectiles) {
-            return;
+    handleKeyboardInput(): Vector2 {
+        if (!this.player.state.isAlive || gameState.currentGameState !== 'PLAYING') {
+            return new Vector2(0, 0);
         }
-        if (gameState.currentGameState !== 'PLAYING') return;
 
-        this.dx = 0;
-        this.dy = 0;
-        if (InputManager.isKeyDown('KeyW')) this.dy = -1;
-        if (InputManager.isKeyDown('KeyS')) this.dy = 1;
-        if (InputManager.isKeyDown('KeyA')) this.dx = -1;
-        if (InputManager.isKeyDown('KeyD')) this.dx = 1;
+        // Use the new unified input manager
+        const movement = inputManager.getMovementVector();
+        
+        // Debug logging (can be removed later)
+        if (movement.magnitude() > 0) {
+            console.log('Player movement input detected:', movement);
+        }
+        
+        return movement;
+    }
 
-        if (this.dx !== 0 && this.dy !== 0) {
-            const length = Math.sqrt(this.dx * this.dx + this.dy * this.dy);
-            this.dx /= length;
-            this.dy /= length;
+    handleShootingInput(): Vector2 {
+        if (!this.player.state.isAlive || gameState.currentGameState !== 'PLAYING') {
+            return new Vector2(0, 0);
         }
 
         const currentTime = Date.now();
-        if (currentTime - this.lastShootTime >= (GameConfig.PLAYER_SHOOT_RATE || 100)) {
-            let shootX = 0, shootY = 0;
-            if (InputManager.isKeyDown('ArrowUp')) shootY = -1;
-            if (InputManager.isKeyDown('ArrowDown')) shootY = 1;
-            if (InputManager.isKeyDown('ArrowLeft')) shootX = -1;
-            if (InputManager.isKeyDown('ArrowRight')) shootX = 1;
+        if (currentTime - this.player.state.lastShootTime < (Constants.PLAYER_CONSTANTS?.SHOOT_RATE || 100)) {
+            return new Vector2(0, 0);
+        }
 
-            if (shootX !== 0 || shootY !== 0) {
-                if (shootX !== 0 && shootY !== 0) {
-                    const length = Math.sqrt(shootX * shootX + shootY * shootY);
-                    shootX /= length;
-                    shootY /= length;
-                }
-                Projectiles.createPlayerProjectile(this.sprite.x, this.sprite.y, shootX, shootY);
-                this.lastShootTime = currentTime;
+        // Use the new unified input manager for shooting
+        const shootDirection = inputManager.getShootingVector();
+        if (shootDirection.magnitude() > 0) {
+            this.player.state.lastShootTime = currentTime;
+        }
+
+        return shootDirection;
+    }
+
+    handleGamepadInput(): { movement: Vector2; shooting: Vector2 } {
+        if (!this.player.state.isAlive || !inputManager.isGamepadConnected() || gameState.currentGameState !== 'PLAYING') {
+            return { movement: new Vector2(0, 0), shooting: new Vector2(0, 0) };
+        }
+
+        // Use the new unified input manager for both movement and shooting
+        const movement = inputManager.getMovementVector();
+
+        let shooting = new Vector2(0, 0);
+        const currentTime = Date.now();
+
+        if (currentTime - this.player.state.lastShootTime >= (Constants.PLAYER_CONSTANTS?.SHOOT_RATE || 100)) {
+            const shootDirection = inputManager.getShootingVector();
+            if (shootDirection.magnitude() > 0) {
+                shooting = shootDirection;
+                this.player.state.lastShootTime = currentTime;
             }
+        }
+
+        return { movement, shooting };
+    }
+}
+
+/**
+ * Player movement component for handling physics and movement
+ */
+export class PlayerMovementComponent {
+    private player: Player;
+    private currentVelocity: Vector2 = new Vector2(0, 0);
+
+    constructor(player: Player) {
+        this.player = player;
+    }
+
+    updateMovement(inputDirection: Vector2, deltaTime: number): void {
+        if (!this.player.state.isAlive) {
+            this.currentVelocity.set(0, 0);
+            return;
+        }
+
+        // Apply input to velocity
+        const speed = Constants.PLAYER_CONSTANTS?.SPEED || 2;
+        this.currentVelocity = inputDirection.clone().multiply(speed);
+
+        // Update position directly using sprite
+        if (this.player.sprite) {
+            this.player.sprite.x += this.currentVelocity.x * deltaTime;
+            this.player.sprite.y += this.currentVelocity.y * deltaTime;
+        }
+
+        // Apply boundary constraints
+        this.constrainToBounds();
+
+        // Emit movement event if player moved
+        if (this.currentVelocity.magnitude() > 0 && this.player.sprite) {
+            gameEvents.emit({
+                type: 'player:moved',
+                timestamp: Date.now(),
+                source: 'Player',
+                data: {
+                    position: { x: this.player.sprite.x, y: this.player.sprite.y },
+                    velocity: { x: this.currentVelocity.x, y: this.currentVelocity.y }
+                }
+            });
+        }
+    }
+
+    private constrainToBounds(): void {
+        const bounds = Constants.GAME_DIMENSIONS || { WIDTH: 800, HEIGHT: 600 };
+        const padding = 5;
+
+        if (this.player.sprite) {
+            const newX = Math.max(padding, Math.min(bounds.WIDTH - padding, this.player.sprite.x));
+            const newY = Math.max(padding, Math.min(bounds.HEIGHT - padding, this.player.sprite.y));
+
+            this.player.sprite.x = newX;
+            this.player.sprite.y = newY;
+        }
+    }
+}
+
+/**
+ * Player shooting component for handling projectile creation
+ */
+export class PlayerShootingComponent {
+    private player: Player;
+
+    constructor(player: Player) {
+        this.player = player;
+    }
+
+    shoot(direction: Vector2): void {
+        if (!this.player.state.isAlive || direction.magnitude() === 0) {
+            return;
+        }
+
+        // Create projectile using sprite position
+        if (this.player.sprite) {
+            Projectiles.createPlayerProjectile(
+                this.player.sprite.x,
+                this.player.sprite.y,
+                direction.x,
+                direction.y
+            );
+
+            // Emit shooting event
+            gameEvents.emit({
+                type: 'player:shot',
+                timestamp: Date.now(),
+                source: 'Player',
+                data: {
+                    position: { x: this.player.sprite.x, y: this.player.sprite.y },
+                    direction: { x: direction.x, y: direction.y }
+                }
+            });
+        }
+    }
+}
+
+/**
+ * Enhanced Player class with component-based architecture
+ */
+export class Player extends GameObject {
+    public state: PlayerState;
+    private inputComponent: PlayerInputComponent;
+    private movementComponent: PlayerMovementComponent;
+    private shootingComponent: PlayerShootingComponent;
+    private shieldEffect: PIXI.Graphics | null = null;
+
+    // Add velocity tracking for legacy compatibility
+    private velocity: Vector2 = new Vector2(0, 0);
+
+    // Legacy properties for backward compatibility
+    get dx(): number { return this.velocity.x; }
+    set dx(value: number) { this.velocity.x = value; }
+    get dy(): number { return this.velocity.y; }
+    set dy(value: number) { this.velocity.y = value; }
+    get lastShootTime(): number { return this.state.lastShootTime; }
+    get isAlive(): boolean { return this.state.isAlive; }
+    get isDemoPlayer(): boolean { return this.state.isDemoPlayer; }
+    set isDemoPlayer(value: boolean) { this.state.isDemoPlayer = value; }
+
+    constructor(sprite: PIXI.Sprite, type: string = 'player') {
+        super(sprite, type);
+
+        // Initialize player state
+        this.state = {
+            isAlive: true,
+            invulnerabilityTime: 0,
+            lives: Constants.PLAYER_CONSTANTS?.INITIAL_LIVES || 3,
+            score: 0,
+            lastShootTime: 0,
+            isDemoPlayer: false
+        };
+
+        // Initialize components
+        this.inputComponent = new PlayerInputComponent(this);
+        this.movementComponent = new PlayerMovementComponent(this);
+        this.shootingComponent = new PlayerShootingComponent(this);
+
+        // Emit player created event
+        gameEvents.emit({
+            type: 'player:created',
+            timestamp: Date.now(),
+            source: 'Player',
+            data: {
+                id: `player_${Date.now()}`,
+                position: { x: this.sprite?.x || 0, y: this.sprite?.y || 0 }
+            }
+        });
+    }
+
+    handleKeyboardInput(): void {
+        // Use new component-based input handling
+        const movement = this.inputComponent.handleKeyboardInput();
+        const shooting = this.inputComponent.handleShootingInput();
+
+        // Store movement for legacy compatibility
+        this.velocity = movement.clone().multiply(Constants.PLAYER_CONSTANTS?.SPEED || 2);
+
+        // Handle shooting
+        if (shooting.magnitude() > 0) {
+            this.shootingComponent.shoot(shooting);
         }
     }
 
     handleGamepadInput(): boolean {
-        if (!this.isAlive || !GameConfig || !Projectiles || !InputManager.isGamepadConnected()) {
-            return false;
-        }
-        if (gameState.currentGameState !== 'PLAYING') return false;
+        // Use new component-based gamepad handling
+        const { movement, shooting } = this.inputComponent.handleGamepadInput();
 
         let gamepadInputProcessed = false;
 
-        const { x: moveX, y: moveY } = InputManager.getGamepadMovement();
-        const { x: shootX, y: shootY } = InputManager.getGamepadShooting();
-
-        if (moveX !== 0 || moveY !== 0) {
-            this.dx = moveX;
-            this.dy = moveY;
-            const length = Math.sqrt(this.dx * this.dx + this.dy * this.dy);
-            if (length > 1) {
-               this.dx /= length;
-               this.dy /= length;
-            }
+        // Handle movement
+        if (movement.magnitude() > 0) {
+            this.velocity = movement.clone().multiply(Constants.PLAYER_CONSTANTS?.SPEED || 2);
             gamepadInputProcessed = true;
-        } else {
-            // If no gamepad movement, ensure keyboard input can take over by not setting dx/dy to 0 here
         }
 
-        const currentTime = Date.now();
-        if (currentTime - this.lastShootTime >= (GameConfig.PLAYER_SHOOT_RATE || 100)) {
-            if (shootX !== 0 || shootY !== 0) {
-                const shootLength = Math.sqrt(shootX * shootX + shootY * shootY);
-                if (shootLength > (GameConfig.GAMEPAD_DEADZONE || 0.2)) {
-                    Projectiles.createPlayerProjectile(this.sprite.x, this.sprite.y, shootX / shootLength, shootY / shootLength);
-                    this.lastShootTime = currentTime;
-                    gamepadInputProcessed = true;
-                }
-            }
+        // Handle shooting
+        if (shooting.magnitude() > 0) {
+            this.shootingComponent.shoot(shooting);
+            gamepadInputProcessed = true;
         }
+
         return gamepadInputProcessed;
     }
 

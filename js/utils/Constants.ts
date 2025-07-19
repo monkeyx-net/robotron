@@ -133,7 +133,12 @@ export const Constants = {
     ENEMY_SPEEDS,
     POINT_VALUES,
     HUMAN_CONSTANTS,
-    INPUT_CONSTANTS
+    INPUT_CONSTANTS,
+    
+    // Legacy compatibility properties
+    GAME_WIDTH: GAME_DIMENSIONS.WIDTH,
+    GAME_HEIGHT: GAME_DIMENSIONS.HEIGHT,
+    PLAYER_SPEED: PLAYER_CONSTANTS.SPEED
 } as const;
 
 /**

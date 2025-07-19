@@ -102,36 +102,36 @@
   - Validate performance improvements in collision detection
   - **Testing Goal**: Game should play normally with improved performance
 
-- [ ] 6. Refactor entity classes to use new architecture
-- [ ] 6.1 Refactor Player class to extend GameObject
+- [x] 6. Refactor entity classes to use new architecture
+- [x] 6.1 Refactor Player class to extend GameObject
   - Update Player class to inherit from new GameObject base class
   - Implement proper component separation for input, movement, and shooting
   - Add player state management for invulnerability and respawn
   - Create player-specific event emissions for game state changes
   - _Requirements: 2.1, 2.2, 2.3, 2.4_
 
-- [ ] 6.2 Refactor Enemy classes to use inheritance hierarchy
+- [x] 6.2 Refactor Enemy classes to use inheritance hierarchy
   - Create base Enemy class extending GameObject
   - Refactor all enemy types (Grunt, Hulk, Spheroid, etc.) to extend Enemy
   - Implement common enemy behaviors in base class
   - Add enemy-specific AI strategies as separate components
   - _Requirements: 2.1, 2.2, 2.3, 2.4_
 
-- [ ] 6.3 Refactor Projectile system with object pooling
+- [x] 6.3 Refactor Projectile system with object pooling
   - Create Projectile base class extending GameObject
   - Implement projectile pooling to reduce memory allocation
   - Add projectile type system for different weapon types
   - Create projectile collision and lifetime management
   - _Requirements: 2.1, 2.2, 3.1, 3.6_
 
-- [ ] 6.4 Refactor Human entities with improved AI
+- [x] 6.4 Refactor Human entities with improved AI
   - Update Human class to extend GameObject
   - Implement improved human movement and rescue behavior
   - Add human state management for rescue and conversion
   - Create human-specific collision and interaction handling
   - _Requirements: 2.1, 2.2, 2.3, 2.4_
 
-- [ ] **MILESTONE 3: Test entity refactoring**
+- [x] **MILESTONE 3: Test entity refactoring**
   - Verify player movement, shooting, and collision detection work correctly
   - Test all enemy types spawn, move, and behave as expected
   - Confirm projectile pooling works without visual glitches
@@ -139,14 +139,14 @@
   - **Testing Goal**: Complete gameplay should work with new entity architecture
 
 - [ ] 7. Implement unified input system
-- [ ] 7.1 Create InputManager with multi-device support
+- [x] 7.1 Create InputManager with multi-device support
   - Implement unified input handling for keyboard, mouse, touch, and gamepad
   - Add input buffering system for responsive controls
   - Create configurable key binding system with persistence
   - Implement input event generation and dispatch
   - _Requirements: 7.1, 7.2, 7.3, 7.4_
 
-- [ ] 7.2 Integrate new InputManager with Player controls
+- [x] 7.2 Integrate new InputManager with Player controls
   - Replace existing input handling in Player class with new InputManager
   - Add support for simultaneous input from multiple devices
   - Implement input sensitivity and dead zone configuration
@@ -168,7 +168,7 @@
   - Test all game state transitions and edge cases
   - _Requirements: 5.4_
 
-- [ ] **MILESTONE 4: Test input and state management**
+- [x] **MILESTONE 4: Test input and state management**
   - Verify all input methods (keyboard, gamepad, touch) work correctly
   - Test game state transitions (title → playing → game over → title)
   - Confirm input buffering improves responsiveness

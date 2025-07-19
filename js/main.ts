@@ -4,10 +4,13 @@ import { RobotronGame } from './core/GameModule';
 import { testFoundationalSystems } from './core/test-integration';
 import { runMilestone1Tests, testGameLoading } from './core/milestone-test';
 import { runMilestone2Tests } from './core/milestone2-test';
+import { runMilestone3Tests } from './core/milestone3-test';
 import { Attract } from './attractMode';
 import { loadHighScore, resetGameVariables, startNextWave, checkCollisions, checkForExtraLife, checkWaveCompletion, updateBonusDecay } from './gameLogic';
 import { collisionIntegration, IntegrationUtils } from './core/CollisionIntegration';
 import { gameEngine, GameSystem, EngineUtils } from './core/GameEngine';
+import { RenderSystem, RenderLayer, RenderUtils } from './core/RenderSystem';
+import { RenderIntegration, GameObjectType } from './core/RenderIntegration';
 import { createPlayer, Player } from './player';
 import { Projectiles } from './projectiles';
 import { Enemies } from './enemies';
@@ -16,12 +19,16 @@ import { Obstacles } from './obstacles';
 import { Effects } from './effects';
 import { SoundManager, initAudio } from './soundManager';
 import { UI } from './ui';
-import { InputManager } from './inputManager';
+// Removed old InputManager - using unified input manager instead
 import { gameState } from './gameState';
+import { gameEvents } from './core/EventSystem';
 // --- Global Variables Setup ---
 // Fixed Timestep for physics
 const FIXED_TIME_STEP = 1000 / 60; // 60 frames per second
 let accumulator = 0;
+
+// Global input manager reference (will be set after async import)
+let globalInputManager: any = null;
 
 // PIXI App Setup - Using modern PIXI v8 API
 export let app: PIXI.Application;
@@ -279,10 +286,58 @@ const initializeGame = async () => {
         
         // Initialize game systems after async setup is complete
         loadHighScore();
-        InputManager.init();
+        
+        // Initialize new unified input manager
+        const { inputManager, InputAction } = await import('./core/InputManager');
+        console.log('Input manager imported:', inputManager);
+        inputManager.initialize();
+        inputManager.loadKeyBindings();
+        
+        // Set global reference for use in systems
+        globalInputManager = { inputManager, InputAction };
+        console.log('Global input manager set:', globalInputManager);
+        
+        // Test input manager functionality
+        console.log('Testing input manager methods:');
+        console.log('- getMovementVector:', inputManager.getMovementVector());
+        console.log('- isActionPressed(MOVE_UP):', inputManager.isActionPressed(InputAction.MOVE_UP));
+        
+        // Test if keyboard events are being received at all
+        console.log('Press any key to test keyboard input...');
+        
+        // Set up fallback game start logic using the input manager events
+        gameEvents.on('input:start', (event) => {
+            if (event.data.pressed && 
+                (gameState.currentGameState === 'TITLE_SCREEN' || 
+                 gameState.currentGameState === 'HIGH_SCORE_DISPLAY_SCREEN' || 
+                 gameState.currentGameState === 'DEMO_PLAY')) {
+                console.log('Fallback game start triggered via input manager');
+                startGameFromTitle();
+            }
+        });
+        
+        // Test the input system (optional - can be removed in production)
+        if (process.env.NODE_ENV === 'development') {
+            const { testUnifiedInputManager } = await import('./core/InputManager.test');
+            testUnifiedInputManager();
+        }
+        
+        // Test the input system (optional - can be removed in production)
+        if (process.env.NODE_ENV === 'development') {
+            const { testUnifiedInputManager } = await import('./core/InputManager.test');
+            testUnifiedInputManager();
+        }
+        
         UI.resizeGame();
         resetGameVariables();
         Attract.showTitleScreen();
+        
+        // Initialize the RenderSystem
+        const renderSystem = RenderSystem.getInstance(app);
+        renderSystem.initialize();
+        
+        // Initialize RenderIntegration
+        RenderIntegration.initialize(renderSystem);
         
         // Set up the new GameEngine
         setupGameEngine();
@@ -322,6 +377,36 @@ function setupCollisionDebugging() {
     console.log('   - collisionDebug.enableTesting() - Enable new system for testing');
     console.log('   - collisionDebug.enableHybrid() - Run both systems');
     console.log('   - collisionDebug.getStats() - Get performance stats');
+    
+    // Make render system debugging available globally
+    (window as any).renderDebug = {
+        getMetrics: () => RenderSystem.getInstance().getMetrics(),
+        getDebugInfo: () => RenderSystem.getInstance().getDebugInfo(),
+        getConfiguration: () => RenderSystem.getInstance().getConfiguration(),
+        
+        // Configuration controls
+        enableBatching: (enable: boolean) => RenderSystem.getInstance().updateConfiguration({ enableBatching: enable }),
+        enableCulling: (enable: boolean) => RenderSystem.getInstance().updateConfiguration({ enableCulling: enable }),
+        enableLayering: (enable: boolean) => RenderSystem.getInstance().updateConfiguration({ enableLayering: enable }),
+        
+        // Performance testing
+        logPerformance: () => {
+            const metrics = RenderSystem.getInstance().getMetrics();
+            console.log('🎨 RenderSystem Performance:', {
+                totalObjects: metrics.totalObjects,
+                visibleObjects: metrics.visibleObjects,
+                culledObjects: metrics.culledObjects,
+                drawCalls: metrics.drawCalls,
+                batchedSprites: metrics.batchedSprites,
+                renderTime: metrics.renderTime.toFixed(2) + 'ms'
+            });
+        }
+    };
+    
+    console.log('🎨 Render debugging setup complete. Use window.renderDebug for testing.');
+    console.log('   - renderDebug.getMetrics() - Get rendering performance metrics');
+    console.log('   - renderDebug.logPerformance() - Log detailed render performance');
+    console.log('   - renderDebug.enableBatching(true/false) - Toggle sprite batching');
 }
 
 // --- GameEngine Setup ---
@@ -330,7 +415,8 @@ function setupGameEngine() {
     const inputSystem = EngineUtils.createSystem(
         'InputSystem',
         (deltaTime: number) => {
-            InputManager.pollGamepads();
+            // The new unified input manager handles gamepad polling automatically
+            // No manual polling needed
         },
         undefined,
         100 // High priority
@@ -339,19 +425,46 @@ function setupGameEngine() {
     const attractModeSystem = EngineUtils.createSystem(
         'AttractModeSystem',
         (deltaTime: number) => {
-            if (gameState.currentGameState === 'TITLE_SCREEN' || 
-                gameState.currentGameState === 'HIGH_SCORE_DISPLAY_SCREEN' || 
-                gameState.currentGameState === 'DEMO_PLAY') {
-                
-                Attract.updateAttractMode(deltaTime / (1000 / 60)); // Convert to PIXI delta format
-                
-                // Check for start game input
-                if (InputManager.isKeyDown('Enter') || InputManager.isKeyDown('Space') || 
-                    (InputManager.isGamepadConnected() && 
-                     (navigator.getGamepads()[0]?.buttons[GameConfig.GAMEPAD_START_BUTTON_INDEX]?.pressed || 
-                      navigator.getGamepads()[0]?.buttons[GameConfig.GAMEPAD_A_BUTTON_INDEX]?.pressed))) {
-                    startGameFromTitle();
+            try {
+                if (gameState.currentGameState === 'TITLE_SCREEN' || 
+                    gameState.currentGameState === 'HIGH_SCORE_DISPLAY_SCREEN' || 
+                    gameState.currentGameState === 'DEMO_PLAY') {
+                    
+                    // Update attract mode safely
+                    try {
+                        Attract.updateAttractMode(deltaTime / (1000 / 60)); // Convert to PIXI delta format
+                    } catch (attractError) {
+                        console.error('Attract mode update error:', attractError);
+                        // Don't let attract mode errors break the system
+                    }
+                    
+                    // Check for start game input using the global input manager reference
+                    if (globalInputManager && globalInputManager.inputManager) {
+                        const { inputManager, InputAction } = globalInputManager;
+                        
+                        try {
+                            const startPressed = inputManager.isActionPressed(InputAction.START);
+                            const selectPressed = inputManager.isActionPressed(InputAction.SELECT);
+                            
+                            // Debug logging to see if attract mode is checking for input
+                            console.log('Attract mode checking input:', { startPressed, selectPressed, gameState: gameState.currentGameState });
+                            
+                            if (startPressed || selectPressed) {
+                                console.log('Input detected in attract mode:', { startPressed, selectPressed });
+                                startGameFromTitle();
+                            }
+                        } catch (inputError) {
+                            console.warn('Input manager error in attract mode:', inputError);
+                        }
+                    } else {
+                        // Debug logging to see if globalInputManager is available
+                        if (!globalInputManager) {
+                            console.warn('globalInputManager is null in attractModeSystem');
+                        }
+                    }
                 }
+            } catch (error) {
+                console.error('AttractModeSystem error:', error);
             }
         },
         undefined,
@@ -378,8 +491,9 @@ function setupGameEngine() {
                 // Update game entities
                 const normalizedDelta = deltaTime / (1000 / 60); // Convert to expected delta format
                 
+                // Player input processing (debug logging removed to avoid console spam)
                 player.handleKeyboardInput();
-                if(InputManager.isGamepadConnected()) player.handleGamepadInput();
+                // Gamepad input is now handled automatically by the unified input manager
                 player.update(normalizedDelta);
                 
                 Projectiles.updatePlayerProjectiles(normalizedDelta);
@@ -426,11 +540,27 @@ function setupGameEngine() {
         10 // Lower priority
     );
     
+    const renderSystem = EngineUtils.createSystem(
+        'RenderSystem',
+        (deltaTime: number) => {
+            // Update render system (culling, batching, etc.)
+            const renderSys = RenderSystem.getInstance();
+            renderSys.render();
+        },
+        (interpolation: number) => {
+            // Render with interpolation for smooth visuals
+            const renderSys = RenderSystem.getInstance();
+            renderSys.render(interpolation);
+        },
+        5 // Lowest priority - render last
+    );
+    
     // Add systems to the game engine
     gameEngine.addSystem(inputSystem);
     gameEngine.addSystem(attractModeSystem);
     gameEngine.addSystem(gameplaySystem);
     gameEngine.addSystem(uiSystem);
+    gameEngine.addSystem(renderSystem);
     
     // Set up performance monitoring
     gameEngine.setPerformanceCallback((metrics) => {
@@ -490,6 +620,17 @@ function setupGameEngine() {
         } else {
             console.warn('⚠️ Milestone 2: Some integration tests failed, but game will continue...');
         }
+        
+        // Run Milestone 3 tests after Milestone 2
+        setTimeout(async () => {
+            console.log('Running Milestone 3 comprehensive tests...');
+            const milestone3Pass = await runMilestone3Tests(app);
+            if (milestone3Pass) {
+                console.log('🎉 Milestone 3: Entity refactoring is working correctly!');
+            } else {
+                console.warn('⚠️ Milestone 3: Some entity tests failed, but game will continue...');
+            }
+        }, 2000); // Wait 2 more seconds after Milestone 2
     }, 3000); // Wait 3 seconds for systems to stabilize
 }
 
@@ -531,13 +672,7 @@ window.addEventListener('resize', () => {
     UI.resizeGame();
 });
 
-window.addEventListener('keydown', (e) => {
-    // Start game from Title/HS/Demo on Enter/Space
-    if ((gameState.currentGameState === 'TITLE_SCREEN' || gameState.currentGameState === 'HIGH_SCORE_DISPLAY_SCREEN' || gameState.currentGameState === 'DEMO_PLAY') &&
-        (e.code === 'Enter' || e.code === 'Space')) {
-        startGameFromTitle();
-    }
-});
+// Legacy keydown listener removed - now handled by unified input manager in attractModeSystem
 
 // Audio Initialization on first user interaction
 let audioInitialized = false;
@@ -561,11 +696,14 @@ document.addEventListener('keydown', initializeAudioOnceKey);
 
 // --- Game Start Logic ---
 function startGameFromTitle() {
+    console.log('startGameFromTitle called, current state:', gameState.currentGameState);
+    
     if (gameState.currentGameState !== 'TITLE_SCREEN' && gameState.currentGameState !== 'HIGH_SCORE_DISPLAY_SCREEN' && gameState.currentGameState !== 'DEMO_PLAY') return;
 
     SoundManager.play('insertCoin');
 
     gameState.currentGameState = 'PLAYING';
+    console.log('Game state changed to PLAYING');
     resetGameVariables();
     player = createPlayer();
 

@@ -246,4 +246,12 @@ export class Vector2 {
     static angle(a: Vector2, b: Vector2): number {
         return a.angleTo(b);
     }
+    
+    /**
+     * Create a random unit vector
+     */
+    static random(): Vector2 {
+        const angle = Math.random() * Math.PI * 2;
+        return new Vector2(Math.cos(angle), Math.sin(angle));
+    }
 }
