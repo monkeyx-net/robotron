@@ -22,6 +22,9 @@ import { UI } from './ui';
 // Removed old InputManager - using unified input manager instead
 import { gameState } from './gameState';
 import { gameEvents } from './core/EventSystem';
+import { saveLoadManager } from './core/SaveLoadManager';
+import { saveLoadUI } from './ui/SaveLoadUI';
+import './core/SaveLoadTest'; // Import for manual testing
 // --- Global Variables Setup ---
 // Fixed Timestep for physics
 const FIXED_TIME_STEP = 1000 / 60; // 60 frames per second
@@ -252,6 +255,24 @@ const initializeGame = async () => {
             return;
         }
 
+        // Initialize save/load system
+        console.log('Initializing save/load system...');
+        // The save/load manager is already initialized as a singleton
+        // Load settings on startup
+        const settings = saveLoadManager.loadSettings();
+        console.log('Loaded game settings:', settings);
+        
+        // Apply loaded settings to the game
+        if (settings.soundEnabled !== undefined) {
+            // Apply sound settings when sound system is available
+            gameEvents.emit({
+                type: 'settings:sound_enabled',
+                timestamp: Date.now(),
+                source: 'main',
+                data: { enabled: settings.soundEnabled }
+            });
+        }
+
         const success = await loadTextures();
         if (!success) {
             console.error('Failed to initialize game due to texture loading failure');
@@ -313,6 +334,30 @@ const initializeGame = async () => {
                  gameState.currentGameState === 'DEMO_PLAY')) {
                 console.log('Fallback game start triggered via input manager');
                 startGameFromTitle();
+            }
+        });
+        
+        // Set up save/load keyboard shortcuts
+        document.addEventListener('keydown', (event) => {
+            // F5 - Quick Save
+            if (event.key === 'F5' && !event.repeat) {
+                event.preventDefault();
+                saveLoadManager.quickSave();
+            }
+            // F9 - Quick Load
+            else if (event.key === 'F9' && !event.repeat) {
+                event.preventDefault();
+                saveLoadManager.quickLoad();
+            }
+            // F10 - Show Save/Load UI
+            else if (event.key === 'F10' && !event.repeat) {
+                event.preventDefault();
+                gameEvents.emit({
+                    type: 'ui:show_save_load',
+                    timestamp: Date.now(),
+                    source: 'main',
+                    data: {}
+                });
             }
         });
         

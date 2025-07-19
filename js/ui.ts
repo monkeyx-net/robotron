@@ -4,6 +4,7 @@ import { titleScreenContainer, highScoreDisplayContainer, demoPlayContainer, app
 import { gameState } from './gameState';
 import { saveHighScore } from './gameLogic';
 import { Attract } from './attractMode';
+import { gameEvents } from './core/EventSystem';
 
 // PIXI objects to be defined within setup functions and then potentially exposed
 let titleText: PIXI.Text;
@@ -26,6 +27,87 @@ const messageBoxEl = document.getElementById('message-box');
 const messageTitleEl = document.getElementById('message-title');
 const messageTextEl = document.getElementById('message-text');
 const playAgainButtonEl = document.getElementById('play-again-button');
+
+// Save/Load message display
+let saveLoadMessageTimeout: number | null = null;
+
+// Setup save/load UI event listeners
+gameEvents.on('ui:show_message', (event) => {
+    const { message, type, duration } = event.data;
+    showSaveLoadMessage(message, type, duration);
+});
+
+/**
+ * Show a temporary message for save/load operations
+ */
+export function showSaveLoadMessage(message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info', duration: number = 2000) {
+    // Clear any existing timeout
+    if (saveLoadMessageTimeout) {
+        clearTimeout(saveLoadMessageTimeout);
+    }
+    
+    // Create or get message element
+    let messageElement = document.getElementById('save-load-message');
+    if (!messageElement) {
+        messageElement = document.createElement('div');
+        messageElement.id = 'save-load-message';
+        messageElement.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            color: #00ff00;
+            padding: 10px 15px;
+            border: 1px solid #00ff00;
+            border-radius: 4px;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 10px;
+            z-index: 2000;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        `;
+        document.body.appendChild(messageElement);
+    }
+    
+    // Set message and color based on type
+    messageElement.textContent = message;
+    switch (type) {
+        case 'success':
+            messageElement.style.color = '#00ff00';
+            messageElement.style.borderColor = '#00ff00';
+            break;
+        case 'error':
+            messageElement.style.color = '#ff4444';
+            messageElement.style.borderColor = '#ff4444';
+            break;
+        case 'warning':
+            messageElement.style.color = '#ffaa00';
+            messageElement.style.borderColor = '#ffaa00';
+            break;
+        case 'info':
+        default:
+            messageElement.style.color = '#00aaff';
+            messageElement.style.borderColor = '#00aaff';
+            break;
+    }
+    
+    // Show message
+    messageElement.style.opacity = '1';
+    
+    // Hide message after duration
+    saveLoadMessageTimeout = window.setTimeout(() => {
+        if (messageElement) {
+            messageElement.style.opacity = '0';
+            setTimeout(() => {
+                if (messageElement && messageElement.parentNode) {
+                    messageElement.parentNode.removeChild(messageElement);
+                }
+            }, 300);
+        }
+        saveLoadMessageTimeout = null;
+    }, duration);
+}
 
 export function updateScoreDisplay() {
     if (scoreTextEl && typeof gameState !== 'undefined') {
