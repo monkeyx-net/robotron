@@ -28,6 +28,10 @@ import './core/SaveLoadTest'; // Import for manual testing
 import { VisualEffectsSystem } from './core/VisualEffects';
 import { EffectPresets, EffectCombinations } from './core/EffectPresets';
 import './core/VisualEffectsTest'; // Import for manual testing
+import { Vector2 } from './utils/Vector2';
+import { Vector2 } from './utils/Vector2';
+import { Vector2 } from './utils/Vector2';
+import { Vector2 } from './utils/Vector2';
 // --- Global Variables Setup ---
 // Fixed Timestep for physics
 const FIXED_TIME_STEP = 1000 / 60; // 60 frames per second
@@ -53,6 +57,7 @@ const initPixiApp = async () => {
 // PIXI.settings is deprecated in v8, scale mode is now set per texture
 
 // Global PIXI Containers (exposed on window for other modules)
+export const gameContentContainer = new PIXI.Container(); // Main container for all game content
 export const titleScreenContainer = new PIXI.Container();
 export const highScoreDisplayContainer = new PIXI.Container();
 export const demoPlayContainer = new PIXI.Container(); // For demo mode elements
@@ -239,16 +244,22 @@ const initializeGame = async () => {
         await initPixiApp();
         
         // Add containers to stage after app is initialized (order matters for z-indexing)
+        // First add the main game content container that can be shaken independently
+        app.stage.addChild(gameContentContainer);
+        
+        // Add game containers to the game content container (these will shake with screen shake)
+        gameContentContainer.addChild(obstaclesContainer);
+        gameContentContainer.addChild(humansContainer);
+        gameContentContainer.addChild(enemiesContainer);
+        gameContentContainer.addChild(playerProjectilesContainer);
+        gameContentContainer.addChild(enemyProjectilesContainer);
+        gameContentContainer.addChild(playerContainer);
+        gameContentContainer.addChild(effectsContainer);
+        
+        // Add UI containers directly to stage (these won't shake)
         app.stage.addChild(titleScreenContainer);
         app.stage.addChild(highScoreDisplayContainer);
         app.stage.addChild(demoPlayContainer);
-        app.stage.addChild(obstaclesContainer);
-        app.stage.addChild(humansContainer);
-        app.stage.addChild(enemiesContainer);
-        app.stage.addChild(playerProjectilesContainer);
-        app.stage.addChild(enemyProjectilesContainer);
-        app.stage.addChild(playerContainer);
-        app.stage.addChild(effectsContainer);
         
         // Initialize the new game module
         console.log('Initializing foundational systems...');
@@ -389,7 +400,7 @@ const initializeGame = async () => {
         
         // Initialize Visual Effects System
         console.log('Initializing visual effects system...');
-        const visualEffects = VisualEffectsSystem.initialize(effectsContainer, app.stage);
+        const visualEffects = VisualEffectsSystem.initialize(effectsContainer, gameContentContainer);
         
         // Make visual effects available globally for debugging
         (window as any).visualEffects = visualEffects;
@@ -418,8 +429,31 @@ const initializeGame = async () => {
         console.log('   - effectsDebug.createExplosion(x, y, type) - Create explosion at position');
         console.log('   - effectsDebug.startScreenShake(intensity, duration) - Test screen shake');
         
+        // Add scaling debug function
+        (window as any).scalingDebug = {
+            checkContainers: () => {
+                console.log('=== Scaling Debug Info ===');
+                console.log('App stage scale:', app.stage.scale.x, app.stage.scale.y);
+                console.log('Game content container scale:', gameContentContainer.scale.x, gameContentContainer.scale.y);
+                console.log('Game content container position:', gameContentContainer.x, gameContentContainer.y);
+                console.log('Canvas size:', app.canvas.width, app.canvas.height);
+                console.log('Renderer size:', app.renderer.width, app.renderer.height);
+                console.log('Window size:', window.innerWidth, window.innerHeight);
+                console.log('Game config size:', GameConfig.GAME_WIDTH, GameConfig.GAME_HEIGHT);
+            },
+            forceResize: () => {
+                console.log('Forcing resize...');
+                UI.resizeGame();
+            }
+        };
+        
+        console.log('🔧 Scaling debug available: window.scalingDebug.checkContainers()');
+        
         // Set up the new GameEngine
         setupGameEngine();
+        
+        // Ensure proper initial scaling
+        UI.resizeGame();
         
         console.log('Game initialization completed successfully');
         

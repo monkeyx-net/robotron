@@ -610,7 +610,7 @@ class CameraEffects {
      */
     private resetContainer(): void {
         if (this.effects.size === 0) {
-            this.container.scale.set(1);
+            // Don't reset scale as it's managed by the UI system for responsive design
             this.container.alpha = 1;
             this.container.tint = 0xFFFFFF;
         }
@@ -915,12 +915,12 @@ export class VisualEffectsSystem {
         // Stop screen shake
         this.screenShake.stop();
         
-        // Reset camera
+        // Reset camera position and effects (but NOT scale - that's handled by UI system)
         this.gameContainer.x = 0;
         this.gameContainer.y = 0;
-        this.gameContainer.scale.set(1);
         this.gameContainer.alpha = 1;
         this.gameContainer.tint = 0xFFFFFF;
+        // Note: We don't reset scale here as it's managed by the UI system for responsive design
     }
     
     /**
