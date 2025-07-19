@@ -8,6 +8,8 @@ import { Enemies } from './enemies';
 import { Humans } from './humans';
 import { Obstacles } from './obstacles';
 import { gameState } from './gameState';
+import { gameEvents } from './core/EventSystem';
+import { Vector2 } from './utils/Vector2';
 
 // --- High Score ---
 export function loadHighScore() {
@@ -101,6 +103,17 @@ export function playerHit() {
     if (!GameConfig || !SoundManager || !Effects || !UI) {
         console.warn("playerHit: Missing critical dependencies."); return;
     }
+
+    // Emit player hit event for visual effects system
+    gameEvents.emit({
+        type: 'player:hit',
+        timestamp: Date.now(),
+        source: 'gameLogic',
+        data: {
+            position: new Vector2(player.sprite.x, player.sprite.y),
+            livesRemaining: gameState.lives - 1
+        }
+    });
 
     Effects.createExplosion(player.sprite.x, player.sprite.y);
     SoundManager.play('playerDeath');
@@ -293,6 +306,18 @@ export function checkWaveCompletion() {
         console.log("Wave Complete!");
         gameState.currentGameState = 'WAVE_TRANSITION';
 
+        // Emit wave completed event for visual effects system
+        gameEvents.emit({
+            type: 'wave:completed',
+            timestamp: Date.now(),
+            source: 'gameLogic',
+            data: {
+                wave: gameState.wave,
+                score: gameState.score,
+                centerPosition: new Vector2(GameConfig.GAME_WIDTH / 2, GameConfig.GAME_HEIGHT / 2)
+            }
+        });
+
         setTimeout(() => {
             if (gameState.currentGameState === 'GAME_OVER') return;
             gameState.currentGameState = 'PLAYING';
@@ -367,6 +392,17 @@ export function checkCollisions() {
                     else if (enemy.type === 'sub_quark') { explosionColor = 0xD0D0D0; soundToPlayKey = 'subQuarkPop'; }
                     else if (enemy.type === 'prog_enemy') { explosionColor = 0xFF55FF; soundToPlayKey = 'progDestroy';}
 
+                    // Emit enemy destroyed event for visual effects system
+                    gameEvents.emit({
+                        type: 'enemy:destroyed',
+                        timestamp: Date.now(),
+                        source: 'gameLogic',
+                        data: {
+                            position: new Vector2(enemy.sprite.x, enemy.sprite.y),
+                            enemyType: enemy.type,
+                            points: enemy.points || 0
+                        }
+                    });
 
                     Effects.createExplosion(enemy.sprite.x, enemy.sprite.y, explosionColor);
                     SoundManager.play(soundToPlayKey);
@@ -478,6 +514,17 @@ export function checkCollisions() {
                     // Mark as rescued but don't destroy sprite here - let humans.js handle it
                     humanEntity.isRescued = true;
                     console.log('[GameLogic.checkCollisions] Human marked as rescued, letting humans.js handle cleanup');
+                    
+                    // Emit human rescued event for visual effects system
+                    gameEvents.emit({
+                        type: 'human:rescued',
+                        timestamp: Date.now(),
+                        source: 'gameLogic',
+                        data: {
+                            position: new Vector2(humanEntity.sprite.x, humanEntity.sprite.y),
+                            bonus: gameState.currentHumanRescueBonus
+                        }
+                    });
                     
                     if (gameState.currentGameState === 'PLAYING') {
                         gameState.score += gameState.currentHumanRescueBonus;

@@ -198,7 +198,7 @@
   - Add import/export functionality for save data
   - _Requirements: 8.1, 8.2, 8.3_
 
-- [ ] 10.2 Implement visual effects system
+- [x] 10.2 Implement visual effects system
   - Create particle system for explosions and visual effects
   - Add screen shake functionality for impact feedback
   - Implement smooth camera transitions and effects

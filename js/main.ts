@@ -25,6 +25,9 @@ import { gameEvents } from './core/EventSystem';
 import { saveLoadManager } from './core/SaveLoadManager';
 import { saveLoadUI } from './ui/SaveLoadUI';
 import './core/SaveLoadTest'; // Import for manual testing
+import { VisualEffectsSystem } from './core/VisualEffects';
+import { EffectPresets, EffectCombinations } from './core/EffectPresets';
+import './core/VisualEffectsTest'; // Import for manual testing
 // --- Global Variables Setup ---
 // Fixed Timestep for physics
 const FIXED_TIME_STEP = 1000 / 60; // 60 frames per second
@@ -384,6 +387,37 @@ const initializeGame = async () => {
         // Initialize RenderIntegration
         RenderIntegration.initialize(renderSystem);
         
+        // Initialize Visual Effects System
+        console.log('Initializing visual effects system...');
+        const visualEffects = VisualEffectsSystem.initialize(effectsContainer, app.stage);
+        
+        // Make visual effects available globally for debugging
+        (window as any).visualEffects = visualEffects;
+        (window as any).effectsDebug = {
+            getStats: () => visualEffects.getStats(),
+            createExplosion: (x: number, y: number, type: 'enemy' | 'player' | 'projectile' = 'enemy') => {
+                visualEffects.createExplosion(new Vector2(x, y), type);
+            },
+            startScreenShake: (intensity: number = 5, duration: number = 0.3) => {
+                visualEffects.startScreenShake({ intensity, duration });
+            },
+            clearEffects: () => visualEffects.clearAllEffects(),
+            
+            // Test different effects
+            testExplosions: () => {
+                const centerX = GameConfig.GAME_WIDTH / 2;
+                const centerY = GameConfig.GAME_HEIGHT / 2;
+                visualEffects.createExplosion(new Vector2(centerX - 100, centerY), 'enemy');
+                setTimeout(() => visualEffects.createExplosion(new Vector2(centerX, centerY), 'player'), 500);
+                setTimeout(() => visualEffects.createExplosion(new Vector2(centerX + 100, centerY), 'projectile'), 1000);
+            }
+        };
+        
+        console.log('🎆 Visual effects system initialized. Use window.effectsDebug for testing.');
+        console.log('   - effectsDebug.testExplosions() - Test different explosion types');
+        console.log('   - effectsDebug.createExplosion(x, y, type) - Create explosion at position');
+        console.log('   - effectsDebug.startScreenShake(intensity, duration) - Test screen shake');
+        
         // Set up the new GameEngine
         setupGameEngine();
         
@@ -585,6 +619,22 @@ function setupGameEngine() {
         10 // Lower priority
     );
     
+    const visualEffectsSystem = EngineUtils.createSystem(
+        'VisualEffectsSystem',
+        (deltaTime: number) => {
+            // Update visual effects system
+            try {
+                const visualEffects = VisualEffectsSystem.getInstance();
+                visualEffects.update(deltaTime / 1000); // Convert to seconds
+            } catch (error) {
+                // Visual effects system might not be initialized yet
+                // This is okay during startup
+            }
+        },
+        undefined,
+        15 // Medium priority - after gameplay but before render
+    );
+    
     const renderSystem = EngineUtils.createSystem(
         'RenderSystem',
         (deltaTime: number) => {
@@ -605,6 +655,7 @@ function setupGameEngine() {
     gameEngine.addSystem(attractModeSystem);
     gameEngine.addSystem(gameplaySystem);
     gameEngine.addSystem(uiSystem);
+    gameEngine.addSystem(visualEffectsSystem);
     gameEngine.addSystem(renderSystem);
     
     // Set up performance monitoring
