@@ -373,6 +373,16 @@ const initializeGame = async () => {
                     data: {}
                 });
             }
+            // F11 - Quick Settings (also opens Save/Load UI)
+            else if (event.key === 'F11' && !event.repeat) {
+                event.preventDefault();
+                gameEvents.emit({
+                    type: 'ui:show_save_load',
+                    timestamp: Date.now(),
+                    source: 'main',
+                    data: {}
+                });
+            }
         });
         
         // Test the input system (optional - can be removed in production)
@@ -428,6 +438,12 @@ const initializeGame = async () => {
         console.log('   - effectsDebug.testExplosions() - Test different explosion types');
         console.log('   - effectsDebug.createExplosion(x, y, type) - Create explosion at position');
         console.log('   - effectsDebug.startScreenShake(intensity, duration) - Test screen shake');
+        
+        // Notify about settings
+        console.log('⚙️ Visual Effects Settings:');
+        console.log('   - Screen shake is DISABLED by default (can be jarring)');
+        console.log('   - Press F10 or F11 to open Settings and enable screen shake if desired');
+        console.log('   - Particle effects are enabled by default');
         
         // Add scaling debug function
         (window as any).scalingDebug = {

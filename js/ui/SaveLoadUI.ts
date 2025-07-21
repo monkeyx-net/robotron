@@ -57,6 +57,26 @@ export class SaveLoadUI {
                         </div>
                     </div>
                     
+                    <div class="settings-section">
+                        <h3>Settings</h3>
+                        <div class="settings-grid">
+                            <div class="setting-item">
+                                <label class="setting-label">
+                                    <input type="checkbox" id="screen-shake-toggle" class="setting-checkbox">
+                                    <span class="setting-text">Screen Shake Effects</span>
+                                </label>
+                                <div class="setting-description">Enable screen shake for explosions and impacts</div>
+                            </div>
+                            <div class="setting-item">
+                                <label class="setting-label">
+                                    <input type="checkbox" id="particle-effects-toggle" class="setting-checkbox">
+                                    <span class="setting-text">Particle Effects</span>
+                                </label>
+                                <div class="setting-description">Enable particle effects for explosions and visual feedback</div>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div class="advanced-section">
                         <h3>Advanced</h3>
                         <div class="advanced-actions">
@@ -156,15 +176,54 @@ export class SaveLoadUI {
                 padding: 20px;
             }
             
-            .save-section, .load-section, .statistics-section, .advanced-section {
+            .save-section, .load-section, .statistics-section, .settings-section, .advanced-section {
                 margin-bottom: 25px;
                 padding-bottom: 20px;
                 border-bottom: 1px solid #333;
             }
             
             .save-section:last-child, .load-section:last-child, 
-            .statistics-section:last-child, .advanced-section:last-child {
+            .statistics-section:last-child, .settings-section:last-child, .advanced-section:last-child {
                 border-bottom: none;
+            }
+            
+            .settings-grid {
+                display: flex;
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .setting-item {
+                background: #0a0a0a;
+                padding: 12px;
+                border: 1px solid #333;
+                border-radius: 4px;
+            }
+            
+            .setting-label {
+                display: flex;
+                align-items: center;
+                cursor: pointer;
+                font-size: 0.9em;
+                color: #00ff00;
+            }
+            
+            .setting-checkbox {
+                margin-right: 10px;
+                width: 16px;
+                height: 16px;
+                accent-color: #00ff00;
+            }
+            
+            .setting-text {
+                font-weight: bold;
+            }
+            
+            .setting-description {
+                margin-top: 5px;
+                font-size: 0.8em;
+                color: #aaa;
+                line-height: 1.3;
             }
             
             h3 {
@@ -264,6 +323,51 @@ export class SaveLoadUI {
                 font-weight: bold;
             }
             
+            .settings-section {
+                margin-bottom: 25px;
+                padding-bottom: 20px;
+                border-bottom: 1px solid #333;
+            }
+            
+            .settings-grid {
+                display: flex;
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .setting-item {
+                background: #0a0a0a;
+                padding: 12px;
+                border: 1px solid #333;
+                border-radius: 4px;
+            }
+            
+            .setting-label {
+                display: flex;
+                align-items: center;
+                cursor: pointer;
+                font-size: 0.9em;
+            }
+            
+            .setting-checkbox {
+                margin-right: 10px;
+                width: 16px;
+                height: 16px;
+                accent-color: #00ff00;
+            }
+            
+            .setting-text {
+                color: #00ff00;
+                font-weight: bold;
+            }
+            
+            .setting-description {
+                margin-top: 5px;
+                font-size: 0.8em;
+                color: #aaa;
+                line-height: 1.3;
+            }
+            
             @media (max-width: 600px) {
                 .save-load-panel {
                     width: 95%;
@@ -360,6 +464,13 @@ export class SaveLoadUI {
         // File input for import
         const fileInput = this.container.querySelector('#import-file-input') as HTMLInputElement;
         fileInput?.addEventListener('change', (event) => this.handleFileImport(event));
+        
+        // Settings checkboxes
+        const screenShakeToggle = this.container.querySelector('#screen-shake-toggle') as HTMLInputElement;
+        screenShakeToggle?.addEventListener('change', (event) => this.handleScreenShakeToggle(event));
+        
+        const particleEffectsToggle = this.container.querySelector('#particle-effects-toggle') as HTMLInputElement;
+        particleEffectsToggle?.addEventListener('change', (event) => this.handleParticleEffectsToggle(event));
     }
     
     /**
@@ -376,6 +487,7 @@ export class SaveLoadUI {
         this.updateStatistics();
         this.updateStorageInfo();
         this.updateButtonStates();
+        this.updateSettings();
     }
     
     /**
@@ -550,6 +662,74 @@ export class SaveLoadUI {
                 this.updateStorageInfo();
                 this.updateButtonStates();
             }
+        }
+    }
+    
+    /**
+     * Handle screen shake toggle
+     */
+    private handleScreenShakeToggle(event: Event): void {
+        const checkbox = event.target as HTMLInputElement;
+        const enabled = checkbox.checked;
+        
+        // Save the setting
+        saveLoadManager.saveSettings({ screenShakeEnabled: enabled });
+        
+        // Show feedback message
+        gameEvents.emit({
+            type: 'ui:show_message',
+            timestamp: Date.now(),
+            source: 'SaveLoadUI',
+            data: {
+                message: `Screen Shake ${enabled ? 'Enabled' : 'Disabled'}`,
+                type: 'info',
+                duration: 2000
+            }
+        });
+        
+        console.log(`Screen shake effects ${enabled ? 'enabled' : 'disabled'}`);
+    }
+    
+    /**
+     * Handle particle effects toggle
+     */
+    private handleParticleEffectsToggle(event: Event): void {
+        const checkbox = event.target as HTMLInputElement;
+        const enabled = checkbox.checked;
+        
+        // Save the setting
+        saveLoadManager.saveSettings({ particleEffectsEnabled: enabled });
+        
+        // Show feedback message
+        gameEvents.emit({
+            type: 'ui:show_message',
+            timestamp: Date.now(),
+            source: 'SaveLoadUI',
+            data: {
+                message: `Particle Effects ${enabled ? 'Enabled' : 'Disabled'}`,
+                type: 'info',
+                duration: 2000
+            }
+        });
+        
+        console.log(`Particle effects ${enabled ? 'enabled' : 'disabled'}`);
+    }
+    
+    /**
+     * Update settings display
+     */
+    private updateSettings(): void {
+        const settings = saveLoadManager.loadSettings();
+        
+        const screenShakeToggle = this.container?.querySelector('#screen-shake-toggle') as HTMLInputElement;
+        const particleEffectsToggle = this.container?.querySelector('#particle-effects-toggle') as HTMLInputElement;
+        
+        if (screenShakeToggle) {
+            screenShakeToggle.checked = settings.screenShakeEnabled;
+        }
+        
+        if (particleEffectsToggle) {
+            particleEffectsToggle.checked = settings.particleEffectsEnabled;
         }
     }
     

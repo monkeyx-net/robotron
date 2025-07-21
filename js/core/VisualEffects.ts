@@ -2,6 +2,7 @@ import * as PIXI from 'pixi.js';
 import { Vector2 } from '../utils/Vector2';
 import { gameEvents } from './EventSystem';
 import { Constants } from '../utils/Constants';
+import { saveLoadManager } from './SaveLoadManager';
 
 /**
  * Particle configuration interface
@@ -703,6 +704,12 @@ export class VisualEffectsSystem {
      * Create explosion effect
      */
     public createExplosion(position: Vector2, type: 'enemy' | 'player' | 'projectile' = 'enemy'): void {
+        // Check if particle effects are enabled in user settings
+        const settings = saveLoadManager.loadSettings();
+        if (!settings.particleEffectsEnabled) {
+            // Particle effects are disabled, skip the effect
+            return;
+        }
         const configs = {
             enemy: {
                 particleCount: 20,
@@ -863,6 +870,13 @@ export class VisualEffectsSystem {
      * Start screen shake
      */
     public startScreenShake(config: ScreenShakeConfig): void {
+        // Check if screen shake is enabled in user settings
+        const settings = saveLoadManager.loadSettings();
+        if (!settings.screenShakeEnabled) {
+            // Screen shake is disabled, skip the effect
+            return;
+        }
+        
         this.screenShake.start(config);
     }
     

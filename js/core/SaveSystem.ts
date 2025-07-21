@@ -156,7 +156,7 @@ export class SaveSystem {
                 pause: 'KeyP'
             },
             difficulty: 'normal',
-            screenShakeEnabled: true,
+            screenShakeEnabled: false, // Disabled by default to reduce jarring effects
             particleEffectsEnabled: true
         };
         
