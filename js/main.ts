@@ -383,6 +383,26 @@ const initializeGame = async () => {
                     data: {}
                 });
             }
+            // Escape - Show Settings/Save UI (Mac-friendly alternative)
+            else if (event.key === 'Escape' && !event.repeat) {
+                event.preventDefault();
+                gameEvents.emit({
+                    type: 'ui:show_save_load',
+                    timestamp: Date.now(),
+                    source: 'main',
+                    data: {}
+                });
+            }
+            // Tab - Show Settings/Save UI (another Mac-friendly alternative)
+            else if (event.key === 'Tab' && !event.repeat) {
+                event.preventDefault();
+                gameEvents.emit({
+                    type: 'ui:show_save_load',
+                    timestamp: Date.now(),
+                    source: 'main',
+                    data: {}
+                });
+            }
         });
         
         // Test the input system (optional - can be removed in production)
@@ -442,7 +462,8 @@ const initializeGame = async () => {
         // Notify about settings
         console.log('⚙️ Visual Effects Settings:');
         console.log('   - Screen shake is DISABLED by default (can be jarring)');
-        console.log('   - Press F10 or F11 to open Settings and enable screen shake if desired');
+        console.log('   - Press F10/F11 to open Settings (or fn+F10/F11 on Mac)');
+        console.log('   - Mac users: Press ESC or TAB for easier access to Settings');
         console.log('   - Particle effects are enabled by default');
         
         // Add scaling debug function
