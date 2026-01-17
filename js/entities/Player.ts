@@ -11,7 +11,7 @@ import { Vector2 } from '../utils/Vector2';
 import { Constants } from '../utils/Constants';
 import { gameEvents } from '../core/EventSystem';
 import { errorHandler, ErrorCategory, ErrorSeverity } from '../core/ErrorHandler';
-import { InputManager } from '../inputManager';
+import { UnifiedInputManager, InputAction } from '../core/InputManager';
 
 /**
  * Player input component for handling keyboard and gamepad input
@@ -20,87 +20,34 @@ export class PlayerInput implements Component {
     name: string = 'playerInput';
     gameObject: GameObject;
     enabled: boolean = true;
-    
+
     // Movement
     moveDirection: Vector2 = new Vector2(0, 0);
     shootDirection: Vector2 = new Vector2(0, 0);
     isMoving: boolean = false;
     isShooting: boolean = false;
-    
+
+    private inputManager: UnifiedInputManager;
+
     constructor(gameObject: GameObject) {
         this.gameObject = gameObject;
+        this.inputManager = UnifiedInputManager.getInstance();
     }
-    
+
     update(): void {
         if (!this.enabled || !this.gameObject.active) return;
-        
-        this.handleKeyboardInput();
-        
-        // Check for gamepad input if available
-        if (InputManager.isGamepadConnected()) {
-            this.handleGamepadInput();
-        }
+
+        // Update input manager state
+        this.inputManager.update();
+
+        // Get input from the unified input manager
+        this.moveDirection = this.inputManager.getMovementVector();
+        this.shootDirection = this.inputManager.getShootingVector();
+
+        this.isMoving = this.moveDirection.magnitude() > 0;
+        this.isShooting = this.shootDirection.magnitude() > 0;
     }
     
-    /**
-     * Handle keyboard input
-     */
-    handleKeyboardInput(): void {
-        // Movement input (WASD or Arrow keys)
-        let moveX = 0;
-        let moveY = 0;
-        
-        if (InputManager.isKeyDown('ArrowUp') || InputManager.isKeyDown('KeyW')) moveY -= 1;
-        if (InputManager.isKeyDown('ArrowDown') || InputManager.isKeyDown('KeyS')) moveY += 1;
-        if (InputManager.isKeyDown('ArrowLeft') || InputManager.isKeyDown('KeyA')) moveX -= 1;
-        if (InputManager.isKeyDown('ArrowRight') || InputManager.isKeyDown('KeyD')) moveX += 1;
-        
-        this.moveDirection.x = moveX;
-        this.moveDirection.y = moveY;
-        this.isMoving = moveX !== 0 || moveY !== 0;
-        
-        // Shooting input (IJKL keys)
-        let shootX = 0;
-        let shootY = 0;
-        
-        if (InputManager.isKeyDown('KeyI')) shootY -= 1;
-        if (InputManager.isKeyDown('KeyK')) shootY += 1;
-        if (InputManager.isKeyDown('KeyJ')) shootX -= 1;
-        if (InputManager.isKeyDown('KeyL')) shootX += 1;
-        
-        this.shootDirection.x = shootX;
-        this.shootDirection.y = shootY;
-        this.isShooting = shootX !== 0 || shootY !== 0;
-    }
-    
-    /**
-     * Handle gamepad input
-     */
-    handleGamepadInput(): void {
-        // Use the existing InputManager for gamepad input
-        const movement = InputManager.getGamepadMovement();
-        const shooting = InputManager.getGamepadShooting();
-        
-        // Handle movement
-        if (Math.abs(movement.x) > 0 || Math.abs(movement.y) > 0) {
-            this.moveDirection.x = movement.x;
-            this.moveDirection.y = movement.y;
-            this.isMoving = true;
-        } else if (!this.isKeyboardMoving()) {
-            this.moveDirection.x = 0;
-            this.moveDirection.y = 0;
-            this.isMoving = false;
-        }
-        
-        // Handle shooting
-        if (Math.abs(shooting.x) > 0 || Math.abs(shooting.y) > 0) {
-            this.shootDirection.x = shooting.x;
-            this.shootDirection.y = shooting.y;
-            this.isShooting = true;
-        } else if (!this.isKeyboardShooting()) {
-            this.isShooting = false;
-        }
-    }
     
     /**
      * Get normalized move direction
@@ -128,23 +75,6 @@ export class PlayerInput implements Component {
         return normalized;
     }
     
-    /**
-     * Check if keyboard movement keys are pressed
-     */
-    private isKeyboardMoving(): boolean {
-        return InputManager.isKeyDown('ArrowUp') || InputManager.isKeyDown('ArrowDown') || 
-               InputManager.isKeyDown('ArrowLeft') || InputManager.isKeyDown('ArrowRight') ||
-               InputManager.isKeyDown('KeyW') || InputManager.isKeyDown('KeyS') || 
-               InputManager.isKeyDown('KeyA') || InputManager.isKeyDown('KeyD');
-    }
-    
-    /**
-     * Check if keyboard shooting keys are pressed
-     */
-    private isKeyboardShooting(): boolean {
-        return InputManager.isKeyDown('KeyI') || InputManager.isKeyDown('KeyK') || 
-               InputManager.isKeyDown('KeyJ') || InputManager.isKeyDown('KeyL');
-    }
 }
 
 /**
