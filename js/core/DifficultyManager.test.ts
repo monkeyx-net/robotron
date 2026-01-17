@@ -235,11 +235,11 @@ export class DifficultyManagerTests {
             difficultyManager.reset();
             difficultyManager.setDifficultyLevel(DifficultyLevel.NIGHTMARE);
 
-            const multipliers = difficultyManager.getCurrentMultipliers();
+            const nightmareMultipliers = difficultyManager.getCurrentMultipliers();
 
-            if (multipliers.enemySpawnRateMultiplier > 1.5 &&
-                multipliers.scoreMultiplier >= 2.0) {
-                this.addResult(testName, true, `Nightmare multipliers correct (spawn: ${multipliers.enemySpawnRateMultiplier.toFixed(2)}, score: ${multipliers.scoreMultiplier.toFixed(2)})`);
+            if (nightmareMultipliers.enemySpawnRateMultiplier > 1.5 &&
+                nightmareMultipliers.scoreMultiplier >= 2.0) {
+                this.addResult(testName, true, `Nightmare multipliers correct (spawn: ${nightmareMultipliers.enemySpawnRateMultiplier.toFixed(2)}, score: ${nightmareMultipliers.scoreMultiplier.toFixed(2)})`);
             } else {
                 this.addResult(testName, false, 'Nightmare difficulty multipliers too low');
             }
@@ -278,7 +278,6 @@ export class DifficultyManagerTests {
             difficultyManager.reset();
 
             const metrics = difficultyManager.getPerformanceMetrics();
-            const multipliers = difficultyManager.getCurrentMultipliers();
 
             if (metrics.totalEnemiesKilled === 0 &&
                 metrics.wavesSurvived === 0) {

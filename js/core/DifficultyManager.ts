@@ -6,7 +6,6 @@
  */
 
 import { gameEvents } from './EventSystem';
-import { errorHandler, ErrorCategory, ErrorSeverity } from './ErrorHandler';
 
 /**
  * Difficulty level enum
@@ -68,7 +67,6 @@ export class DifficultyManager {
     private baseDifficulty: Map<DifficultyLevel, DifficultyCurve>;
     private waveScalingFactor: number = 0.05; // 5% increase per wave
     private maxWaveScaling: number = 3.0; // Max 300% scaling
-    private lastWaveTime: number = 0;
     private waveStartTime: number = 0;
 
     private constructor() {
@@ -185,37 +183,41 @@ export class DifficultyManager {
      */
     private setupEventListeners(): void {
         // Listen for wave start
-        gameEvents.on('wave:started', (event) => {
-            this.onWaveStart(event.data.wave);
+        gameEvents.on('wave:started', (event: any) => {
+            if (event.data && event.data.wave) {
+                this.onWaveStart(event.data.wave);
+            }
         });
 
         // Listen for wave complete
-        gameEvents.on('wave:completed', (event) => {
-            this.onWaveComplete(event.data);
+        gameEvents.on('wave:completed', (event: any) => {
+            if (event.data) {
+                this.onWaveComplete(event.data);
+            }
         });
 
         // Listen for enemy killed
-        gameEvents.on('enemy:destroyed', (event) => {
-            this.onEnemyKilled(event.data);
+        gameEvents.on('enemy:destroyed', () => {
+            this.onEnemyKilled();
         });
 
         // Listen for player death
-        gameEvents.on('player:died', (event) => {
-            this.onPlayerDeath(event.data);
+        gameEvents.on('player:died', () => {
+            this.onPlayerDeath();
         });
 
         // Listen for human rescued
-        gameEvents.on('human:rescued', (event) => {
-            this.onHumanRescued(event.data);
+        gameEvents.on('human:rescued', () => {
+            this.onHumanRescued();
         });
 
         // Listen for projectile fired
-        gameEvents.on('player:shoot', (event) => {
+        gameEvents.on('player:shoot', () => {
             this.onProjectileFired();
         });
 
         // Listen for projectile hit
-        gameEvents.on('projectile:hit', (event) => {
+        gameEvents.on('projectile:hit', () => {
             this.onProjectileHit();
         });
     }
@@ -370,8 +372,6 @@ export class DifficultyManager {
         if (this.state.performanceMetrics.recentWavePerformance.length > 5) {
             this.state.performanceMetrics.recentWavePerformance.shift();
         }
-
-        this.lastWaveTime = Date.now();
     }
 
     /**
@@ -394,7 +394,7 @@ export class DifficultyManager {
     /**
      * Handle enemy killed event
      */
-    private onEnemyKilled(data: any): void {
+    private onEnemyKilled(): void {
         this.state.performanceMetrics.totalEnemiesKilled++;
         this.updateKDRatio();
     }
@@ -402,7 +402,7 @@ export class DifficultyManager {
     /**
      * Handle player death event
      */
-    private onPlayerDeath(data: any): void {
+    private onPlayerDeath(): void {
         this.state.performanceMetrics.totalDeaths++;
         this.updateKDRatio();
     }
@@ -410,7 +410,7 @@ export class DifficultyManager {
     /**
      * Handle human rescued event
      */
-    private onHumanRescued(data: any): void {
+    private onHumanRescued(): void {
         this.state.performanceMetrics.humansRescued++;
     }
 
