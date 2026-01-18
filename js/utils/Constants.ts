@@ -1,0 +1,203 @@
+/**
+ * Constants - Centralized configuration and constants module
+ * 
+ * This module provides a centralized location for all game constants,
+ * configuration values, and magic numbers used throughout the Robotron game.
+ * It organizes constants by category and provides type-safe configuration
+ * interfaces with validation and default value handling.
+ */
+
+/**
+ * Game dimensions and viewport constants
+ */
+export const GAME_DIMENSIONS = {
+    WIDTH: 292,
+    HEIGHT: 240,
+    ASPECT_RATIO: 292 / 240,
+    CENTER_X: 292 / 2,
+    CENTER_Y: 240 / 2
+} as const;
+
+/**
+ * Player-related constants
+ */
+export const PLAYER_CONSTANTS = {
+    SPEED: 2,
+    INITIAL_LIVES: 30,
+    RESPAWN_INVULNERABILITY_TIME: 2000,
+    SHOOT_RATE: 100, // milliseconds between shots
+    MAX_PROJECTILES: 10,
+    SIZE: 8, // sprite size
+    COLLISION_RADIUS: 6
+} as const;
+
+/**
+ * Projectile constants
+ */
+export const PROJECTILE_CONSTANTS = {
+    PLAYER_SPEED: 4,
+    ENFORCER_SPEED: 2.5,
+    BRAIN_SPEED: 2,
+    TANK_SHELL_SPEED: 1.8,
+    TANK_SHELL_BOUNCES: 2,
+    LIFETIME: 180, // frames before auto-destruction
+    SIZE: 2,
+    COLLISION_RADIUS: 3
+} as const;
+
+/**
+ * Enemy speed constants
+ */
+export const ENEMY_SPEEDS = {
+    GRUNT: 0.6,
+    GRUNT_ACCELERATION: 0.03,
+    GRUNT_MAX_SPEED: 1.0,
+    GRUNT_TURN_RATE: 0.08,
+    HULK: 0.3,
+    HULK_CHARGE_SPEED: 1.2,
+    ENFORCER: 0.8,
+    BRAIN: 0.6,
+    TANK: 0.4,
+    SPHEROID: 0.7,
+    QUARK: 1.2,
+    SUB_QUARK: 1.5,
+    PROG: 1.3
+} as const;
+
+/**
+ * Point values for different enemies and actions
+ */
+export const POINT_VALUES = {
+    GRUNT: 100,
+    HULK: 200,
+    ENFORCER: 150,
+    SPHEROID: 1000,
+    BRAIN: 500,
+    TANK: 300,
+    PROG: 100,
+    QUARK: 1000,
+    SUB_QUARK: 500,
+    HUMAN_RESCUE: 1000,
+    EXTRA_LIFE_INTERVAL: 25000
+} as const;
+
+/**
+ * Human-related constants
+ */
+export const HUMAN_CONSTANTS = {
+    SPEED: 1.5,
+    SCALE: 2.0,
+    WANDER_RADIUS: 60,
+    WANDER_INTERVAL: 2000,
+    RESCUE_RADIUS: 18,
+    INITIAL_RESCUE_BONUS: 1000,
+    MAX_RESCUE_BONUS: 5000,
+    RESCUE_BONUS_INCREMENT: 1000,
+    RESCUE_BONUS_DECAY_DURATION: 300,
+    SIZE: 8,
+    COLLISION_RADIUS: 6
+} as const;
+
+/**
+ * Input constants
+ */
+export const INPUT_CONSTANTS = {
+    GAMEPAD_DEADZONE: 0.2,
+    GAMEPAD_BUTTONS: {
+        A: 0,
+        B: 1,
+        X: 2,
+        Y: 3,
+        LEFT_BUMPER: 4,
+        RIGHT_BUMPER: 5,
+        LEFT_TRIGGER: 6,
+        RIGHT_TRIGGER: 7,
+        SELECT: 8,
+        START: 9,
+        LEFT_STICK: 10,
+        RIGHT_STICK: 11,
+        DPAD_UP: 12,
+        DPAD_DOWN: 13,
+        DPAD_LEFT: 14,
+        DPAD_RIGHT: 15
+    }
+} as const;
+
+/**
+ * Export all constant categories for easy access
+ */
+export const Constants = {
+    GAME_DIMENSIONS,
+    PLAYER_CONSTANTS,
+    PROJECTILE_CONSTANTS,
+    ENEMY_SPEEDS,
+    POINT_VALUES,
+    HUMAN_CONSTANTS,
+    INPUT_CONSTANTS,
+    
+    // Legacy compatibility properties
+    GAME_WIDTH: GAME_DIMENSIONS.WIDTH,
+    GAME_HEIGHT: GAME_DIMENSIONS.HEIGHT,
+    PLAYER_SPEED: PLAYER_CONSTANTS.SPEED
+} as const;
+
+/**
+ * Legacy compatibility - re-export as GameConfig for existing code
+ */
+export const GameConfig = {
+    // Game dimensions
+    GAME_WIDTH: GAME_DIMENSIONS.WIDTH,
+    GAME_HEIGHT: GAME_DIMENSIONS.HEIGHT,
+    
+    // Player constants
+    PLAYER_SPEED: PLAYER_CONSTANTS.SPEED,
+    INITIAL_LIVES: PLAYER_CONSTANTS.INITIAL_LIVES,
+    RESPAWN_INVULNERABILITY_TIME: PLAYER_CONSTANTS.RESPAWN_INVULNERABILITY_TIME,
+    PLAYER_SHOOT_RATE: PLAYER_CONSTANTS.SHOOT_RATE,
+    MAX_PLAYER_PROJECTILES: PLAYER_CONSTANTS.MAX_PROJECTILES,
+    
+    // Projectile speeds
+    PROJECTILE_SPEED: PROJECTILE_CONSTANTS.PLAYER_SPEED,
+    ENFORCER_PROJECTILE_SPEED: PROJECTILE_CONSTANTS.ENFORCER_SPEED,
+    BRAIN_PROJECTILE_SPEED: PROJECTILE_CONSTANTS.BRAIN_SPEED,
+    TANK_SHELL_SPEED: PROJECTILE_CONSTANTS.TANK_SHELL_SPEED,
+    TANK_SHELL_BOUNCES: PROJECTILE_CONSTANTS.TANK_SHELL_BOUNCES,
+    
+    // Enemy speeds
+    GRUNT_SPEED: ENEMY_SPEEDS.GRUNT,
+    GRUNT_ACCELERATION: ENEMY_SPEEDS.GRUNT_ACCELERATION,
+    GRUNT_MAX_SPEED: ENEMY_SPEEDS.GRUNT_MAX_SPEED,
+    GRUNT_TURN_RATE: ENEMY_SPEEDS.GRUNT_TURN_RATE,
+    HULK_SPEED: ENEMY_SPEEDS.HULK,
+    HULK_CHARGE_SPEED: ENEMY_SPEEDS.HULK_CHARGE_SPEED,
+    ENFORCER_SPEED: ENEMY_SPEEDS.ENFORCER,
+    BRAIN_SPEED: ENEMY_SPEEDS.BRAIN,
+    TANK_SPEED: ENEMY_SPEEDS.TANK,
+    SPHEROID_SPEED: ENEMY_SPEEDS.SPHEROID,
+    QUARK_SPEED: ENEMY_SPEEDS.QUARK,
+    SUB_QUARK_SPEED: ENEMY_SPEEDS.SUB_QUARK,
+    PROG_SPEED: ENEMY_SPEEDS.PROG,
+    
+    // Human constants
+    HUMAN_SPEED: HUMAN_CONSTANTS.SPEED,
+    HUMAN_SCALE: HUMAN_CONSTANTS.SCALE,
+    HUMAN_WANDER_RADIUS: HUMAN_CONSTANTS.WANDER_RADIUS,
+    HUMAN_WANDER_INTERVAL: HUMAN_CONSTANTS.WANDER_INTERVAL,
+    HUMAN_RESCUE_RADIUS: HUMAN_CONSTANTS.RESCUE_RADIUS,
+    INITIAL_HUMAN_RESCUE_BONUS: HUMAN_CONSTANTS.INITIAL_RESCUE_BONUS,
+    MAX_HUMAN_RESCUE_BONUS: HUMAN_CONSTANTS.MAX_RESCUE_BONUS,
+    HUMAN_RESCUE_BONUS_INCREMENT: HUMAN_CONSTANTS.RESCUE_BONUS_INCREMENT,
+    HUMAN_RESCUE_BONUS_DECAY_DURATION: HUMAN_CONSTANTS.RESCUE_BONUS_DECAY_DURATION,
+    
+    // Input
+    GAMEPAD_DEADZONE: INPUT_CONSTANTS.GAMEPAD_DEADZONE,
+    GAMEPAD_START_BUTTON_INDEX: INPUT_CONSTANTS.GAMEPAD_BUTTONS.START,
+    GAMEPAD_SELECT_BUTTON_INDEX: INPUT_CONSTANTS.GAMEPAD_BUTTONS.SELECT,
+    GAMEPAD_A_BUTTON_INDEX: INPUT_CONSTANTS.GAMEPAD_BUTTONS.A,
+    
+    // Scoring
+    EXTRA_LIFE_SCORE_INTERVAL: POINT_VALUES.EXTRA_LIFE_INTERVAL,
+    
+    // Points
+    POINTS: POINT_VALUES
+} as const;

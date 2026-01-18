@@ -1,0 +1,35 @@
+{
+  "name": "robotron",
+  "version": "1.0.0",
+  "description": "A web-based remake of the classic arcade game Robotron 2084",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shatch/robotron.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/shatch/robotron/issues"
+  },
+  "homepage": "https://github.com/shatch/robotron#readme",
+  "devDependencies": {
+    "@types/howler": "^2.2.12",
+    "@types/node": "^24.0.10",
+    "@types/pixi.js": "^4.8.9",
+    "typescript": "^5.8.3",
+    "vite": "^7.0.0"
+  },
+  "dependencies": {
+    "howler": "^2.2.4",
+    "pixi.js": "^8.11.0"
+  }
+}
