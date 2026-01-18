@@ -251,7 +251,6 @@ export function showGameOverScreen() {
 
 export function resizeGame() {
     if (!GameConfig || !app || !app.renderer || !app.stage) {
-        // console.warn("UI.resizeGame: Missing dependencies (GameConfig or app). Game may not resize correctly.");
         // Do not resize if essential components are missing, especially during initial load.
         return;
     }
@@ -259,63 +258,80 @@ export function resizeGame() {
     const screenWidth = window.innerWidth;
     const screenHeight = window.innerHeight;
     const gameWrapper = document.getElementById('game-wrapper');
+    const gameContainer = document.getElementById('game-container');
 
-    const baseUiHeight = uiContainerEl ? uiContainerEl.offsetHeight : 30;
+    // Reserve space for UI at the bottom
+    const UI_HEIGHT = 40; // Space for score/lives display
+    const PADDING = 20; // Padding around the game
 
-    const scaleX = screenWidth / GameConfig.GAME_WIDTH;
-    const availableHeightForCanvas = Math.max(1, screenHeight - baseUiHeight - 20);
-    const scaleY = availableHeightForCanvas / GameConfig.GAME_HEIGHT;
+    // Calculate available space for the game canvas
+    const availableWidth = screenWidth - (PADDING * 2);
+    const availableHeight = screenHeight - UI_HEIGHT - (PADDING * 2);
 
+    // Calculate scale to fit while maintaining aspect ratio
+    const scaleX = availableWidth / GameConfig.GAME_WIDTH;
+    const scaleY = availableHeight / GameConfig.GAME_HEIGHT;
+
+    // Use the smaller scale to ensure the game fits in both dimensions
     let scale = Math.min(scaleX, scaleY);
-    scale = Math.max(0.5, scale);
 
-    const newCanvasWidth = GameConfig.GAME_WIDTH * scale;
-    const newCanvasHeight = GameConfig.GAME_HEIGHT * scale;
+    // Ensure minimum scale for visibility
+    scale = Math.max(1.0, scale);
 
-    app.renderer.resize(newCanvasWidth, newCanvasHeight);
+    // For crisp pixels, optionally use integer scaling (can be disabled for smoother scaling)
+    // Uncomment the line below for strict integer scaling (2x, 3x, 4x, etc.)
+    // scale = Math.floor(scale);
+
+    // Calculate final canvas dimensions
+    const canvasWidth = Math.round(GameConfig.GAME_WIDTH * scale);
+    const canvasHeight = Math.round(GameConfig.GAME_HEIGHT * scale);
+
+    // Resize the renderer and set the stage scale
+    app.renderer.resize(canvasWidth, canvasHeight);
     app.stage.scale.set(scale);
 
-    const gameContainer = document.getElementById('game-container');
+    // Update container dimensions
     if (gameContainer) {
-        gameContainer.style.width = newCanvasWidth + 'px';
-        gameContainer.style.height = newCanvasHeight + 'px';
+        gameContainer.style.width = canvasWidth + 'px';
+        gameContainer.style.height = canvasHeight + 'px';
     }
 
+    // Update UI container width to match canvas
     if (uiContainerEl) {
-        uiContainerEl.style.width = newCanvasWidth + 'px';
-        let uiFontSize = 10;
-        if (scale < 1.2) uiFontSize = 8;
-        else if (scale < 2) uiFontSize = 10;
-        else if (scale < 3) uiFontSize = 12;
-        else uiFontSize = 14;
+        uiContainerEl.style.width = canvasWidth + 'px';
+
+        // Scale UI font size based on canvas scale
+        let uiFontSize = Math.max(8, Math.min(16, Math.floor(10 * (scale / 2))));
         uiContainerEl.style.fontSize = uiFontSize + 'px';
     }
 
+    // Update message box font size
     if (messageBoxEl) {
-        let newMsgFontSize;
-        if (scale < 1.2) newMsgFontSize = 10;
-        else if (scale < 1.8) newMsgFontSize = 12;
-        else if (scale < 2.5) newMsgFontSize = 14;
-        else if (scale < 3.5) newMsgFontSize = 16;
-        else newMsgFontSize = 18;
+        let msgFontSize = Math.max(10, Math.min(20, Math.floor(12 * (scale / 2))));
+        messageBoxEl.style.fontSize = msgFontSize + 'px';
 
-        messageBoxEl.style.fontSize = newMsgFontSize + 'px';
-        if (messageTitleEl) messageTitleEl.style.fontSize = Math.floor(newMsgFontSize * 1.2) + 'px';
+        if (messageTitleEl) {
+            messageTitleEl.style.fontSize = Math.floor(msgFontSize * 1.2) + 'px';
+        }
 
         if (playAgainButtonEl) {
-            playAgainButtonEl.style.fontSize = Math.floor(newMsgFontSize * 0.8) + 'px';
-            const paddingAmount = Math.floor(Math.max(4, 10 * Math.min(1, scale * 0.6)));
-            const marginAmount = Math.floor(Math.max(6, 15 * Math.min(1, scale * 0.6)));
+            playAgainButtonEl.style.fontSize = Math.floor(msgFontSize * 0.8) + 'px';
+            const paddingAmount = Math.max(8, Math.floor(10 * (scale / 2)));
+            const marginAmount = Math.max(10, Math.floor(15 * (scale / 2)));
             playAgainButtonEl.style.padding = `${paddingAmount}px ${marginAmount}px`;
-            playAgainButtonEl.style.marginTop = `${Math.floor(Math.max(5, 10 * Math.min(1, scale*0.6)))}px`;
+            playAgainButtonEl.style.marginTop = `${Math.max(10, Math.floor(10 * (scale / 2)))}px`;
         }
     }
+
+    // Center the game wrapper
     if (gameWrapper) {
         gameWrapper.style.position = 'absolute';
         gameWrapper.style.left = '50%';
         gameWrapper.style.top = '50%';
         gameWrapper.style.transform = 'translate(-50%, -50%)';
     }
+
+    console.log(`Game scaled to ${canvasWidth}x${canvasHeight} (${scale.toFixed(2)}x scale)`);
 }
 
 export const UI = {

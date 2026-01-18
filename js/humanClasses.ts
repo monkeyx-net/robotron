@@ -19,6 +19,11 @@ export class Human extends GameObject {
         super(sprite, 'human');
         this.sprite.x = x;
         this.sprite.y = y;
+        // IMPORTANT: Update position tracking after setting sprite position
+        this.position.x = x;
+        this.position.y = y;
+        this.previousPosition.x = x;
+        this.previousPosition.y = y;
         this.humanType = humanType;
         this.isEvil = false;
         this.isRescued = false;
@@ -49,6 +54,11 @@ export class Prog extends GameObject {
         super(sprite, 'prog');
         this.sprite.x = x;
         this.sprite.y = y;
+        // IMPORTANT: Update position tracking after setting sprite position
+        this.position.x = x;
+        this.position.y = y;
+        this.previousPosition.x = x;
+        this.previousPosition.y = y;
         this.health = 1;
         this.points = points;
         this.flashTimer = 0;
