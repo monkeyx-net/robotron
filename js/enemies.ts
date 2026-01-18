@@ -237,9 +237,19 @@ export function updateEnemies(delta: number): void {
 
             grunt.update(delta);
 
-            // Boundary checks simplified
-            if (grunt.sprite.x < 6 || grunt.sprite.x > GameConfig.GAME_WIDTH - 6) { grunt.sprite.x = Math.max(6, Math.min(GameConfig.GAME_WIDTH - 6, grunt.sprite.x)); grunt.dx *= -0.5; grunt.lastAngle += Math.PI + (Math.random()-0.5)*0.2; }
-            if (grunt.sprite.y < 6 || grunt.sprite.y > GameConfig.GAME_HEIGHT - 6) { grunt.sprite.y = Math.max(6, Math.min(GameConfig.GAME_HEIGHT - 6, grunt.sprite.y)); grunt.dy *= -0.5; grunt.lastAngle += Math.PI + (Math.random()-0.5)*0.2; }
+            // Boundary checks using logical position
+            if (grunt.position.x < 6 || grunt.position.x > GameConfig.GAME_WIDTH - 6) { 
+                grunt.position.x = Math.max(6, Math.min(GameConfig.GAME_WIDTH - 6, grunt.position.x)); 
+                grunt.sprite.x = grunt.position.x; // Update sprite to match logical position
+                grunt.dx *= -0.5; 
+                grunt.lastAngle += Math.PI + (Math.random()-0.5)*0.2; 
+            }
+            if (grunt.position.y < 6 || grunt.position.y > GameConfig.GAME_HEIGHT - 6) { 
+                grunt.position.y = Math.max(6, Math.min(GameConfig.GAME_HEIGHT - 6, grunt.position.y)); 
+                grunt.sprite.y = grunt.position.y; // Update sprite to match logical position
+                grunt.dy *= -0.5; 
+                grunt.lastAngle += Math.PI + (Math.random()-0.5)*0.2; 
+            }
 
         } else if (enemy.type === 'hulk') {
             const hulk = enemy as Hulk;
@@ -275,8 +285,12 @@ export function updateEnemies(delta: number): void {
                         !isNaN(targetX) && !isNaN(targetY) && !isNaN(hulkX) && !isNaN(hulkY)) {
                         
                         const angle = Math.atan2(targetY - hulkY, targetX - hulkX);
-                        hulk.sprite.x += Math.cos(angle) * (GameConfig.HULK_CHARGE_SPEED || 1.2) * delta;
-                        hulk.sprite.y += Math.sin(angle) * (GameConfig.HULK_CHARGE_SPEED || 1.2) * delta;
+                        // Update logical position first
+                        hulk.position.x += Math.cos(angle) * (GameConfig.HULK_CHARGE_SPEED || 1.2) * delta;
+                        hulk.position.y += Math.sin(angle) * (GameConfig.HULK_CHARGE_SPEED || 1.2) * delta;
+                        // Update sprite to match logical position
+                        hulk.sprite.x = hulk.position.x;
+                        hulk.sprite.y = hulk.position.y;
                         const distToTarget = Math.hypot(hulkX - targetX, hulkY - targetY);
                         if (distToTarget < 10 || hulk.wanderTimer <= 0) {
                             hulk.isCharging = false; hulk.chargeTarget = null;
@@ -308,17 +322,62 @@ export function updateEnemies(delta: number): void {
                     }
                 }
                 hulk.update(delta);
-                if (hulk.sprite.x < 8 || hulk.sprite.x > GameConfig.GAME_WIDTH - 8) {hulk.dx *= -1; hulk.sprite.x = Math.max(8, Math.min(GameConfig.GAME_WIDTH - 8, hulk.sprite.x));}
-                if (hulk.sprite.y < 10 || hulk.sprite.y > GameConfig.GAME_HEIGHT - 10) {hulk.dy *= -1; hulk.sprite.y = Math.max(10, Math.min(GameConfig.GAME_HEIGHT - 10, hulk.sprite.y));}
+                // Boundary checks using logical position
+                if (hulk.position.x < 8 || hulk.position.x > GameConfig.GAME_WIDTH - 8) {
+                    hulk.dx *= -1; 
+                    hulk.position.x = Math.max(8, Math.min(GameConfig.GAME_WIDTH - 8, hulk.position.x));
+                    hulk.sprite.x = hulk.position.x;
+                }
+                if (hulk.position.y < 10 || hulk.position.y > GameConfig.GAME_HEIGHT - 10) {
+                    hulk.dy *= -1; 
+                    hulk.position.y = Math.max(10, Math.min(GameConfig.GAME_HEIGHT - 10, hulk.position.y));
+                    hulk.sprite.y = hulk.position.y;
+                }
             }
         } else if (enemy.type === 'spheroid') {
             const spheroid = enemy as Spheroid;
-            spheroid.update(delta);
-            if (spheroid.sprite.x < 6 || spheroid.sprite.x > GameConfig.GAME_WIDTH - 6) {spheroid.dx *= -1; spheroid.sprite.x = Math.max(6, Math.min(GameConfig.GAME_WIDTH - 6, spheroid.sprite.x));}
-            if (spheroid.sprite.y < 6 || spheroid.sprite.y > GameConfig.GAME_HEIGHT - 6) {spheroid.dy *= -1; spheroid.sprite.y = Math.max(6, Math.min(GameConfig.GAME_HEIGHT - 6, spheroid.sprite.y));}
-            spheroid.pulseTimer += spheroid.pulseRate * delta;
-            spheroid.sprite.alpha = 0.75 + Math.sin(spheroid.pulseTimer) * 0.25;
-            if (spheroid.enforcersSpawned < spheroid.maxEnforcersToSpawn) {
+
+            // Spheroid AI: Float randomly, then move toward corners after spawning enforcers
+            if (spheroid.enforcersSpawned >= spheroid.maxEnforcersToSpawn) {
+                // After spawning, move toward nearest corner and continue spawning
+                const corners = [
+                    { x: 20, y: 20 },
+                    { x: GameConfig.GAME_WIDTH - 20, y: 20 },
+                    { x: 20, y: GameConfig.GAME_HEIGHT - 20 },
+                    { x: GameConfig.GAME_WIDTH - 20, y: GameConfig.GAME_HEIGHT - 20 }
+                ];
+
+                // Find nearest corner
+                let nearestCorner = corners[0];
+                let minDist = Infinity;
+                corners.forEach(corner => {
+                    const dist = Math.hypot(corner.x - spheroid.sprite.x, corner.y - spheroid.sprite.y);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        nearestCorner = corner;
+                    }
+                });
+
+                // Move toward corner
+                const angle = Math.atan2(nearestCorner.y - spheroid.sprite.y, nearestCorner.x - spheroid.sprite.x);
+                spheroid.dx = Math.cos(angle) * spheroid.speed * 0.5; // Slower when moving to corner
+                spheroid.dy = Math.sin(angle) * spheroid.speed * 0.5;
+
+                // Continue spawning enforcers from corner
+                spheroid.spawnEnforcerTimer -= delta;
+                if (spheroid.spawnEnforcerTimer <= 0) {
+                    if (createEnforcer) createEnforcer(spheroid.sprite.x, spheroid.sprite.y);
+                    spheroid.spawnEnforcerTimer = GameConfig.SPHEROID_SPAWN_ENFORCER_DELAY || 300;
+                }
+            } else {
+                // Before spawning all enforcers, float randomly
+                if (!spheroid.dx || !spheroid.dy || Math.random() < 0.01) {
+                    const randomAngle = Math.random() * Math.PI * 2;
+                    spheroid.dx = Math.cos(randomAngle) * spheroid.speed;
+                    spheroid.dy = Math.sin(randomAngle) * spheroid.speed;
+                }
+
+                // Spawn enforcers
                 spheroid.spawnEnforcerTimer -= delta;
                 if (spheroid.spawnEnforcerTimer <= 0) {
                     if (createEnforcer) createEnforcer(spheroid.sprite.x, spheroid.sprite.y);
@@ -326,12 +385,34 @@ export function updateEnemies(delta: number): void {
                     spheroid.spawnEnforcerTimer = GameConfig.SPHEROID_SPAWN_ENFORCER_DELAY || 300;
                 }
             }
+
+            spheroid.update(delta);
+
+            // Boundary checks using logical position
+            if (spheroid.position.x < 6 || spheroid.position.x > GameConfig.GAME_WIDTH - 6) {
+                spheroid.dx *= -1;
+                spheroid.position.x = Math.max(6, Math.min(GameConfig.GAME_WIDTH - 6, spheroid.position.x));
+                spheroid.sprite.x = spheroid.position.x;
+            }
+            if (spheroid.position.y < 6 || spheroid.position.y > GameConfig.GAME_HEIGHT - 6) {
+                spheroid.dy *= -1;
+                spheroid.position.y = Math.max(6, Math.min(GameConfig.GAME_HEIGHT - 6, spheroid.position.y));
+                spheroid.sprite.y = spheroid.position.y;
+            }
+
+            // Pulsing animation
+            spheroid.pulseTimer += spheroid.pulseRate * delta;
+            spheroid.sprite.alpha = 0.75 + Math.sin(spheroid.pulseTimer) * 0.25;
         } else if (enemy.type === 'enforcer') {
             const enforcer = enemy as Enforcer;
             if (!currentPlayer || !currentPlayer.sprite || (currentPlayer.sprite as any)._destroyed) continue;
             const angle = Math.atan2(currentPlayer.sprite.y - enforcer.sprite.y, currentPlayer.sprite.x - enforcer.sprite.x);
-            enforcer.sprite.x += Math.cos(angle) * (GameConfig.ENFORCER_SPEED || 0.8) * delta;
-            enforcer.sprite.y += Math.sin(angle) * (GameConfig.ENFORCER_SPEED || 0.8) * delta;
+            // Update logical position first
+            enforcer.position.x += Math.cos(angle) * (GameConfig.ENFORCER_SPEED || 0.8) * delta;
+            enforcer.position.y += Math.sin(angle) * (GameConfig.ENFORCER_SPEED || 0.8) * delta;
+            // Update sprite to match logical position
+            enforcer.sprite.x = enforcer.position.x;
+            enforcer.sprite.y = enforcer.position.y;
             enforcer.shootTimer -= delta;
             if (enforcer.shootTimer <= 0 && currentPlayer.isAlive) {
                 if (Projectiles.createEnforcerProjectile) {
@@ -366,9 +447,15 @@ export function updateEnemies(delta: number): void {
 
                     // Convert RGB to hex manually (PIXI.utils.rgb2hex deprecated in v8)
                     const r = Math.floor(255 * 1);
-                    const g = Math.floor(255 * (1 - (brain.reprogramProgress / (GameConfig.BRAIN_REPROGRAM_DURATION || 120))));
+                    const progressRatio = Math.max(0, Math.min(1, brain.reprogramProgress / (GameConfig.BRAIN_REPROGRAM_DURATION || 120)));
+                    const g = Math.floor(255 * (1 - progressRatio));
                     const b = Math.floor(255 * 0);
-                    brain.reprogramTarget.sprite.tint = (r << 16) | (g << 8) | b;
+                    const tintValue = (r << 16) | (g << 8) | b;
+                    
+                    // Ensure tint value is valid (non-negative)
+                    if (tintValue >= 0 && brain.reprogramTarget && brain.reprogramTarget.sprite) {
+                        brain.reprogramTarget.sprite.tint = tintValue;
+                    }
 
                     if (brain.reprogramTimer <= 0) {
                         if (Humans.convertToProg) Humans.convertToProg(brain.reprogramTarget);
@@ -390,8 +477,12 @@ export function updateEnemies(delta: number): void {
             }
 
             const angleToTarget = Math.atan2(targetY - brain.sprite.y, targetX - brain.sprite.x);
-            brain.sprite.x += Math.cos(angleToTarget) * (GameConfig.BRAIN_SPEED || 0.6) * delta;
-            brain.sprite.y += Math.sin(angleToTarget) * (GameConfig.BRAIN_SPEED || 0.6) * delta;
+            // Update logical position first
+            brain.position.x += Math.cos(angleToTarget) * (GameConfig.BRAIN_SPEED || 0.6) * delta;
+            brain.position.y += Math.sin(angleToTarget) * (GameConfig.BRAIN_SPEED || 0.6) * delta;
+            // Update sprite to match logical position
+            brain.sprite.x = brain.position.x;
+            brain.sprite.y = brain.position.y;
 
             brain.shootTimer -= delta;
             if (brain.shootTimer <= 0 && currentPlayer && currentPlayer.isAlive && currentPlayer.sprite && !(currentPlayer.sprite as any)._destroyed) {
@@ -404,8 +495,12 @@ export function updateEnemies(delta: number): void {
             const tank = enemy as Tank;
             if (!currentPlayer || !currentPlayer.sprite || (currentPlayer.sprite as any)._destroyed) continue;
             const angle = Math.atan2(currentPlayer.sprite.y - tank.sprite.y, currentPlayer.sprite.x - tank.sprite.x);
-            tank.sprite.x += Math.cos(angle) * (GameConfig.TANK_SPEED || 0.4) * delta;
-            tank.sprite.y += Math.sin(angle) * (GameConfig.TANK_SPEED || 0.4) * delta;
+            // Update logical position first
+            tank.position.x += Math.cos(angle) * (GameConfig.TANK_SPEED || 0.4) * delta;
+            tank.position.y += Math.sin(angle) * (GameConfig.TANK_SPEED || 0.4) * delta;
+            // Update sprite to match logical position
+            tank.sprite.x = tank.position.x;
+            tank.sprite.y = tank.position.y;
             tank.shootTimer -= delta;
             if (tank.shootTimer <= 0 && currentPlayer.isAlive) {
                  if (Projectiles.createTankShell) {
@@ -417,15 +512,29 @@ export function updateEnemies(delta: number): void {
             const prog = enemy as ProgEnemy;
              if (!currentPlayer || !currentPlayer.sprite || (currentPlayer.sprite as any)._destroyed) continue;
             const angle = Math.atan2(currentPlayer.sprite.y - prog.sprite.y, currentPlayer.sprite.x - prog.sprite.x);
-            prog.sprite.x += Math.cos(angle) * prog.speed * delta;
-            prog.sprite.y += Math.sin(angle) * prog.speed * delta;
-            prog.sprite.x = Math.max(6, Math.min(GameConfig.GAME_WIDTH - 6, prog.sprite.x));
-            prog.sprite.y = Math.max(6, Math.min(GameConfig.GAME_HEIGHT - 6, prog.sprite.y));
+            // Update logical position first
+            prog.position.x += Math.cos(angle) * prog.speed * delta;
+            prog.position.y += Math.sin(angle) * prog.speed * delta;
+            // Apply boundary constraints to logical position
+            prog.position.x = Math.max(6, Math.min(GameConfig.GAME_WIDTH - 6, prog.position.x));
+            prog.position.y = Math.max(6, Math.min(GameConfig.GAME_HEIGHT - 6, prog.position.y));
+            // Update sprite to match logical position
+            prog.sprite.x = prog.position.x;
+            prog.sprite.y = prog.position.y;
         } else if (enemy.type === 'quark') {
             const quark = enemy as Quark;
             quark.update(delta);
-            if (quark.sprite.x < 4 || quark.sprite.x > GameConfig.GAME_WIDTH - 4) {quark.dx *= -1; quark.sprite.x = Math.max(4, Math.min(GameConfig.GAME_WIDTH - 4, quark.sprite.x));}
-            if (quark.sprite.y < 4 || quark.sprite.y > GameConfig.GAME_HEIGHT - 4) {quark.dy *= -1; quark.sprite.y = Math.max(4, Math.min(GameConfig.GAME_HEIGHT - 4, quark.sprite.y));}
+            // Boundary checks using logical position
+            if (quark.position.x < 4 || quark.position.x > GameConfig.GAME_WIDTH - 4) {
+                quark.dx *= -1; 
+                quark.position.x = Math.max(4, Math.min(GameConfig.GAME_WIDTH - 4, quark.position.x));
+                quark.sprite.x = quark.position.x;
+            }
+            if (quark.position.y < 4 || quark.position.y > GameConfig.GAME_HEIGHT - 4) {
+                quark.dy *= -1; 
+                quark.position.y = Math.max(4, Math.min(GameConfig.GAME_HEIGHT - 4, quark.position.y));
+                quark.sprite.y = quark.position.y;
+            }
             if (quark.subQuarksSpawned < quark.maxSubQuarksToSpawn) {
                 quark.spawnSubQuarkTimer -= delta;
                 if (quark.spawnSubQuarkTimer <= 0) {

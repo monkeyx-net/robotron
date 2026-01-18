@@ -20,22 +20,45 @@ import { GameConfig } from '../../config';
 
 export class PlayingState extends BaseGameState {
     private player: Player | null = null;
-    
+    private isResuming: boolean = false;
+
     constructor() {
         super('PLAYING');
     }
-    
-    public enter(): void {
-        console.log('PlayingState: Entering gameplay');
-        
+
+    public enter(data?: any): void {
+        console.log('PlayingState: Entering gameplay', data);
+
+        // Check if we're resuming from pause
+        this.isResuming = data?.resuming === true;
+
+        if (this.isResuming) {
+            console.log('PlayingState: Resuming from pause - keeping game state intact');
+
+            // Just update the game state flag and hide pause screen
+            gameState.currentGameState = 'PLAYING';
+
+            // Hide message box (pause screen)
+            const messageBox = document.getElementById('message-box');
+            if (messageBox) {
+                messageBox.style.display = 'none';
+            }
+
+            // Don't reinitialize - just resume
+            return;
+        }
+
+        // Normal entry (not resuming from pause)
+        console.log('PlayingState: Normal entry - initializing gameplay');
+
         // Validate game state before entering
         if (gameState.lives <= 0) {
             console.log('PlayingState: Invalid game state detected (lives <= 0), will reset to new game');
         }
-        
+
         // Update game state
         gameState.currentGameState = 'PLAYING';
-        
+
         // Hide attract mode screens
         if (UI.hideTitleScreen) {
             UI.hideTitleScreen();
@@ -44,24 +67,24 @@ export class PlayingState extends BaseGameState {
             UI.hideHighScoreDisplayScreen();
         }
         this.hideDemoPlayScreen();
-        
+
         // Hide message box
         const messageBox = document.getElementById('message-box');
         if (messageBox) {
             messageBox.style.display = 'none';
         }
-        
+
         // Initialize game for playing
         this.initializeGameplay();
-        
+
         // Resize game
         if (UI.resizeGame) {
             UI.resizeGame();
         }
-        
+
         // Emit state-specific event
         this.emitStateEvent('entered');
-        
+
         // Emit game started event
         gameEvents.emit({
             type: 'game:started',
@@ -74,18 +97,30 @@ export class PlayingState extends BaseGameState {
             }
         });
     }
-    
-    public exit(): void {
-        console.log('PlayingState: Exiting gameplay');
-        
+
+    public exit(data?: any): void {
+        console.log('PlayingState: Exiting gameplay', data);
+
+        // Check if we're pausing (not actually exiting)
+        const isPausing = data?.pausing === true;
+
+        if (isPausing) {
+            console.log('PlayingState: Pausing - keeping game state intact');
+            // Don't clear anything - just pause
+            return;
+        }
+
+        // Normal exit (game over, quit, etc.) - clear everything
+        console.log('PlayingState: Normal exit - clearing entities');
+
         // Clear all entities including the player
         clearEntities();
-        
+
         // Clean up player reference
         if (this.player) {
             this.player = null;
         }
-        
+
         // Set global player reference to null
         import('../../main').then(({ setPlayer }) => {
             if (setPlayer) {
@@ -94,7 +129,7 @@ export class PlayingState extends BaseGameState {
         }).catch(error => {
             console.warn('PlayingState: Could not clear global player:', error);
         });
-        
+
         // Emit state-specific event
         this.emitStateEvent('exited');
     }
@@ -195,15 +230,18 @@ export class PlayingState extends BaseGameState {
         // Handle pause input
         if (inputEvent.type === 'input:pause' && inputEvent.data.pressed) {
             console.log('PlayingState: Pause input received');
-            this.requestTransition('PAUSED');
+            this.requestTransition('PAUSED', { pausing: true });
         }
-        
-        // Handle escape key for pause
-        if (inputEvent.type === 'keydown' && inputEvent.data.key === 'Escape') {
-            console.log('PlayingState: Escape key pressed for pause');
-            this.requestTransition('PAUSED');
+
+        // Handle escape key or P key for pause
+        if (inputEvent.type === 'keydown') {
+            const key = inputEvent.data.key;
+            if (key === 'Escape' || key === 'p' || key === 'P') {
+                console.log('PlayingState: Pause key pressed:', key);
+                this.requestTransition('PAUSED', { pausing: true });
+            }
         }
-        
+
         // Player input is handled directly by the player object
         // through the unified input manager
     }
