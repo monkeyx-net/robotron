@@ -1,13 +1,23 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  root: './',
-  publicDir: 'public',
+  base: '/robotron/',
   build: {
     outDir: 'dist',
-    emptyOutDir: true,
+    assetsDir: 'assets',
+    sourcemap: false,
+    minify: 'terser',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'pixi': ['pixi.js'],
+          'howler': ['howler']
+        }
+      }
+    }
   },
   server: {
-    host: true,
-  },
+    port: 5173,
+    open: true
+  }
 });

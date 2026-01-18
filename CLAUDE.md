@@ -178,6 +178,37 @@ gameEvents.subscribe('player:hit', (data) => {
 
 See `GEMINI.md`, `PHASE3_COMPLETION.md`, and `.kiro/specs/robotron-refactoring/` for detailed refactoring plans.
 
+## Release History & Versions
+
+### Release 2.0 (Current) - January 2026
+**Status**: Production - Complete Phase 3 Refactoring
+
+Complete architectural overhaul with modern design patterns:
+
+- **State Pattern**: GameStateManager with clean state transitions (Title, Playing, Paused, GameOver)
+- **Progressive Difficulty**: 5 difficulty levels + adaptive AI that responds to player performance
+- **Unified Input**: Single InputManager supporting keyboard, gamepad, and touch with input buffering
+- **Bug Fixes**: Game scaling, sprite flickering, enemy spawning, pause/resume, Spheroid AI
+- **Testing**: 43 automated tests (88% pass rate), browser-verified with Playwright
+- **Performance**: Optimized rendering, spatial partitioning collision detection
+- **Quality**: Comprehensive error handling, debug interfaces, save/load system
+
+**Git Tags**: `v2.0` on main branch
+**Demo**: https://shatch.github.io/robotron/
+
+### Release 1.0 - Original Implementation
+**Status**: Legacy - Preserved for reference
+
+Original working version before refactoring:
+
+- All classic enemy types and gameplay mechanics
+- Basic state management with string-based states
+- Simple input handling
+- Working attract mode and demo play
+- Sound effects and visual feedback
+
+**Git Tags**: `v1.0` at commit `ff6da40`
+
 ## Common Patterns
 
 ### Using the Unified Input System
@@ -266,3 +297,78 @@ The `.kiro/settings/mcp.json` configuration enables:
 - **Playwright**: Browser automation for testing game mechanics, performance monitoring
 
 Use these for library documentation lookups and automated testing when implementing new features.
+
+## GitHub Pages Deployment
+
+### Automatic Deployment
+The project is configured for GitHub Pages deployment:
+
+```bash
+# Build and deploy to gh-pages branch
+npm run deploy
+```
+
+### Manual Deployment Setup
+1. Build the project: `npm run build`
+2. Deploy dist/ folder to gh-pages branch
+3. Configure repository settings:
+   - Settings → Pages → Source: gh-pages branch
+   - Base path configured in `vite.config.ts`
+
+### Live Demo
+- **Production**: https://shatch.github.io/robotron/
+- **Repository**: https://github.com/shatch/robotron
+
+## Release Process
+
+### Creating a New Release
+
+1. **Update Version**:
+   ```bash
+   # Update package.json version
+   npm version [major|minor|patch]
+   ```
+
+2. **Update Documentation**:
+   - Update README.md with release notes
+   - Update CLAUDE.md with new version info
+   - Update PHASE*_COMPLETION.md if applicable
+
+3. **Commit Changes**:
+   ```bash
+   git add .
+   git commit -m "chore: Release vX.Y.Z"
+   ```
+
+4. **Create Tag**:
+   ```bash
+   git tag -a vX.Y.Z -m "Release X.Y.Z - Description"
+   ```
+
+5. **Push to GitHub**:
+   ```bash
+   git push origin main
+   git push origin --tags
+   ```
+
+6. **Deploy to GitHub Pages**:
+   ```bash
+   npm run deploy
+   ```
+
+7. **Create GitHub Release**:
+   - Go to repository → Releases → New Release
+   - Select the tag
+   - Copy release notes from README.md
+   - Attach build artifacts if needed
+
+### Versioning Strategy
+
+- **Major (X.0.0)**: Complete refactoring, breaking API changes
+- **Minor (x.Y.0)**: New features, non-breaking changes
+- **Patch (x.y.Z)**: Bug fixes, small improvements
+
+Examples:
+- v1.0 → v2.0: Phase 3 refactoring (major architectural changes)
+- v2.0 → v2.1: Phase 4 performance optimizations (new features)
+- v2.1 → v2.1.1: Bug fixes (patches)
