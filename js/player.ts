@@ -286,8 +286,9 @@ export class Player extends GameObject {
         this.sprite.x += Math.sign(this.dx) * delta;
         this.sprite.y += Math.sign(this.dy) * delta;
 
-        this.sprite.x = Math.max(5, Math.min(GameConfig.GAME_WIDTH - 5, this.sprite.x));
-        this.sprite.y = Math.max(5, Math.min(GameConfig.GAME_HEIGHT - 5, this.sprite.y));
+        const pf = GameConfig.PLAYFIELD;
+        this.sprite.x = Math.max(pf.LEFT, Math.min(pf.RIGHT, this.sprite.x));
+        this.sprite.y = Math.max(pf.TOP, Math.min(pf.BOTTOM, this.sprite.y));
 
         if (gameState.playerInvulnerableTime > 0) {
             const invulnerablePhase = (gameState.playerInvulnerableTime / 1000) * Math.PI * 2 * 2;

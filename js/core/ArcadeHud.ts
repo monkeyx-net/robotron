@@ -24,12 +24,12 @@ export const ArcadeHud = {
         container.zIndex = 1100;
         container.visible = false;  // shown by updateUI when a game is running
         scoreText = new PIXI.Container();
-        scoreText.y = 8;
+        scoreText.y = 4;   // above the arena border
         waveText = new PIXI.Container();
-        waveText.y = GameConfig.GAME_HEIGHT - 9;
+        waveText.y = GameConfig.GAME_HEIGHT - 7;  // below the arena border
         livesRow = new PIXI.Container();
-        livesRow.x = 70;
-        livesRow.y = 4;
+        livesRow.x = 72;
+        livesRow.y = 1;
         container.addChild(scoreText, waveText, livesRow);
         stage.addChild(container);
     },

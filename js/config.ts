@@ -2,6 +2,9 @@ export const GameConfig = {
     // Gameplay and Physics Constants
     GAME_WIDTH: 292,
     GAME_HEIGHT: 240,
+    // Arena rectangle (arcade: the border is inset — the score row sits
+    // ABOVE it and the WAVE label BELOW it, outside the playfield)
+    PLAYFIELD: { LEFT: 7, TOP: 17, RIGHT: 285, BOTTOM: 229 },
     PLAYER_SPEED: 2,
     PROJECTILE_SPEED: 4,
     ENFORCER_PROJECTILE_SPEED: 2.5,

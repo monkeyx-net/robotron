@@ -20,10 +20,14 @@ const textureCache = new Map<string, PIXI.Texture>();
 export const ArcadeAtlas = {
     async load(): Promise<void> {
         if (meta) return;
-        const sheet = await PIXI.Assets.load('sprites/atlas.png');
+        // Fetch metadata first (never from cache), then load the sheet keyed
+        // by the metadata's build version — a cached atlas.png from an older
+        // build paired with fresh JSON puts every frame rect on the wrong
+        // sprite (electrodes wearing grunt frames, etc.).
+        meta = await (await fetch('sprites/atlas.json', { cache: 'no-store' })).json();
+        const sheet = await PIXI.Assets.load(`sprites/atlas.png?v=${(meta as any).version ?? 0}`);
         sheet.source.scaleMode = 'nearest';
         baseTexture = sheet.source;
-        meta = await (await fetch('sprites/atlas.json')).json();
     },
 
     isLoaded(): boolean { return meta !== null; },

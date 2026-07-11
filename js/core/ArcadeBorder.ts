@@ -22,14 +22,16 @@ let gfx: PIXI.Graphics | null = null;
 
 function draw(color: number): void {
     if (!gfx) return;
-    const w = GameConfig.GAME_WIDTH;
-    const h = GameConfig.GAME_HEIGHT;
+    // Inset arena rectangle: the border encloses the playfield only —
+    // score row above it, WAVE label below it (matches the cabinet).
+    const pf = GameConfig.PLAYFIELD;
+    const x0 = pf.LEFT - 3, y0 = pf.TOP - 3;
+    const x1 = pf.RIGHT + 3, y1 = pf.BOTTOM + 3;
     gfx.clear();
-    // two nested 1px rectangles = 2px arcade border
-    gfx.rect(0, 0, w, 2).fill(color);
-    gfx.rect(0, h - 2, w, 2).fill(color);
-    gfx.rect(0, 0, 2, h).fill(color);
-    gfx.rect(w - 2, 0, 2, h).fill(color);
+    gfx.rect(x0, y0, x1 - x0, 2).fill(color);
+    gfx.rect(x0, y1 - 2, x1 - x0, 2).fill(color);
+    gfx.rect(x0, y0, 2, y1 - y0).fill(color);
+    gfx.rect(x1 - 2, y0, 2, y1 - y0).fill(color);
 }
 
 export const ArcadeBorder = {

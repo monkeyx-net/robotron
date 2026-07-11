@@ -24,9 +24,11 @@ const fonts = new Map<string, LoadedFont>();
 
 async function loadFont(name: 'font_main' | 'font_alt'): Promise<void> {
     if (fonts.has(name)) return;
-    const sheet = await PIXI.Assets.load(`sprites/${name}.png`);
+    // metadata first (no-store), sheet keyed by its version — keeps the
+    // PNG/JSON pair consistent across browser caches (see ArcadeAtlas)
+    const meta = await (await fetch(`sprites/${name}.json`, { cache: 'no-store' })).json();
+    const sheet = await PIXI.Assets.load(`sprites/${name}.png?v=${(meta as any).version ?? 0}`);
     sheet.source.scaleMode = 'nearest';
-    const meta = await (await fetch(`sprites/${name}.json`)).json();
     fonts.set(name, { source: sheet.source, meta, cache: new Map() });
 }
 

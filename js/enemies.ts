@@ -273,8 +273,9 @@ export function updateEnemies(delta: number): void {
                 const STEP = 2;
                 if (g.axis === 'x') grunt.position.x += Math.sign(dxs) * STEP;
                 else grunt.position.y += Math.sign(dys) * STEP;
-                grunt.position.x = Math.max(6, Math.min(GameConfig.GAME_WIDTH - 6, grunt.position.x));
-                grunt.position.y = Math.max(6, Math.min(GameConfig.GAME_HEIGHT - 6, grunt.position.y));
+                const pf = GameConfig.PLAYFIELD;
+                grunt.position.x = Math.max(pf.LEFT, Math.min(pf.RIGHT, grunt.position.x));
+                grunt.position.y = Math.max(pf.TOP, Math.min(pf.BOTTOM, grunt.position.y));
                 grunt.sprite.x = grunt.position.x;
                 grunt.sprite.y = grunt.position.y;
             }
@@ -319,14 +320,15 @@ export function updateEnemies(delta: number): void {
                 const STEP = 2;
                 let nx = hulk.position.x + hulk.dirX * STEP;
                 let ny = hulk.position.y + hulk.dirY * STEP;
-                if (nx < 10 || nx > GameConfig.GAME_WIDTH - 10 || ny < 12 || ny > GameConfig.GAME_HEIGHT - 12) {
+                const pfh = GameConfig.PLAYFIELD;
+                if (nx < pfh.LEFT + 4 || nx > pfh.RIGHT - 4 || ny < pfh.TOP + 4 || ny > pfh.BOTTOM - 4) {
                     // wall: pick a fresh random direction (hulk_rehome_random)
                     const d = prng.bounded(4);
                     hulk.dirX = d === 0 ? 1 : d === 1 ? -1 : 0;
                     hulk.dirY = d === 2 ? 1 : d === 3 ? -1 : 0;
                     hulk.turnTimer = prng.range(8, 40);
-                    nx = Math.max(10, Math.min(GameConfig.GAME_WIDTH - 10, hulk.position.x));
-                    ny = Math.max(12, Math.min(GameConfig.GAME_HEIGHT - 12, hulk.position.y));
+                    nx = Math.max(pfh.LEFT + 4, Math.min(pfh.RIGHT - 4, hulk.position.x));
+                    ny = Math.max(pfh.TOP + 4, Math.min(pfh.BOTTOM - 4, hulk.position.y));
                 }
                 hulk.position.x = nx; hulk.position.y = ny;
                 hulk.sprite.x = nx; hulk.sprite.y = ny;
@@ -386,14 +388,14 @@ export function updateEnemies(delta: number): void {
             spheroid.update(delta);
 
             // Boundary checks using logical position
-            if (spheroid.position.x < 6 || spheroid.position.x > GameConfig.GAME_WIDTH - 6) {
+            if (spheroid.position.x < GameConfig.PLAYFIELD.LEFT || spheroid.position.x > GameConfig.PLAYFIELD.RIGHT) {
                 spheroid.dx *= -1;
-                spheroid.position.x = Math.max(6, Math.min(GameConfig.GAME_WIDTH - 6, spheroid.position.x));
+                spheroid.position.x = Math.max(GameConfig.PLAYFIELD.LEFT, Math.min(GameConfig.PLAYFIELD.RIGHT, spheroid.position.x));
                 spheroid.sprite.x = spheroid.position.x;
             }
-            if (spheroid.position.y < 6 || spheroid.position.y > GameConfig.GAME_HEIGHT - 6) {
+            if (spheroid.position.y < GameConfig.PLAYFIELD.TOP || spheroid.position.y > GameConfig.PLAYFIELD.BOTTOM) {
                 spheroid.dy *= -1;
-                spheroid.position.y = Math.max(6, Math.min(GameConfig.GAME_HEIGHT - 6, spheroid.position.y));
+                spheroid.position.y = Math.max(GameConfig.PLAYFIELD.TOP, Math.min(GameConfig.PLAYFIELD.BOTTOM, spheroid.position.y));
                 spheroid.sprite.y = spheroid.position.y;
             }
 
@@ -422,8 +424,8 @@ export function updateEnemies(delta: number): void {
                 enforcer.dy = (jy / mag) * spd;
             }
             enforcer.update(delta);
-            enforcer.position.x = Math.max(6, Math.min(GameConfig.GAME_WIDTH - 6, enforcer.position.x));
-            enforcer.position.y = Math.max(6, Math.min(GameConfig.GAME_HEIGHT - 6, enforcer.position.y));
+            enforcer.position.x = Math.max(GameConfig.PLAYFIELD.LEFT, Math.min(GameConfig.PLAYFIELD.RIGHT, enforcer.position.x));
+            enforcer.position.y = Math.max(GameConfig.PLAYFIELD.TOP, Math.min(GameConfig.PLAYFIELD.BOTTOM, enforcer.position.y));
             enforcer.sprite.x = enforcer.position.x;
             enforcer.sprite.y = enforcer.position.y;
             enforcer.shootTimer -= delta;
@@ -509,8 +511,8 @@ export function updateEnemies(delta: number): void {
             prog.position.x += Math.cos(angle) * prog.speed * delta;
             prog.position.y += Math.sin(angle) * prog.speed * delta;
             // Apply boundary constraints to logical position
-            prog.position.x = Math.max(6, Math.min(GameConfig.GAME_WIDTH - 6, prog.position.x));
-            prog.position.y = Math.max(6, Math.min(GameConfig.GAME_HEIGHT - 6, prog.position.y));
+            prog.position.x = Math.max(GameConfig.PLAYFIELD.LEFT, Math.min(GameConfig.PLAYFIELD.RIGHT, prog.position.x));
+            prog.position.y = Math.max(GameConfig.PLAYFIELD.TOP, Math.min(GameConfig.PLAYFIELD.BOTTOM, prog.position.y));
             // Update sprite to match logical position
             prog.sprite.x = prog.position.x;
             prog.sprite.y = prog.position.y;
@@ -518,14 +520,14 @@ export function updateEnemies(delta: number): void {
             const quark = enemy as Quark;
             quark.update(delta);
             // Boundary checks using logical position
-            if (quark.position.x < 4 || quark.position.x > GameConfig.GAME_WIDTH - 4) {
+            if (quark.position.x < GameConfig.PLAYFIELD.LEFT || quark.position.x > GameConfig.PLAYFIELD.RIGHT) {
                 quark.dx *= -1; 
-                quark.position.x = Math.max(4, Math.min(GameConfig.GAME_WIDTH - 4, quark.position.x));
+                quark.position.x = Math.max(GameConfig.PLAYFIELD.LEFT, Math.min(GameConfig.PLAYFIELD.RIGHT, quark.position.x));
                 quark.sprite.x = quark.position.x;
             }
-            if (quark.position.y < 4 || quark.position.y > GameConfig.GAME_HEIGHT - 4) {
+            if (quark.position.y < GameConfig.PLAYFIELD.TOP || quark.position.y > GameConfig.PLAYFIELD.BOTTOM) {
                 quark.dy *= -1; 
-                quark.position.y = Math.max(4, Math.min(GameConfig.GAME_HEIGHT - 4, quark.position.y));
+                quark.position.y = Math.max(GameConfig.PLAYFIELD.TOP, Math.min(GameConfig.PLAYFIELD.BOTTOM, quark.position.y));
                 quark.sprite.y = quark.position.y;
             }
             // Arcade behavior: quarks manufacture TANKS (not "sub-quarks"),

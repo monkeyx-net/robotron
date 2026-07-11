@@ -286,12 +286,15 @@ export function startNextWave() {
         const colors = [0xFF0000, 0xFFFF00, 0x00FFFF, 0xFF00FF, 0x00FF00];
         if (Obstacles && Obstacles.createElectrode) Obstacles.createElectrode(elX, elY, elSize, elSize, colors[i % colors.length]);
     }
-    for(let i=0;i<numGrunts;i++){ if (Enemies && Enemies.createGrunt) Enemies.createGrunt(Math.random()*GameConfig.GAME_WIDTH, Math.random()*GameConfig.GAME_HEIGHT);}
-    for(let i=0;i<numHulks;i++){ if (Enemies && Enemies.createHulk) Enemies.createHulk(Math.random()*GameConfig.GAME_WIDTH,Math.random()*GameConfig.GAME_HEIGHT);}
-    for(let i=0;i<numSpheroids;i++){ if (Enemies && Enemies.createSpheroid) Enemies.createSpheroid(Math.random()*GameConfig.GAME_WIDTH,Math.random()*GameConfig.GAME_HEIGHT);}
-    for(let i=0;i<numBrains;i++){ if (Enemies && Enemies.createBrain) Enemies.createBrain(Math.random()*GameConfig.GAME_WIDTH,Math.random()*GameConfig.GAME_HEIGHT);}
-    for(let i=0;i<numTanks;i++){ if (Enemies && Enemies.createTank) Enemies.createTank(Math.random()*GameConfig.GAME_WIDTH,Math.random()*GameConfig.GAME_HEIGHT);}
-    for(let i=0;i<numQuarks;i++){ if (Enemies && Enemies.createQuark) Enemies.createQuark(Math.random()*GameConfig.GAME_WIDTH,Math.random()*GameConfig.GAME_HEIGHT);}
+    const pf = GameConfig.PLAYFIELD;
+    const spawnX = () => pf.LEFT + 6 + prng.float() * (pf.RIGHT - pf.LEFT - 12);
+    const spawnY = () => pf.TOP + 6 + prng.float() * (pf.BOTTOM - pf.TOP - 12);
+    for(let i=0;i<numGrunts;i++){ if (Enemies && Enemies.createGrunt) Enemies.createGrunt(spawnX(), spawnY());}
+    for(let i=0;i<numHulks;i++){ if (Enemies && Enemies.createHulk) Enemies.createHulk(spawnX(), spawnY());}
+    for(let i=0;i<numSpheroids;i++){ if (Enemies && Enemies.createSpheroid) Enemies.createSpheroid(spawnX(), spawnY());}
+    for(let i=0;i<numBrains;i++){ if (Enemies && Enemies.createBrain) Enemies.createBrain(spawnX(), spawnY());}
+    for(let i=0;i<numTanks;i++){ if (Enemies && Enemies.createTank) Enemies.createTank(spawnX(), spawnY());}
+    for(let i=0;i<numQuarks;i++){ if (Enemies && Enemies.createQuark) Enemies.createQuark(spawnX(), spawnY());}
 
     console.log(`[GameLogic.startNextWave] About to spawn ${numHumansToSpawn} humans`);
     for (let i = 0; i < Math.max(1, numHumansToSpawn) ; i++) {

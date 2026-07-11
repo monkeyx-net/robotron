@@ -10,10 +10,19 @@ export function createElectrode(x: number, y: number, width: number, height: num
         console.warn("Obstacles.createElectrode: Missing PIXI, obstaclesContainer, or obstacles array.");
         return null;
     }
-    // Per-wave electrode style from the ROM atlas (10 captured variants)
+    // Per-wave electrode style from the ROM atlas (10 captured variants).
+    // Their pixels use color-cycled palette entries (baked near-white), so
+    // apply the per-wave color as a tint — wave 1 is orange, wave 2 magenta
+    // etc., matching MAME reference frames.
+    const WAVE_TINTS = [0xFF8822, 0xFF44FF, 0x44FFFF, 0xFFFF44, 0x44FF44, 0xFF4444, 0xFFFFFF, 0x8888FF];
     const variant = ArcadeAtlas.texture(`electrode_${(Math.max(1, gameState.wave) - 1) % 10}`);
     const electrodeSprite: PIXI.Sprite | PIXI.Graphics = variant
-        ? (() => { const s = new PIXI.Sprite(variant); s.anchor.set(0.5); return s; })()
+        ? (() => {
+            const s = new PIXI.Sprite(variant);
+            s.anchor.set(0.5);
+            s.tint = WAVE_TINTS[(Math.max(1, gameState.wave) - 1) % WAVE_TINTS.length];
+            return s;
+        })()
         : new PIXI.Graphics();
     const electrode = new Electrode(electrodeSprite, x, y, width, height, color);
     obstaclesContainer.addChild(electrode.sprite);
