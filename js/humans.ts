@@ -4,6 +4,7 @@ import { app, humansContainer, effectsContainer, player, humanTexture, obstacles
 import { humansAndProgs } from './main';
 import { SoundManager } from './soundManager';
 import { Human, Prog } from './humanClasses';
+import { ArcadeAtlas } from './core/ArcadeAtlas';
 
 // Simple collision detection function for humans vs obstacles
 function checkObstacleCollision(x: number, y: number, radius: number = 12): boolean {
@@ -101,31 +102,27 @@ export function createHuman(x: number, y: number, humanType: string | null = nul
         const typeInfo = (HUMAN_TYPES as any)[humanType] || HUMAN_TYPES.MAN;
         console.log('[Humans.createHuman] Human type selected:', typeInfo.name, 'color:', typeInfo.color.toString(16));
 
-        let texture;
-
-        // Try to use the loaded human texture first, fall back to generated texture if needed
-        if (humanTexture) {
-            texture = humanTexture;
-            console.log('[Humans.createHuman] Using loaded human texture:', {
-                width: texture.width,
-                height: texture.height
-            });
+        // ROM-extracted per-type walk animations: MAN = daddy, WOMAN = mommy,
+        // CHILD = mikey (each 12 frames = 3-frame walk x 4 directions).
+        const family = humanType === 'MAN' ? 'daddy' : humanType === 'CHILD' ? 'mikey' : 'mommy';
+        const atlasWalk = ArcadeAtlas.frames(family);
+        let humanSprite: PIXI.Sprite;
+        if (atlasWalk.length) {
+            const anim = new PIXI.AnimatedSprite(atlasWalk.slice(0, 3));
+            anim.animationSpeed = 0.08;
+            anim.play();
+            humanSprite = anim;
+        } else if (humanTexture) {
+            humanSprite = new PIXI.Sprite(humanTexture);
         } else {
-            console.log('[Humans.createHuman] Human texture not available, generating fallback texture');
             const graphics = new PIXI.Graphics();
             graphics.beginFill(typeInfo.color);
             graphics.drawRect(0, 0, 16, 16);
             graphics.endFill();
-            texture = app.renderer.generateTexture(graphics);
+            const texture = app.renderer.generateTexture(graphics);
             graphics.destroy();
-            console.log('[Humans.createHuman] Fallback texture generated:', {
-                width: texture.width,
-                height: texture.height,
-                valid: texture.valid
-            });
+            humanSprite = new PIXI.Sprite(texture);
         }
-
-        const humanSprite = new PIXI.Sprite(texture);
         humanSprite.anchor.set(0.5); // Center the sprite
         humanSprite.x = x;
         humanSprite.y = y;

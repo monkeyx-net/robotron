@@ -65,7 +65,7 @@ export function createGrunt(x: number, y: number): Grunt | null {
     if (!PIXI || !gruntTexture || !enemiesContainer || !enemies || !GameConfig) {
         console.warn("Enemies.createGrunt: Missing dependencies."); return null;
     }
-    const gruntSprite = atlasAnim('grunt', 0.12, 10) ?? (() => {
+    const gruntSprite = atlasAnim('grunt', 0.1, 3) ?? (() => {
         const s = new PIXI.Sprite(gruntTexture);
         s.anchor.set(0.5);
         return s;
@@ -113,12 +113,15 @@ export function createEnforcer(x: number, y: number): Enforcer | null {
     if (!PIXI || !enemiesContainer || !enemies || !GameConfig) {
         console.warn("Enemies.createEnforcer: Missing dependencies."); return null;
     }
-    const enforcerSprite = new PIXI.Graphics();
-    enforcerSprite.beginFill(0x0000FF);
-    enforcerSprite.moveTo(0, -6); enforcerSprite.lineTo(4, 0);
-    enforcerSprite.lineTo(0, 6); enforcerSprite.lineTo(-4, 0);
-    enforcerSprite.closePath(); enforcerSprite.endFill();
-    
+    const enforcerSprite = atlasAnim('enforcer', 0.1) ?? (() => {
+        const g = new PIXI.Graphics();
+        g.beginFill(0x0000FF);
+        g.moveTo(0, -6); g.lineTo(4, 0);
+        g.lineTo(0, 6); g.lineTo(-4, 0);
+        g.closePath(); g.endFill();
+        return g;
+    })();
+
     const enforcer = new Enforcer(enforcerSprite, x, y, GameConfig.ENFORCER_SPEED || 0.8, GameConfig.POINTS.ENFORCER, GameConfig.ENFORCER_SHOOT_DELAY || 120);
     enemiesContainer.addChild(enforcer.sprite);
     enemies.push(enforcer);
@@ -166,7 +169,9 @@ export function createProg(x: number, y: number): ProgEnemy | null {
     if (!PIXI || !enemiesContainer || !enemies || !GameConfig) {
         console.warn("Enemies.createProg: Missing dependencies."); return null;
     }
-    const progSprite = atlasAnim('mutant', 0.15) ?? (() => {
+    // Progs are reprogrammed humans — mikey frames with the arcade's
+    // red mutant tint (no dedicated prog frames were captured).
+    const progSprite = atlasAnim('mikey', 0.15) ?? (() => {
         const g = new PIXI.Graphics();
         g.lineStyle(1, 0x4B0082);
         g.beginFill(0x8A2BE2);
@@ -175,6 +180,7 @@ export function createProg(x: number, y: number): ProgEnemy | null {
         return g;
     })();
 
+    progSprite.tint = 0xFF6666;
     const prog = new ProgEnemy(progSprite, x, y, GameConfig.PROG_SPEED || 1.3, GameConfig.POINTS.PROG);
     enemiesContainer.addChild(prog.sprite);
     enemies.push(prog);

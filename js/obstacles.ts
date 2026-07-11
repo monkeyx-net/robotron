@@ -10,8 +10,8 @@ export function createElectrode(x: number, y: number, width: number, height: num
         console.warn("Obstacles.createElectrode: Missing PIXI, obstaclesContainer, or obstacles array.");
         return null;
     }
-    // Per-wave electrode style from the ROM atlas (5 captured variants)
-    const variant = ArcadeAtlas.texture(`electrode_${(Math.max(1, gameState.wave) - 1) % 5}`);
+    // Per-wave electrode style from the ROM atlas (10 captured variants)
+    const variant = ArcadeAtlas.texture(`electrode_${(Math.max(1, gameState.wave) - 1) % 10}`);
     const electrodeSprite: PIXI.Sprite | PIXI.Graphics = variant
         ? (() => { const s = new PIXI.Sprite(variant); s.anchor.set(0.5); return s; })()
         : new PIXI.Graphics();
@@ -42,14 +42,8 @@ export function updateObstacles(delta: number): void {
             const baseFlash = Math.sin(flashPhase);
             const rapidFlash = Math.sin(flashPhase * 3) * 0.3;
 
+            // alpha flicker only — the ROM sprites carry their own colors
             electrode.sprite.alpha = 0.7 + (baseFlash + rapidFlash) * 0.3;
-
-            const colorPhase = (1 + Math.sin(flashPhase * 0.5)) * 0.5;
-            // Convert RGB to hex manually (PIXI.utils.rgb2hex deprecated in v8)
-            const r = Math.floor(255 * 1);
-            const g = Math.floor(255 * 1);
-            const b = Math.floor(255 * (0.6 + colorPhase * 0.4));
-            electrode.sprite.tint = (r << 16) | (g << 8) | b;
         }
     }
 }
