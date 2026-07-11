@@ -813,7 +813,18 @@ function setupGameEngine() {
     }, 3000); // Wait 3 seconds for systems to stabilize
 }
 
-initializeGame();
+// Boot exactly once per page: Vite HMR re-executions of this module (or a
+// second import with a different query string) must not start a duplicate
+// game instance — that manifests as a second canvas/mini-HUD.
+if (!(window as any).__robotronBooted) {
+    (window as any).__robotronBooted = true;
+    initializeGame().then(() => {
+        // debug/test handle (used by Playwright verification)
+        (window as any).__game = { app, gameState, get enemies() { return enemies; }, get obstacles() { return obstacles; }, get humansAndProgs() { return humansAndProgs; }, get player() { return player; } };
+    });
+} else {
+    console.warn('Robotron already booted; skipping duplicate module initialization.');
+}
 
 // --- Player Object ---
 export let player: Player | null = null; // Will hold the player object instance

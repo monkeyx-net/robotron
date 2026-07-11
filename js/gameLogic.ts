@@ -486,6 +486,48 @@ export function checkCollisions() {
             }
         }
 
+        // Grunt vs Electrode — arcade: electrodes kill grunts and are
+        // consumed in the process (100 pts, same as shooting the grunt).
+        for (let oi = obstacles.length - 1; oi >= 0; oi--) {
+            const ob = obstacles[oi];
+            if (!ob || ob.type !== 'electrode' || !ob.sprite || (ob.sprite as any)._destroyed) continue;
+            for (let ei = enemies.length - 1; ei >= 0; ei--) {
+                const en = enemies[ei];
+                if (!en || en.type !== 'grunt' || !en.sprite || (en.sprite as any)._destroyed) continue;
+                if (isColliding(ob.sprite, en.sprite, 5)) {
+                    Effects.createExplosion(en.sprite.x, en.sprite.y, 0xFF0000);
+                    SoundManager.play('gruntPop');
+                    (en.sprite as any).destroy();
+                    enemies.splice(ei, 1);
+                    (ob.sprite as any).destroy();
+                    obstacles.splice(oi, 1);
+                    if (gameState.currentGameState === 'PLAYING') {
+                        gameState.score += GameConfig.POINTS.GRUNT;
+                        if (UI.updateScoreDisplay) UI.updateScoreDisplay();
+                        checkForExtraLife();
+                    }
+                    break;
+                }
+            }
+        }
+
+        // Player bullet vs Electrode — one shot destroys it (no points).
+        for (let pi = playerProjectiles.length - 1; pi >= 0; pi--) {
+            const pb = playerProjectiles[pi];
+            if (!pb || !pb.sprite || (pb.sprite as any)._destroyed) continue;
+            for (let oi = obstacles.length - 1; oi >= 0; oi--) {
+                const ob = obstacles[oi];
+                if (!ob || ob.type !== 'electrode' || !ob.sprite || (ob.sprite as any)._destroyed) continue;
+                if (isColliding(pb.sprite, ob.sprite, 5)) {
+                    (pb.sprite as any).destroy();
+                    playerProjectiles.splice(pi, 1);
+                    (ob.sprite as any).destroy();
+                    obstacles.splice(oi, 1);
+                    break;
+                }
+            }
+        }
+
         // Player vs Human (Rescue) - TEMPORARILY DISABLED FOR DEBUGGING
         for (let i = humansAndProgs.length - 1; i >= 0; i--) {
             const humanEntity = humansAndProgs[i];

@@ -1,6 +1,7 @@
 import * as PIXI from 'pixi.js';
 import { GameConfig } from './config';
 import { playerContainer, playerTexture, player } from './main';
+import { ArcadeAtlas } from './core/ArcadeAtlas';
 // Removed old InputManager - using unified input manager instead
 import { inputManager, InputAction } from './core/InputManager';
 import { gameState } from './gameState';
@@ -280,8 +281,10 @@ export class Player extends GameObject {
         }
         if (gameState.currentGameState !== 'PLAYING') return;
 
-        this.sprite.x += this.dx * (GameConfig.PLAYER_SPEED || 2) * delta;
-        this.sprite.y += this.dy * (GameConfig.PLAYER_SPEED || 2) * delta;
+        // Arcade movement (REVERSE.md Ph9): fixed 1px-per-frame steps in
+        // 8 directions — no acceleration, no analog speed.
+        this.sprite.x += Math.sign(this.dx) * delta;
+        this.sprite.y += Math.sign(this.dy) * delta;
 
         this.sprite.x = Math.max(5, Math.min(GameConfig.GAME_WIDTH - 5, this.sprite.x));
         this.sprite.y = Math.max(5, Math.min(GameConfig.GAME_HEIGHT - 5, this.sprite.y));
@@ -327,7 +330,18 @@ export function createPlayer(): Player {
         player.destroy(); // Use the destroy method from GameObject
     }
 
-    const playerSprite = new PIXI.Sprite(playerTexture);
+    // ROM-extracted player frames (walk/fire-direction poses); falls back
+    // to the legacy player.png when the atlas is unavailable.
+    const atlasFrames = ArcadeAtlas.frames('player');
+    let playerSprite: PIXI.Sprite;
+    if (atlasFrames.length) {
+        const anim = new PIXI.AnimatedSprite(atlasFrames.slice(0, 4));
+        anim.animationSpeed = 0.15;
+        anim.play();
+        playerSprite = anim;
+    } else {
+        playerSprite = new PIXI.Sprite(playerTexture);
+    }
     playerSprite.anchor.set(0.5);
     playerSprite.x = GameConfig.GAME_WIDTH / 2;
     playerSprite.y = GameConfig.GAME_HEIGHT / 2;

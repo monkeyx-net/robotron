@@ -16,13 +16,17 @@ export class Obstacle extends GameObject {
 }
 
 export class Electrode extends Obstacle {
-    constructor(sprite: PIXI.Graphics, x: number, y: number, width: number, height: number, color: number) {
-        super(sprite, 'electrode', true);
+    constructor(sprite: PIXI.Sprite | PIXI.Graphics, x: number, y: number, width: number, height: number, color: number) {
+        super(sprite as PIXI.Graphics, 'electrode', true);
         this.sprite.x = x;
         this.sprite.y = y;
-        this.sprite.beginFill(color);
-        this.sprite.drawRect(-width/2, -height/2, width, height);
-        this.sprite.endFill();
+        this.position.x = x;
+        this.position.y = y;
+        if (sprite instanceof PIXI.Graphics) {
+            sprite.beginFill(color);
+            sprite.drawRect(-width/2, -height/2, width, height);
+            sprite.endFill();
+        }
     }
 
     update(delta: number): void {

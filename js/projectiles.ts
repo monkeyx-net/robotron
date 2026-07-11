@@ -127,6 +127,24 @@ export function updateEnemyProjectiles(delta: number): void {
             enemyProjectiles.splice(i, 1);
             continue;
         }
+        // Brain CRUISE missile: homes on the player with a sinusoidal
+        // wiggle perpendicular to its heading (arcade behavior).
+        if (p.type === 'brain_shot') {
+            const cm = p as any;
+            if (cm.wigglePhase === undefined) cm.wigglePhase = 0;
+            cm.wigglePhase += 0.35 * delta;
+            const spd = GameConfig.BRAIN_PROJECTILE_SPEED || 2;
+            const heading = Math.atan2(p.dy, p.dx);
+            const wiggle = Math.sin(cm.wigglePhase) * spd * 0.9;
+            p.sprite.x += Math.cos(heading) * spd * delta + Math.cos(heading + Math.PI / 2) * wiggle * delta;
+            p.sprite.y += Math.sin(heading) * spd * delta + Math.sin(heading + Math.PI / 2) * wiggle * delta;
+            if (p.sprite.x < -10 || p.sprite.x > GameConfig.GAME_WIDTH + 10 || p.sprite.y < -10 || p.sprite.y > GameConfig.GAME_HEIGHT + 10) {
+                p.destroy();
+                enemyProjectiles.splice(i, 1);
+            }
+            continue;
+        }
+
         p.update(delta);
 
         if (p.type === 'tank_shell') {

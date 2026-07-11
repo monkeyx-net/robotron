@@ -3,13 +3,18 @@ import { GameConfig } from './config';
 import { obstaclesContainer, obstacles } from './main';
 import { gameState } from './gameState';
 import { Obstacle, Electrode } from './obstacleClasses';
+import { ArcadeAtlas } from './core/ArcadeAtlas';
 
 export function createElectrode(x: number, y: number, width: number, height: number, color: number = 0xFFFF00): Electrode | null {
     if (!PIXI || !obstaclesContainer || !obstacles) {
         console.warn("Obstacles.createElectrode: Missing PIXI, obstaclesContainer, or obstacles array.");
         return null;
     }
-    const electrodeSprite = new PIXI.Graphics();
+    // Per-wave electrode style from the ROM atlas (5 captured variants)
+    const variant = ArcadeAtlas.texture(`electrode_${(Math.max(1, gameState.wave) - 1) % 5}`);
+    const electrodeSprite: PIXI.Sprite | PIXI.Graphics = variant
+        ? (() => { const s = new PIXI.Sprite(variant); s.anchor.set(0.5); return s; })()
+        : new PIXI.Graphics();
     const electrode = new Electrode(electrodeSprite, x, y, width, height, color);
     obstaclesContainer.addChild(electrode.sprite);
     obstacles.push(electrode);

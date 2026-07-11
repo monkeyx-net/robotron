@@ -7,6 +7,7 @@ import { Humans } from './humans';
 import { Grunt, Hulk, Spheroid, Enforcer, Brain, Tank, ProgEnemy, Quark } from './enemiesClasses';
 import { Human, Prog } from './humanClasses';
 import { ArcadeAtlas } from './core/ArcadeAtlas';
+import { prng } from './core/Prng';
 
 /**
  * Animated sprite from a ROM-extracted atlas family; null when the atlas
@@ -236,126 +237,92 @@ export function updateEnemies(delta: number): void {
                 grunt.update(delta);
                 continue;
             }
-            const targetAngle = Math.atan2(currentPlayer.sprite.y - grunt.sprite.y, currentPlayer.sprite.x - grunt.sprite.x);
-            let angleDiff = targetAngle - grunt.lastAngle;
-            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-            grunt.lastAngle += (GameConfig.GRUNT_TURN_RATE || 0.08) * angleDiff;
-
-            const idealDx = Math.cos(grunt.lastAngle) * grunt.speed;
-            const idealDy = Math.sin(grunt.lastAngle) * grunt.speed;
-
-            grunt.dx += (idealDx - grunt.dx) * (GameConfig.GRUNT_ACCELERATION || 0.03);
-            grunt.dy += (idealDy - grunt.dy) * (GameConfig.GRUNT_ACCELERATION || 0.03);
-
-            const distToPlayer = Math.hypot(currentPlayer.sprite.x - grunt.sprite.x, currentPlayer.sprite.y - grunt.sprite.y);
-            const speedMultiplier = Math.max(0.5, Math.min(1, 1 - (distToPlayer / 200)));
-            const currentMaxSpeed = (GameConfig.GRUNT_SPEED || 0.6) + ((GameConfig.GRUNT_MAX_SPEED || 1.0) - (GameConfig.GRUNT_SPEED || 0.6)) * speedMultiplier;
-
-            const currentSpeed = Math.hypot(grunt.dx, grunt.dy);
-            if (currentSpeed > currentMaxSpeed) {
-                grunt.dx = (grunt.dx / currentSpeed) * currentMaxSpeed;
-                grunt.dy = (grunt.dy / currentSpeed) * currentMaxSpeed;
+            // Arcade grunt AI (REVERSE.md Ph12): stepped movement on a 3-frame
+            // timer, one axis at a time (staircase pursuit), homing toward
+            // player position + a per-grunt PRNG scatter offset; the axis is
+            // probabilistically re-homed each tick (X when PRNG > $F8,
+            // Y when PRNG > $E4).
+            const g = grunt as any;
+            if (g.homeOffX === undefined) {
+                g.homeOffX = prng.range(-12, 12);
+                g.homeOffY = prng.range(-12, 12);
+                g.stepTimer = prng.range(0, 2);
+                g.axis = (prng.step() & 0x80) ? 'x' : 'y';
             }
-
-            grunt.update(delta);
-
-            // Boundary checks using logical position
-            if (grunt.position.x < 6 || grunt.position.x > GameConfig.GAME_WIDTH - 6) { 
-                grunt.position.x = Math.max(6, Math.min(GameConfig.GAME_WIDTH - 6, grunt.position.x)); 
-                grunt.sprite.x = grunt.position.x; // Update sprite to match logical position
-                grunt.dx *= -0.5; 
-                grunt.lastAngle += Math.PI + (Math.random()-0.5)*0.2; 
+            g.stepTimer -= delta;
+            if (g.stepTimer <= 0) {
+                g.stepTimer += 3;
+                const targetX = currentPlayer.sprite.x + g.homeOffX;
+                const targetY = currentPlayer.sprite.y + g.homeOffY;
+                // probabilistic re-homing, mirroring PRNG[$84]>$F8 / PRNG[$86]>$E4
+                const r = prng.step();
+                if (r > 0xF8) { g.axis = 'x'; g.homeOffX = prng.range(-12, 12); }
+                else if (r > 0xE4) { g.axis = 'y'; g.homeOffY = prng.range(-12, 12); }
+                const dxs = targetX - grunt.position.x;
+                const dys = targetY - grunt.position.y;
+                // switch axis when aligned on the current one
+                if (g.axis === 'x' && Math.abs(dxs) < 2) g.axis = 'y';
+                else if (g.axis === 'y' && Math.abs(dys) < 2) g.axis = 'x';
+                const STEP = 2;
+                if (g.axis === 'x') grunt.position.x += Math.sign(dxs) * STEP;
+                else grunt.position.y += Math.sign(dys) * STEP;
+                grunt.position.x = Math.max(6, Math.min(GameConfig.GAME_WIDTH - 6, grunt.position.x));
+                grunt.position.y = Math.max(6, Math.min(GameConfig.GAME_HEIGHT - 6, grunt.position.y));
+                grunt.sprite.x = grunt.position.x;
+                grunt.sprite.y = grunt.position.y;
             }
-            if (grunt.position.y < 6 || grunt.position.y > GameConfig.GAME_HEIGHT - 6) { 
-                grunt.position.y = Math.max(6, Math.min(GameConfig.GAME_HEIGHT - 6, grunt.position.y)); 
-                grunt.sprite.y = grunt.position.y; // Update sprite to match logical position
-                grunt.dy *= -0.5; 
-                grunt.lastAngle += Math.PI + (Math.random()-0.5)*0.2; 
-            }
+            grunt.dx = 0; grunt.dy = 0;
 
         } else if (enemy.type === 'hulk') {
-            const hulk = enemy as Hulk;
-            hulk.wanderTimer -= delta;
-            if (hulk.isCharging && hulk.chargeTarget && hulk.chargeTarget.sprite && !(hulk.chargeTarget.sprite as any)._destroyed) {
-                try {
-                    // Safely access sprite properties with additional error handling
-                    let targetX, targetY, hulkX, hulkY;
-                    
-                    try {
-                        targetX = hulk.chargeTarget.sprite.x;
-                        targetY = hulk.chargeTarget.sprite.y;
-                    } catch (error) {
-                        // Target sprite properties are inaccessible, stop charging
-                        hulk.isCharging = false; hulk.chargeTarget = null;
-                        hulk.wanderTimer = Math.random() * 120 + 60;
-                        return;
+            // Arcade hulk AI (REVERSE.md Ph19): slow stepped walk in straight
+            // lines (4 directions), turning on a PRNG timer toward a human
+            // target (or the player when none), fully random on wall hits.
+            // Indestructible; killing humans on contact is handled in
+            // gameLogic collision checks.
+            const hulk = enemy as any;
+            if (hulk.dirX === undefined) {
+                hulk.dirX = prng.chance(0.5) ? (prng.chance(0.5) ? 1 : -1) : 0;
+                hulk.dirY = hulk.dirX === 0 ? (prng.chance(0.5) ? 1 : -1) : 0;
+                hulk.stepTimer = 0;
+                hulk.turnTimer = prng.range(8, 40);
+            }
+            hulk.stepTimer -= delta;
+            if (hulk.stepTimer <= 0) {
+                hulk.stepTimer += 8;   // hulks step every ~8 frames
+                hulk.turnTimer--;
+                if (hulk.turnTimer <= 0) {
+                    hulk.turnTimer = prng.range(8, 40);
+                    // re-home: pick a target (random live human, else player)
+                    let tx: number | null = null, ty: number | null = null;
+                    const humansAlive = humansAndProgs.filter((h: Human | Prog) => h instanceof Human && !(h as any).isRescued && h.sprite && !h._destroyed);
+                    if (humansAlive.length > 0 && prng.step() <= 0xC0) {
+                        const t = humansAlive[prng.bounded(humansAlive.length)];
+                        tx = t.sprite.x; ty = t.sprite.y;
+                    } else if (currentPlayer && currentPlayer.sprite && !(currentPlayer.sprite as any)._destroyed) {
+                        tx = currentPlayer.sprite.x; ty = currentPlayer.sprite.y;
                     }
-                    
-                    try {
-                        hulkX = hulk.sprite.x;
-                        hulkY = hulk.sprite.y;
-                    } catch (error) {
-                        // Hulk sprite properties are inaccessible, stop charging
-                        hulk.isCharging = false; hulk.chargeTarget = null;
-                        hulk.wanderTimer = Math.random() * 120 + 60;
-                        return;
-                    }
-                    
-                    // Check if position properties are valid numbers
-                    if (typeof targetX === 'number' && typeof targetY === 'number' &&
-                        typeof hulkX === 'number' && typeof hulkY === 'number' &&
-                        !isNaN(targetX) && !isNaN(targetY) && !isNaN(hulkX) && !isNaN(hulkY)) {
-                        
-                        const angle = Math.atan2(targetY - hulkY, targetX - hulkX);
-                        // Update logical position first
-                        hulk.position.x += Math.cos(angle) * (GameConfig.HULK_CHARGE_SPEED || 1.2) * delta;
-                        hulk.position.y += Math.sin(angle) * (GameConfig.HULK_CHARGE_SPEED || 1.2) * delta;
-                        // Update sprite to match logical position
-                        hulk.sprite.x = hulk.position.x;
-                        hulk.sprite.y = hulk.position.y;
-                        const distToTarget = Math.hypot(hulkX - targetX, hulkY - targetY);
-                        if (distToTarget < 10 || hulk.wanderTimer <= 0) {
-                            hulk.isCharging = false; hulk.chargeTarget = null;
-                            hulk.wanderTimer = Math.random() * 120 + 60;
-                        }
-                    } else {
-                        // Invalid sprite properties, stop charging
-                        hulk.isCharging = false; hulk.chargeTarget = null;
-                        hulk.wanderTimer = Math.random() * 120 + 60;
-                    }
-                } catch (error) {
-                    // Error accessing sprite properties, stop charging
-                    console.warn('Hulk charge target error:', error);
-                    hulk.isCharging = false; hulk.chargeTarget = null;
-                    hulk.wanderTimer = Math.random() * 120 + 60;
-                }
-            } else {
-                hulk.isCharging = false;
-                if (hulk.wanderTimer <= 0) {
-                    const targetableHumans = humansAndProgs.filter((h: Human | Prog) => h instanceof Human && !h.isRescued && h.sprite && !h._destroyed);
-                    if (targetableHumans.length > 0 && Math.random() < 0.3) {
-                        hulk.isCharging = true;
-                        hulk.chargeTarget = targetableHumans[Math.floor(Math.random() * targetableHumans.length)];
-                        hulk.wanderTimer = Math.random() * 60 + 30;
-                    } else {
-                        hulk.dx = (Math.random() - 0.5) * (GameConfig.HULK_SPEED || 0.3) * 2;
-                        hulk.dy = (Math.random() - 0.5) * (GameConfig.HULK_SPEED || 0.3) * 2;
-                        hulk.wanderTimer = Math.random() * 120 + 60;
+                    if (tx !== null && ty !== null) {
+                        const jx = tx + prng.range(-16, 15) - hulk.position.x;
+                        const jy = ty + prng.range(-16, 15) - hulk.position.y;
+                        // walk along one axis at a time, like the direction tables
+                        if (Math.abs(jx) > Math.abs(jy)) { hulk.dirX = Math.sign(jx); hulk.dirY = 0; }
+                        else { hulk.dirX = 0; hulk.dirY = Math.sign(jy); }
                     }
                 }
-                hulk.update(delta);
-                // Boundary checks using logical position
-                if (hulk.position.x < 8 || hulk.position.x > GameConfig.GAME_WIDTH - 8) {
-                    hulk.dx *= -1; 
-                    hulk.position.x = Math.max(8, Math.min(GameConfig.GAME_WIDTH - 8, hulk.position.x));
-                    hulk.sprite.x = hulk.position.x;
+                const STEP = 2;
+                let nx = hulk.position.x + hulk.dirX * STEP;
+                let ny = hulk.position.y + hulk.dirY * STEP;
+                if (nx < 10 || nx > GameConfig.GAME_WIDTH - 10 || ny < 12 || ny > GameConfig.GAME_HEIGHT - 12) {
+                    // wall: pick a fresh random direction (hulk_rehome_random)
+                    const d = prng.bounded(4);
+                    hulk.dirX = d === 0 ? 1 : d === 1 ? -1 : 0;
+                    hulk.dirY = d === 2 ? 1 : d === 3 ? -1 : 0;
+                    hulk.turnTimer = prng.range(8, 40);
+                    nx = Math.max(10, Math.min(GameConfig.GAME_WIDTH - 10, hulk.position.x));
+                    ny = Math.max(12, Math.min(GameConfig.GAME_HEIGHT - 12, hulk.position.y));
                 }
-                if (hulk.position.y < 10 || hulk.position.y > GameConfig.GAME_HEIGHT - 10) {
-                    hulk.dy *= -1; 
-                    hulk.position.y = Math.max(10, Math.min(GameConfig.GAME_HEIGHT - 10, hulk.position.y));
-                    hulk.sprite.y = hulk.position.y;
-                }
+                hulk.position.x = nx; hulk.position.y = ny;
+                hulk.sprite.x = nx; hulk.sprite.y = ny;
             }
         } else if (enemy.type === 'spheroid') {
             const spheroid = enemy as Spheroid;
@@ -427,19 +394,34 @@ export function updateEnemies(delta: number): void {
             spheroid.pulseTimer += spheroid.pulseRate * delta;
             spheroid.sprite.alpha = 0.75 + Math.sin(spheroid.pulseTimer) * 0.25;
         } else if (enemy.type === 'enforcer') {
-            const enforcer = enemy as Enforcer;
+            // Arcade enforcer (REVERSE.md Ph16 enforcer_aim): velocity is
+            // re-aimed on a PRNG timer toward player position + PRNG jitter,
+            // giving the characteristic drifting float instead of a beeline.
+            const enforcer = enemy as any;
             if (!currentPlayer || !currentPlayer.sprite || (currentPlayer.sprite as any)._destroyed) continue;
-            const angle = Math.atan2(currentPlayer.sprite.y - enforcer.sprite.y, currentPlayer.sprite.x - enforcer.sprite.x);
-            // Update logical position first
-            enforcer.position.x += Math.cos(angle) * (GameConfig.ENFORCER_SPEED || 0.8) * delta;
-            enforcer.position.y += Math.sin(angle) * (GameConfig.ENFORCER_SPEED || 0.8) * delta;
-            // Update sprite to match logical position
+            if (enforcer.aimTimer === undefined) enforcer.aimTimer = 0;
+            enforcer.aimTimer -= delta;
+            if (enforcer.aimTimer <= 0) {
+                enforcer.aimTimer = prng.range(20, 50);   // jitter timer (obj[14])
+                const jx = currentPlayer.sprite.x + prng.range(-16, 15) - enforcer.position.x;
+                const jy = currentPlayer.sprite.y + prng.range(-16, 15) - enforcer.position.y;
+                const mag = Math.hypot(jx, jy) || 1;
+                const spd = GameConfig.ENFORCER_SPEED || 0.8;
+                enforcer.dx = (jx / mag) * spd;
+                enforcer.dy = (jy / mag) * spd;
+            }
+            enforcer.update(delta);
+            enforcer.position.x = Math.max(6, Math.min(GameConfig.GAME_WIDTH - 6, enforcer.position.x));
+            enforcer.position.y = Math.max(6, Math.min(GameConfig.GAME_HEIGHT - 6, enforcer.position.y));
             enforcer.sprite.x = enforcer.position.x;
             enforcer.sprite.y = enforcer.position.y;
             enforcer.shootTimer -= delta;
             if (enforcer.shootTimer <= 0 && currentPlayer.isAlive) {
                 if (Projectiles.createEnforcerProjectile) {
-                    Projectiles.createEnforcerProjectile(enforcer.sprite.x, enforcer.sprite.y, currentPlayer.sprite.x, currentPlayer.sprite.y);
+                    // spark: lead-aim with PRNG spread (enforcer_aim >>3 jitter)
+                    const sx = currentPlayer.sprite.x + prng.range(-14, 14);
+                    const sy = currentPlayer.sprite.y + prng.range(-14, 14);
+                    Projectiles.createEnforcerProjectile(enforcer.sprite.x, enforcer.sprite.y, sx, sy);
                 }
                 enforcer.shootTimer = GameConfig.ENFORCER_SHOOT_DELAY || 120;
             }
