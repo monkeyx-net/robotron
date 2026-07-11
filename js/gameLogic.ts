@@ -10,6 +10,7 @@ import { Obstacles } from './obstacles';
 import { gameState } from './gameState';
 import { gameEvents } from './core/EventSystem';
 import { Vector2 } from './utils/Vector2';
+import { ArcadeBorder } from './core/ArcadeBorder';
 
 // --- High Score ---
 export function loadHighScore() {
@@ -212,6 +213,7 @@ export function startNextWave() {
     gameState.wave++;
     console.log(`Starting Wave: ${gameState.wave}`);
     SoundManager.play('waveStart');
+    ArcadeBorder.setWave(gameState.wave);
     gameState.currentHumanRescueBonus = GameConfig.INITIAL_HUMAN_RESCUE_BONUS;
     gameState.humanRescueBonusDecayTimer = 0;
     if (UI && UI.updateBonusDisplay) UI.updateBonusDisplay();

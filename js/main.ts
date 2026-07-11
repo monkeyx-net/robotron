@@ -292,6 +292,18 @@ const initializeGame = async () => {
             console.error('Failed to initialize game due to texture loading failure');
             return;
         }
+
+        // Load ROM-extracted sprite atlas and bitmap fonts (Release 3.0)
+        const { ArcadeAtlas } = await import('./core/ArcadeAtlas');
+        const { BitmapFont } = await import('./core/BitmapFont');
+        await Promise.all([ArcadeAtlas.load(), BitmapFont.load()]);
+        console.log('Arcade atlas + ROM fonts loaded');
+
+        // Arcade playfield border (color-cycles per wave via ArcadeBorder.setWave)
+        const { ArcadeBorder } = await import('./core/ArcadeBorder');
+        ArcadeBorder.init(gameContentContainer);
+        const { ArcadeHud } = await import('./core/ArcadeHud');
+        ArcadeHud.init(gameContentContainer);
         
         // Run integration tests to verify everything works
         const testsPass = testFoundationalSystems();

@@ -14,7 +14,7 @@
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "skipLibCheck": true,
-    "types": ["node", "howler", "pixi.js"]
+    "types": ["node", "howler"]
   },
   "include": ["js/**/*.ts", "js/**/*.js"],
   "exclude": ["node_modules"]

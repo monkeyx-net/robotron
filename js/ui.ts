@@ -3,6 +3,7 @@ import { GameConfig } from './config';
 import { titleScreenContainer, highScoreDisplayContainer, demoPlayContainer, app } from './main';
 import { gameState } from './gameState';
 import { saveHighScore } from './gameLogic';
+import { ArcadeHud } from './core/ArcadeHud';
 import { Attract } from './attractMode';
 import { gameEvents } from './core/EventSystem';
 
@@ -110,8 +111,8 @@ export function showSaveLoadMessage(message: string, type: 'success' | 'error' |
 }
 
 export function updateScoreDisplay() {
-    if (scoreTextEl && typeof gameState !== 'undefined') {
-        scoreTextEl.textContent = `SCORE: ${gameState.score}`;
+    if (typeof gameState !== 'undefined') {
+        ArcadeHud.update(gameState.score, gameState.lives, gameState.wave);
     }
 }
 
@@ -124,14 +125,10 @@ export function updateBonusDisplay() {
 export function updateUI() {
     if (typeof gameState === 'undefined') return;
 
-    if (gameState.currentGameState === 'PLAYING') {
-        if (uiContainerEl) uiContainerEl.style.visibility = 'visible';
-        updateScoreDisplay();
-        if (livesTextEl) livesTextEl.textContent = `LIVES: ${gameState.lives}`;
-        updateBonusDisplay();
-    } else {
-        if (uiContainerEl) uiContainerEl.style.visibility = 'hidden';
-    }
+    const inGame = gameState.currentGameState === 'PLAYING' || gameState.currentGameState === 'DEMO_PLAY';
+    ArcadeHud.setVisible(inGame);
+    if (uiContainerEl) uiContainerEl.style.visibility = 'hidden'; // DOM HUD retired (in-canvas HUD)
+    if (inGame) updateScoreDisplay();
 }
 
 export function setupTitleScreen() {
