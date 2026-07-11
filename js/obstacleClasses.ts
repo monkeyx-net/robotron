@@ -22,11 +22,8 @@ export class Electrode extends Obstacle {
         this.sprite.y = y;
         this.position.x = x;
         this.position.y = y;
-        if (sprite instanceof PIXI.Graphics) {
-            sprite.beginFill(color);
-            sprite.drawRect(-width/2, -height/2, width, height);
-            sprite.endFill();
-        }
+        // Visuals are fully owned by Obstacles.createElectrode (procedural
+        // per-wave shapes) — never paint the legacy rect over them.
     }
 
     update(delta: number): void {

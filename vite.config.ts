@@ -1,7 +1,17 @@
 import { defineConfig } from 'vite';
+import { cpSync } from 'node:fs';
 
 export default defineConfig({
   base: '/robotron/',
+  plugins: [{
+    // sprites/ and sounds/ are fetched at runtime (not imported), so Vite
+    // doesn't bundle them — copy them into dist explicitly.
+    name: 'copy-runtime-assets',
+    closeBundle() {
+      cpSync('sprites', 'dist/sprites', { recursive: true });
+      cpSync('sounds', 'dist/sounds', { recursive: true });
+    },
+  }],
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
