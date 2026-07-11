@@ -8,12 +8,17 @@ export class GameObject {
     type: string;
     isAlive: boolean;
     _destroyed: boolean;
+    /** logical position; sprite position is synced from this each update */
+    position: { x: number; y: number };
+    previousPosition: { x: number; y: number };
 
     constructor(sprite: PIXI.Sprite | PIXI.Graphics, type: string) {
         this.sprite = sprite;
         this.type = type;
         this.isAlive = true;
         this._destroyed = false;
+        this.position = { x: sprite?.x ?? 0, y: sprite?.y ?? 0 };
+        this.previousPosition = { x: this.position.x, y: this.position.y };
     }
 
     update(delta: number): void {

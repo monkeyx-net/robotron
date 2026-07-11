@@ -11,6 +11,8 @@ import { gameState } from './gameState';
 import { gameEvents } from './core/EventSystem';
 import { Vector2 } from './utils/Vector2';
 import { ArcadeBorder } from './core/ArcadeBorder';
+import { getWaveDef } from './waveTable';
+import { prng } from './core/Prng';
 
 // --- High Score ---
 export function loadHighScore() {
@@ -239,40 +241,19 @@ export function startNextWave() {
         player.dy = 0;
     }
 
-    let numGrunts = 0, numHulks = 0, numSpheroids = 0, numBrains = 0, numTanks = 0, numQuarks = 0;
-    let numHumansToSpawn = 0, numElectrodes = 0;
-
-    // Wave difficulty scaling logic from original script
-    if (gameState.wave === 1) {
-        numGrunts = (20 + Math.floor(Math.random() * 11));
-        numHumansToSpawn = (5 + Math.floor(Math.random() * 6));
-        numElectrodes = 2 + Math.floor(Math.random() * 3);
-    } else if (gameState.wave >= 2 && gameState.wave <= 5) {
-        numGrunts = 25 + gameState.wave * 3; numHulks = 1 + Math.floor((gameState.wave - 2) / 2);
-        numSpheroids = 1 + Math.floor((gameState.wave - 2) / 2); numHumansToSpawn = Math.max(3, 7 - gameState.wave);
-        numElectrodes = 3 + gameState.wave -1;
-    } else if (gameState.wave >= 6 && gameState.wave <= 10) {
-        numGrunts = 30 + gameState.wave * 2; numHulks = 2 + Math.floor((gameState.wave - 6) / 3);
-        numSpheroids = 2 + Math.floor((gameState.wave - 6) / 3); numBrains = 1 + Math.floor((gameState.wave - 6) / 2);
-        numTanks = 1 + Math.floor((gameState.wave - 6) / 3); numHumansToSpawn = Math.max(2, 5 - Math.floor((gameState.wave-6)/2) );
-        numElectrodes = 5 + Math.floor((gameState.wave-6)/2);
-    } else {
-        numGrunts = 30 + gameState.wave * 2; numHulks = 2 + Math.floor(gameState.wave/5);
-        numSpheroids = 2 + Math.floor(gameState.wave/5); numBrains = 2 + Math.floor(gameState.wave/4);
-        numTanks = 2 + Math.floor(gameState.wave/4); numQuarks = 1 + Math.floor((gameState.wave-10)/3);
-        numHumansToSpawn = Math.max(1, 4 - Math.floor(gameState.wave/5));
-        numElectrodes = Math.min(10, 5 + Math.floor(gameState.wave/3));
-    }
-    // Temp: reduce enemy count for easier testing during refactor
-    // numGrunts = Math.floor(numGrunts * 0.1); numHulks = Math.floor(numHulks * 0.2); numSpheroids = Math.floor(numSpheroids * 0.2);
-    // numBrains = Math.floor(numBrains * 0.2); numTanks = Math.floor(numTanks * 0.2); numQuarks = Math.floor(numQuarks * 0.2);
-    // numHumansToSpawn = Math.max(1, Math.floor(numHumansToSpawn * 0.5));
-
+    // Arcade-authentic wave composition (ROM-captured, see js/waveTable.ts).
+    const def = getWaveDef(gameState.wave);
+    const numGrunts = def.grunts, numHulks = def.hulks, numSpheroids = def.spheroids;
+    const numBrains = def.brains, numQuarks = def.quarks;
+    const numHumansToSpawn = def.humans, numElectrodes = def.electrodes;
+    (gameState as any).tankCap = def.tankCap;
+    // Tanks are not wave-spawned in the arcade: quarks produce them (up to tankCap).
+    const numTanks = 0;
 
     for (let i = 0; i < numElectrodes; i++) {
-        const elX = GameConfig.GAME_WIDTH * 0.2 + Math.random() * (GameConfig.GAME_WIDTH * 0.6);
-        const elY = GameConfig.GAME_HEIGHT * 0.2 + Math.random() * (GameConfig.GAME_HEIGHT * 0.6);
-        const elSize = 8 + Math.random() * 8;
+        const elX = GameConfig.GAME_WIDTH * 0.2 + prng.float() * (GameConfig.GAME_WIDTH * 0.6);
+        const elY = GameConfig.GAME_HEIGHT * 0.2 + prng.float() * (GameConfig.GAME_HEIGHT * 0.6);
+        const elSize = 8;
         const colors = [0xFF0000, 0xFFFF00, 0x00FFFF, 0xFF00FF, 0x00FF00];
         if (Obstacles && Obstacles.createElectrode) Obstacles.createElectrode(elX, elY, elSize, elSize, colors[i % colors.length]);
     }
@@ -339,17 +320,9 @@ export function checkForExtraLife() {
     }
 }
 
-export function updateBonusDecay(delta: number) {
-    if (gameState.currentGameState !== 'PLAYING' || !GameConfig) return;
-    if (gameState.humanRescueBonusDecayTimer > 0) {
-        gameState.humanRescueBonusDecayTimer -= delta;
-        if (gameState.humanRescueBonusDecayTimer <= 0) {
-            gameState.currentHumanRescueBonus = GameConfig.INITIAL_HUMAN_RESCUE_BONUS;
-            gameState.humanRescueBonusDecayTimer = 0;
-            console.log("Human rescue bonus decayed.");
-            if (UI && UI.updateBonusDisplay) UI.updateBonusDisplay();
-        }
-    }
+export function updateBonusDecay(_delta: number) {
+    // Arcade behavior: the progressive rescue bonus (1000..5000) never decays
+    // over time — it resets only on player death and at wave start.
 }
 
 // --- Collision Detection ---
@@ -375,7 +348,25 @@ export function checkCollisions() {
 
         for (let j = enemies.length - 1; j >= 0; j--) {
             const enemy = enemies[j];
-            if (!enemy || !enemy.sprite || (enemy.sprite as any)._destroyed || enemy.indestructible) continue;
+            if (!enemy || !enemy.sprite || (enemy.sprite as any)._destroyed) continue;
+
+            // Arcade hulk behavior: bullets don't kill it, they nudge it
+            // ~1px along the bullet's direction of travel.
+            if (enemy.indestructible) {
+                if (enemy.type === 'hulk' && isColliding(p.sprite, enemy.sprite, 6)) {
+                    const pdx = (p as any).dx ?? 0;
+                    const pdy = (p as any).dy ?? 0;
+                    const mag = Math.hypot(pdx, pdy) || 1;
+                    enemy.position.x += (pdx / mag) * 2;
+                    enemy.position.y += (pdy / mag) * 2;
+                    enemy.sprite.x = enemy.position.x;
+                    enemy.sprite.y = enemy.position.y;
+                    if (p.sprite && !(p.sprite as any)._destroyed) (p.sprite as any).destroy();
+                    playerProjectiles.splice(i, 1);
+                    break;
+                }
+                continue;
+            }
 
             if (isColliding(p.sprite, enemy.sprite, 5)) {
                 if (p.sprite && !(p.sprite as any)._destroyed) (p.sprite as any).destroy();
@@ -391,7 +382,6 @@ export function checkCollisions() {
                     else if (enemy.type === 'brain') { explosionColor = 0xFF88FF; soundToPlayKey = 'brainPop'; }
                     else if (enemy.type === 'tank') { explosionColor = 0xAAAAAA; soundToPlayKey = 'tankPop'; }
                     else if (enemy.type === 'quark') { explosionColor = 0xF0F0F0; soundToPlayKey = 'quarkPop'; }
-                    else if (enemy.type === 'sub_quark') { explosionColor = 0xD0D0D0; soundToPlayKey = 'subQuarkPop'; }
                     else if (enemy.type === 'prog_enemy') { explosionColor = 0xFF55FF; soundToPlayKey = 'progDestroy';}
 
                     // Emit enemy destroyed event for visual effects system
@@ -536,7 +526,6 @@ export function checkCollisions() {
                         if (gameState.currentHumanRescueBonus < GameConfig.MAX_HUMAN_RESCUE_BONUS) {
                             gameState.currentHumanRescueBonus += GameConfig.HUMAN_RESCUE_BONUS_INCREMENT;
                         }
-                        gameState.humanRescueBonusDecayTimer = GameConfig.HUMAN_RESCUE_BONUS_DECAY_DURATION;
                         if(UI.updateBonusDisplay) UI.updateBonusDisplay();
                     }
                     // No specific demo player rescue score/sound in original, handled by demo logic if needed
@@ -562,11 +551,7 @@ export function checkCollisions() {
                     if (humanEntity.sprite && !(humanEntity.sprite as any)._destroyed) (humanEntity.sprite as any).destroy();
                     humansAndProgs.splice(j, 1);
 
-                    if (gameState.currentGameState === 'PLAYING') {
-                        gameState.currentHumanRescueBonus = GameConfig.INITIAL_HUMAN_RESCUE_BONUS;
-                        gameState.humanRescueBonusDecayTimer = 0;
-                        if(UI.updateBonusDisplay) UI.updateBonusDisplay();
-                    }
+                    // Arcade: a human's death does not reset the rescue bonus.
                     break;
                 }
             }

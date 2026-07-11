@@ -4,8 +4,24 @@ import { enemiesContainer, enemies, player, demoPlayer, gruntTexture, humansAndP
 import { gameState } from './gameState';
 import { Projectiles } from './projectiles';
 import { Humans } from './humans';
-import { Grunt, Hulk, Spheroid, Enforcer, Brain, Tank, ProgEnemy, Quark, SubQuark } from './enemiesClasses';
+import { Grunt, Hulk, Spheroid, Enforcer, Brain, Tank, ProgEnemy, Quark } from './enemiesClasses';
 import { Human, Prog } from './humanClasses';
+import { ArcadeAtlas } from './core/ArcadeAtlas';
+
+/**
+ * Animated sprite from a ROM-extracted atlas family; null when the atlas
+ * lacks the family (caller falls back to its legacy placeholder graphic).
+ */
+function atlasAnim(family: string, speed = 0.15, maxFrames?: number): PIXI.AnimatedSprite | null {
+    let frames = ArcadeAtlas.frames(family);
+    if (!frames.length) return null;
+    if (maxFrames) frames = frames.slice(0, maxFrames);
+    const spr = new PIXI.AnimatedSprite(frames);
+    spr.animationSpeed = speed;
+    spr.play();
+    spr.anchor.set(0.5);
+    return spr;
+}
 
 
 // Helper function to create animated sprites (used by Brain)
@@ -48,9 +64,12 @@ export function createGrunt(x: number, y: number): Grunt | null {
     if (!PIXI || !gruntTexture || !enemiesContainer || !enemies || !GameConfig) {
         console.warn("Enemies.createGrunt: Missing dependencies."); return null;
     }
-    const gruntSprite = new PIXI.Sprite(gruntTexture);
-    gruntSprite.anchor.set(0.5);
-    
+    const gruntSprite = atlasAnim('grunt', 0.12, 10) ?? (() => {
+        const s = new PIXI.Sprite(gruntTexture);
+        s.anchor.set(0.5);
+        return s;
+    })();
+
     const grunt = new Grunt(gruntSprite, x, y, GameConfig.GRUNT_SPEED || 0.6, GameConfig.POINTS.GRUNT);
     enemiesContainer.addChild(grunt.sprite);
     enemies.push(grunt);
@@ -61,9 +80,12 @@ export function createHulk(x: number, y: number): Hulk | null {
     if (!PIXI || !enemiesContainer || !enemies || !GameConfig) {
         console.warn("Enemies.createHulk: Missing dependencies."); return null;
     }
-    const hulkSprite = new PIXI.Graphics();
-    hulkSprite.beginFill(0x00FF00); hulkSprite.drawRect(-8, -10, 16, 20); hulkSprite.endFill();
-    
+    const hulkSprite = atlasAnim('hulk', 0.08) ?? (() => {
+        const g = new PIXI.Graphics();
+        g.beginFill(0x00FF00); g.drawRect(-8, -10, 16, 20); g.endFill();
+        return g;
+    })();
+
     const hulk = new Hulk(hulkSprite, x, y, GameConfig.HULK_SPEED || 0.3, GameConfig.POINTS.HULK);
     enemiesContainer.addChild(hulk.sprite);
     enemies.push(hulk);
@@ -74,9 +96,12 @@ export function createSpheroid(x: number, y: number): Spheroid | null {
     if (!PIXI || !enemiesContainer || !enemies || !GameConfig) {
         console.warn("Enemies.createSpheroid: Missing dependencies."); return null;
     }
-    const spheroidSprite = new PIXI.Graphics();
-    spheroidSprite.beginFill(0xFF0000); spheroidSprite.drawCircle(0, 0, 6); spheroidSprite.endFill();
-    
+    const spheroidSprite = atlasAnim('spheroid', 0.2) ?? (() => {
+        const g = new PIXI.Graphics();
+        g.beginFill(0xFF0000); g.drawCircle(0, 0, 6); g.endFill();
+        return g;
+    })();
+
     const spheroid = new Spheroid(spheroidSprite, x, y, GameConfig.SPHEROID_SPEED || 0.7, GameConfig.POINTS.SPHEROID, GameConfig.SPHEROID_SPAWN_ENFORCER_DELAY || 300, 1);
     enemiesContainer.addChild(spheroid.sprite);
     enemies.push(spheroid);
@@ -103,13 +128,15 @@ export function createBrain(x: number, y: number): Brain | null {
     if (!PIXI || !enemiesContainer || !enemies || !GameConfig) {
         console.warn("Enemies.createBrain: Missing dependencies."); return null;
     }
-    const brainFrames = [
-        (g: PIXI.Graphics) => { g.beginFill(0xFF69B4).drawCircle(0, -3, 5).drawRect(-4, 0, 8, 4).endFill().lineStyle(1, 0xFF88FF).moveTo(-4, -5).lineTo(-2, -7).moveTo(4, -5).lineTo(2, -7); },
-        (g: PIXI.Graphics) => { g.beginFill(0xFF69B4).drawCircle(0, -3, 5).drawRect(-4, 0, 8, 4).endFill().lineStyle(1, 0xFF88FF).moveTo(-3, -6).lineTo(-3, -8).moveTo(3, -6).lineTo(3, -8); }
-    ];
-    const brainSprite = createAnimatedSprite(brainFrames, 0.2);
-    if (!brainSprite) return null; // createAnimatedSprite failed
-    
+    const brainSprite = atlasAnim('brain', 0.1) ?? (() => {
+        const brainFrames = [
+            (g: PIXI.Graphics) => { g.beginFill(0xFF69B4).drawCircle(0, -3, 5).drawRect(-4, 0, 8, 4).endFill().lineStyle(1, 0xFF88FF).moveTo(-4, -5).lineTo(-2, -7).moveTo(4, -5).lineTo(2, -7); },
+            (g: PIXI.Graphics) => { g.beginFill(0xFF69B4).drawCircle(0, -3, 5).drawRect(-4, 0, 8, 4).endFill().lineStyle(1, 0xFF88FF).moveTo(-3, -6).lineTo(-3, -8).moveTo(3, -6).lineTo(3, -8); }
+        ];
+        return createAnimatedSprite(brainFrames, 0.2);
+    })();
+    if (!brainSprite) return null;
+
     const brain = new Brain(brainSprite as PIXI.Container, x, y, GameConfig.BRAIN_SPEED || 0.6, GameConfig.POINTS.BRAIN, GameConfig.BRAIN_SHOOT_DELAY || 150, GameConfig.BRAIN_REPROGRAM_DURATION || 120);
     enemiesContainer.addChild(brain.sprite);
     enemies.push(brain);
@@ -120,10 +147,13 @@ export function createTank(x: number, y: number): Tank | null {
     if (!PIXI || !enemiesContainer || !enemies || !GameConfig) {
         console.warn("Enemies.createTank: Missing dependencies."); return null;
     }
-    const tankSprite = new PIXI.Graphics();
-    tankSprite.beginFill(0x888888).drawRect(-10, -7, 20, 14).endFill()
-              .beginFill(0x666666).drawRect(-3, -10, 6, 6).drawRect(-1, -15, 2, 5).endFill();
-    
+    const tankSprite = atlasAnim('tank', 0.1) ?? (() => {
+        const g = new PIXI.Graphics();
+        g.beginFill(0x888888).drawRect(-10, -7, 20, 14).endFill()
+         .beginFill(0x666666).drawRect(-3, -10, 6, 6).drawRect(-1, -15, 2, 5).endFill();
+        return g;
+    })();
+
     const tank = new Tank(tankSprite, x, y, GameConfig.TANK_SPEED || 0.4, GameConfig.POINTS.TANK, GameConfig.TANK_SHOOT_DELAY || 180);
     enemiesContainer.addChild(tank.sprite);
     enemies.push(tank);
@@ -135,12 +165,15 @@ export function createProg(x: number, y: number): ProgEnemy | null {
     if (!PIXI || !enemiesContainer || !enemies || !GameConfig) {
         console.warn("Enemies.createProg: Missing dependencies."); return null;
     }
-    const progSprite = new PIXI.Graphics();
-    progSprite.lineStyle(1, 0x4B0082);
-    progSprite.beginFill(0x8A2BE2);
-    progSprite.drawRect(-6, -6, 12, 12);
-    progSprite.endFill();
-    
+    const progSprite = atlasAnim('mutant', 0.15) ?? (() => {
+        const g = new PIXI.Graphics();
+        g.lineStyle(1, 0x4B0082);
+        g.beginFill(0x8A2BE2);
+        g.drawRect(-6, -6, 12, 12);
+        g.endFill();
+        return g;
+    })();
+
     const prog = new ProgEnemy(progSprite, x, y, GameConfig.PROG_SPEED || 1.3, GameConfig.POINTS.PROG);
     enemiesContainer.addChild(prog.sprite);
     enemies.push(prog);
@@ -151,26 +184,16 @@ export function createQuark(x: number, y: number): Quark | null {
     if (!PIXI || !enemiesContainer || !enemies || !GameConfig) {
         console.warn("Enemies.createQuark: Missing dependencies."); return null;
     }
-    const quarkSprite = new PIXI.Graphics();
-    quarkSprite.beginFill(0xFFFFFF); quarkSprite.drawRect(-4, -4, 8, 8); quarkSprite.endFill();
-    
+    const quarkSprite = atlasAnim('quark', 0.2) ?? (() => {
+        const g = new PIXI.Graphics();
+        g.beginFill(0xFFFFFF); g.drawRect(-4, -4, 8, 8); g.endFill();
+        return g;
+    })();
+
     const quark = new Quark(quarkSprite, x, y, GameConfig.QUARK_SPEED || 1.2, GameConfig.POINTS.QUARK, GameConfig.QUARK_SPAWN_SUB_QUARK_DELAY || 180, GameConfig.MAX_SUB_QUARKS_PER_QUARK || 3);
     enemiesContainer.addChild(quark.sprite);
     enemies.push(quark);
     return quark;
-}
-
-export function createSubQuark(x: number, y: number): SubQuark | null {
-    if (!PIXI || !enemiesContainer || !enemies || !GameConfig) {
-        console.warn("Enemies.createSubQuark: Missing dependencies."); return null;
-    }
-    const subQuarkSprite = new PIXI.Graphics();
-    subQuarkSprite.beginFill(0xEEEEEE); subQuarkSprite.drawRect(-2, -2, 4, 4); subQuarkSprite.endFill();
-    
-    const subQuark = new SubQuark(subQuarkSprite, x, y, GameConfig.SUB_QUARK_SPEED || 1.5, GameConfig.POINTS.SUB_QUARK, 180);
-    enemiesContainer.addChild(subQuark.sprite);
-    enemies.push(subQuark);
-    return subQuark;
 }
 
 export function updateEnemies(delta: number): void {
@@ -432,7 +455,8 @@ export function updateEnemies(delta: number): void {
             if (targetableHumans.length > 0) {
                 targetableHumans.forEach((human: Human | Prog) => {
                     if (human && human.sprite && !human._destroyed && human.sprite.x !== null && human.sprite.y !== null) {
-                        const dist = Math.hypot(human.sprite.x - brain.sprite.x, human.sprite.y - brain.sprite.y);
+                        // Manhattan distance, like brain_find_nearest_human ($5B95)
+                        const dist = Math.abs(human.sprite.x - brain.sprite.x) + Math.abs(human.sprite.y - brain.sprite.y);
                         if (dist < closestHumanDist) {
                             closestHumanDist = dist;
                             targetX = human.sprite.x; targetY = human.sprite.y;
@@ -441,35 +465,11 @@ export function updateEnemies(delta: number): void {
                     }
                 });
 
-                if (brain.reprogramTarget && closestHumanDist < (GameConfig.BRAIN_REPROGRAM_RANGE || 20)) {
-                    brain.reprogramTimer -= delta;
-                    brain.reprogramProgress += delta;
-
-                    // Convert RGB to hex manually (PIXI.utils.rgb2hex deprecated in v8)
-                    const r = Math.floor(255 * 1);
-                    const progressRatio = Math.max(0, Math.min(1, brain.reprogramProgress / (GameConfig.BRAIN_REPROGRAM_DURATION || 120)));
-                    const g = Math.floor(255 * (1 - progressRatio));
-                    const b = Math.floor(255 * 0);
-                    const tintValue = (r << 16) | (g << 8) | b;
-                    
-                    // Ensure tint value is valid (non-negative)
-                    if (tintValue >= 0 && brain.reprogramTarget && brain.reprogramTarget.sprite) {
-                        brain.reprogramTarget.sprite.tint = tintValue;
-                    }
-
-                    if (brain.reprogramTimer <= 0) {
-                        if (Humans.convertToProg) Humans.convertToProg(brain.reprogramTarget);
-                        brain.reprogramTarget = null;
-                        brain.reprogramTimer = GameConfig.BRAIN_REPROGRAM_DURATION || 120;
-                        brain.reprogramProgress = 0;
-                    }
-                } else {
-                    brain.reprogramTimer = GameConfig.BRAIN_REPROGRAM_DURATION || 120;
-                    brain.reprogramProgress = 0;
-                    if (brain.reprogramTarget) brain.reprogramTarget.sprite.tint = 0xFFFFFF;
+                // Arcade behavior: a brain converts a human to a Prog on
+                // CONTACT (no proximity timer / tint countdown).
+                if (brain.reprogramTarget && closestHumanDist < 7) {
+                    if (Humans.convertToProg) Humans.convertToProg(brain.reprogramTarget);
                     brain.reprogramTarget = null;
-                    targetX = (currentPlayer && currentPlayer.sprite && !(currentPlayer.sprite as any)._destroyed) ? currentPlayer.sprite.x : brain.sprite.x;
-                    targetY = (currentPlayer && currentPlayer.sprite && !(currentPlayer.sprite as any)._destroyed) ? currentPlayer.sprite.y : brain.sprite.y;
                 }
             } else {
                  targetX = (currentPlayer && currentPlayer.sprite && !(currentPlayer.sprite as any)._destroyed) ? currentPlayer.sprite.x : brain.sprite.x;
@@ -535,21 +535,17 @@ export function updateEnemies(delta: number): void {
                 quark.position.y = Math.max(4, Math.min(GameConfig.GAME_HEIGHT - 4, quark.position.y));
                 quark.sprite.y = quark.position.y;
             }
-            if (quark.subQuarksSpawned < quark.maxSubQuarksToSpawn) {
-                quark.spawnSubQuarkTimer -= delta;
-                if (quark.spawnSubQuarkTimer <= 0) {
-                    if (createSubQuark) createSubQuark(quark.sprite.x, quark.sprite.y);
+            // Arcade behavior: quarks manufacture TANKS (not "sub-quarks"),
+            // throttled by the wave's live-tank cap.
+            quark.spawnSubQuarkTimer -= delta;
+            if (quark.spawnSubQuarkTimer <= 0) {
+                const liveTanks = enemies.filter(e => e.type === 'tank' && !e._destroyed).length;
+                const cap = (gameState as any).tankCap ?? 0;
+                if (liveTanks < cap && createTank) {
+                    createTank(quark.sprite.x, quark.sprite.y);
                     quark.subQuarksSpawned++;
-                    quark.spawnSubQuarkTimer = GameConfig.QUARK_SPAWN_SUB_QUARK_DELAY || 180;
                 }
-            }
-        } else if (enemy.type === 'sub_quark') {
-            const subQuark = enemy as SubQuark;
-            subQuark.update(delta);
-            subQuark.lifeTimer -= delta;
-            if (subQuark.lifeTimer <=0 || subQuark.sprite.x < -2 || subQuark.sprite.x > GameConfig.GAME_WIDTH + 2 || subQuark.sprite.y < -2 || subQuark.sprite.y > GameConfig.GAME_HEIGHT + 2) {
-                subQuark.destroy();
-                enemies.splice(i,1);
+                quark.spawnSubQuarkTimer = GameConfig.QUARK_SPAWN_SUB_QUARK_DELAY || 180;
             }
         }
     }
@@ -563,7 +559,6 @@ export const Enemies = {
     createBrain,
     createTank,
     createQuark,
-    createSubQuark,
     createProg,
     updateEnemies,
     createAnimatedSprite,

@@ -38,7 +38,7 @@ export class Enemy extends GameObject {
 export class Grunt extends Enemy {
     lastAngle: number;
 
-    constructor(sprite: PIXI.Sprite, x: number, y: number, speed: number, points: number) {
+    constructor(sprite: PIXI.Sprite | PIXI.Graphics, x: number, y: number, speed: number, points: number) {
         super(sprite, 'grunt', 1, points, speed);
         this.sprite.x = x;
         this.sprite.y = y;
@@ -56,7 +56,7 @@ export class Hulk extends Enemy {
     isCharging: boolean;
     chargeTarget: any; // Will be a Human object
 
-    constructor(sprite: PIXI.Graphics, x: number, y: number, speed: number, points: number) {
+    constructor(sprite: PIXI.Sprite | PIXI.Graphics, x: number, y: number, speed: number, points: number) {
         super(sprite, 'hulk', Infinity, points, speed, true);
         this.sprite.x = x;
         this.sprite.y = y;
@@ -78,7 +78,7 @@ export class Spheroid extends Enemy {
     enforcersSpawned: number;
     maxEnforcersToSpawn: number;
 
-    constructor(sprite: PIXI.Graphics, x: number, y: number, speed: number, points: number, spawnDelay: number, maxSpawns: number) {
+    constructor(sprite: PIXI.Sprite | PIXI.Graphics, x: number, y: number, speed: number, points: number, spawnDelay: number, maxSpawns: number) {
         super(sprite, 'spheroid', 2, points, speed);
         this.sprite.x = x;
         this.sprite.y = y;
@@ -98,7 +98,7 @@ export class Spheroid extends Enemy {
 export class Enforcer extends Enemy {
     shootTimer: number;
 
-    constructor(sprite: PIXI.Graphics, x: number, y: number, speed: number, points: number, shootDelay: number) {
+    constructor(sprite: PIXI.Sprite | PIXI.Graphics, x: number, y: number, speed: number, points: number, shootDelay: number) {
         super(sprite, 'enforcer', 2, points, speed);
         this.sprite.x = x;
         this.sprite.y = y;
@@ -137,7 +137,7 @@ export class Tank extends Enemy {
     shootTimer: number;
     target: any; // Will be a Player object
 
-    constructor(sprite: PIXI.Graphics, x: number, y: number, speed: number, points: number, shootDelay: number) {
+    constructor(sprite: PIXI.Sprite | PIXI.Graphics, x: number, y: number, speed: number, points: number, shootDelay: number) {
         super(sprite, 'tank', 4, points, speed);
         this.sprite.x = x;
         this.sprite.y = y;
@@ -156,7 +156,7 @@ export class Quark extends Enemy {
     subQuarksSpawned: number;
     maxSubQuarksToSpawn: number;
 
-    constructor(sprite: PIXI.Graphics, x: number, y: number, speed: number, points: number, spawnDelay: number, maxSpawns: number) {
+    constructor(sprite: PIXI.Sprite | PIXI.Graphics, x: number, y: number, speed: number, points: number, spawnDelay: number, maxSpawns: number) {
         super(sprite, 'quark', 2, points, speed);
         this.sprite.x = x;
         this.sprite.y = y;
@@ -171,28 +171,12 @@ export class Quark extends Enemy {
     }
 }
 
-export class SubQuark extends Enemy {
-    lifeTimer: number;
-
-    constructor(sprite: PIXI.Graphics, x: number, y: number, speed: number, points: number, lifeTime: number) {
-        super(sprite, 'sub_quark', 1, points, speed);
-        this.sprite.x = x;
-        this.sprite.y = y;
-        // IMPORTANT: Update position tracking after setting sprite position
-        this.position.x = x;
-        this.position.y = y;
-        this.previousPosition.x = x;
-        this.previousPosition.y = y;
-        this.lifeTimer = lifeTime;
-    }
-}
-
 export class ProgEnemy extends Enemy {
     lastAngle: number;
     turnTimer: number;
     turnDelay: number;
 
-    constructor(sprite: PIXI.Graphics, x: number, y: number, speed: number, points: number) {
+    constructor(sprite: PIXI.Sprite | PIXI.Graphics, x: number, y: number, speed: number, points: number) {
         super(sprite, 'prog_enemy', 1, points, speed);
         this.sprite.x = x;
         this.sprite.y = y;
