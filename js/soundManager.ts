@@ -96,13 +96,43 @@ export const SoundManager = {
             volume: 0.7
         });
     },
+    /**
+     * Track priorities mirroring the ROM's play_music_track ($D3C7): the
+     * Williams sound board is a single channel — a playing track suppresses
+     * requests of LOWER priority and is preempted by equal-or-higher ones.
+     * Values follow the priorities found in the ROM track tables (Ph20):
+     * high-score jingle $EF, death fanfares high, enemy pops ~$70-77,
+     * fire sounds low.
+     */
+    PRIORITIES: {
+        insertCoin: 0xF0, highScoreEntry: 0xEF, gameOver: 0xD8,
+        playerDeath: 0xD0, extraLife: 0xC8, waveStart: 0xC0,
+        humanRescue: 0x90, humanToProg: 0x80, humanDeathByEnemy: 0x80,
+        spheroidPop: 0x77, quarkPop: 0x77, tankPop: 0x77, brainPop: 0x77,
+        gruntPop: 0x70, enforcerPop: 0x70, progDestroy: 0x70,
+        enforcerFire: 0x50, brainFire: 0x50, tankFire: 0x50, shellBounce: 0x50,
+        shoot: 0x20,
+    } as Record<string, number>,
+
+    _current: null as { name: string; priority: number; id: number } | null,
+
     play(soundName: string): void {
-        if (this.sounds[soundName] && this.canPlaySound()) {
-            try {
-                this.sounds[soundName].play();
-            } catch(e) {
-                console.warn(`Sound play failed (${soundName}):`, e);
-            }
+        const sound = this.sounds[soundName];
+        if (!sound || !this.canPlaySound()) return;
+        const priority = this.PRIORITIES[soundName] ?? 0x40;
+        const cur = this._current;
+        if (cur && this.sounds[cur.name]?.playing(cur.id)) {
+            if (cur.priority > priority) return;   // suppressed by higher-priority track
+            try { this.sounds[cur.name].stop(cur.id); } catch { /* noop */ }
+        }
+        try {
+            const id = sound.play();
+            this._current = { name: soundName, priority, id };
+            sound.once('end', () => {
+                if (this._current && this._current.id === id) this._current = null;
+            }, id);
+        } catch(e) {
+            console.warn(`Sound play failed (${soundName}):`, e);
         }
     },
     stop(soundName: string): void {
@@ -115,6 +145,7 @@ export const SoundManager = {
         }
     },
     stopAll(): void {
+        this._current = null;
         Object.values(this.sounds).forEach(sound => {
             try {
                 sound.stop();
