@@ -43,7 +43,7 @@ export const GameConfig = {
     QUARK_SPAWN_SUB_QUARK_DELAY: 180,
 
     // Game mechanics
-    INITIAL_LIVES: 30,
+    INITIAL_LIVES: 3, // arcade default
     MAX_PLAYER_PROJECTILES: 10,
     RESPAWN_INVULNERABILITY_TIME: 2000,
     INITIAL_HUMAN_RESCUE_BONUS: 1000,
@@ -65,16 +65,19 @@ export const GameConfig = {
     GAMEPAD_A_BUTTON_INDEX: 0, // A/Cross button
     // Demo play duration is defined in game constants section
 
-    // Enemy point values
+    // Enemy point values (arcade-authentic)
     POINTS: {
         GRUNT: 100,
-        HULK: 200, // Added Hulk points
+        HULK: 0,          // indestructible — bullets only nudge it
         ENFORCER: 150,
+        ENFORCER_SPARK: 25,
         SPHEROID: 1000,
         BRAIN: 500,
-        TANK: 300,
+        CRUISE_MISSILE: 25,
+        TANK: 200,
+        TANK_SHELL: 25,
         PROG: 100,
         QUARK: 1000,
-        SUB_QUARK: 500
+        ELECTRODE: 0
     }
 };
