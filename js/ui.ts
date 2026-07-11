@@ -6,6 +6,7 @@ import { saveHighScore } from './gameLogic';
 import { ArcadeHud } from './core/ArcadeHud';
 import { HighScoreEntry } from './core/HighScoreEntry';
 import { BitmapFont } from './core/BitmapFont';
+import { TwoPlayer } from './core/TwoPlayer';
 import { Attract } from './attractMode';
 import { gameEvents } from './core/EventSystem';
 
@@ -217,7 +218,10 @@ export function showGameOverScreen() {
     }
 
     // Arcade flow: a qualifying score goes to 3-initial entry first.
-    if (HighScoreEntry.qualifies(gameState.score) && app?.stage) {
+    // In 2P mode, the best of both players' scores is entered.
+    const bestScore = Math.max(gameState.score, ...TwoPlayer.allScores());
+    gameState.score = bestScore;
+    if (HighScoreEntry.qualifies(bestScore) && app?.stage) {
         if (titleScreenContainer) titleScreenContainer.visible = false;
         if (highScoreDisplayContainer) highScoreDisplayContainer.visible = false;
         if (demoPlayContainer) demoPlayContainer.visible = false;

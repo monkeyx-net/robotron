@@ -13,6 +13,7 @@ import { Vector2 } from './utils/Vector2';
 import { ArcadeBorder } from './core/ArcadeBorder';
 import { getWaveDef } from './waveTable';
 import { prng } from './core/Prng';
+import { TwoPlayer } from './core/TwoPlayer';
 
 // --- High Score ---
 export function loadHighScore() {
@@ -127,14 +128,9 @@ export function playerHit() {
     if(UI.updateBonusDisplay) UI.updateBonusDisplay();
 
 
-    if (gameState.lives <= 0) {
-        gameState.currentGameState = 'GAME_OVER'; // Update global state
-        if (UI && UI.showGameOverScreen) UI.showGameOverScreen();
-    } else {
+    const respawnHere = () => {
         gameState.playerInvulnerableTime = GameConfig.RESPAWN_INVULNERABILITY_TIME;
-        if (player.sprite) player.sprite.visible = false; // Hide sprite
-
-        // Respawn timer
+        if (player.sprite) player.sprite.visible = false;
         setTimeout(() => {
             if (gameState.currentGameState === 'GAME_OVER') return;
             if (player && player.sprite && GameConfig) {
@@ -145,8 +141,33 @@ export function playerHit() {
                 player.sprite.visible = true;
             }
             if (player) player.isAlive = true;
-            // playerInvulnerableTime is already set and will be counted down by main game loop
         }, 500);
+    };
+
+    const outcome = TwoPlayer.onDeath();
+    if (outcome === 'game_over') {
+        gameState.currentGameState = 'GAME_OVER';
+        if (UI && UI.showGameOverScreen) UI.showGameOverScreen();
+    } else if (outcome === 'swap') {
+        // 2P alternating: hand control to the other player; their wave
+        // restarts fresh after the PLAYER N interstitial (arcade behavior).
+        if (player.sprite) player.sprite.visible = false;
+        TwoPlayer.showInterstitial(app.stage).then(() => {
+            if (gameState.currentGameState !== 'PLAYING') return;
+            startNextWave();
+            if (player && player.sprite) {
+                player.sprite.x = GameConfig.GAME_WIDTH / 2;
+                player.sprite.y = GameConfig.GAME_HEIGHT / 2;
+                player.dx = 0;
+                player.dy = 0;
+                player.sprite.visible = true;
+                player.isAlive = true;
+            }
+            gameState.playerInvulnerableTime = GameConfig.RESPAWN_INVULNERABILITY_TIME;
+            if (UI && UI.updateUI) UI.updateUI();
+        });
+    } else {
+        respawnHere();
     }
     if (UI && UI.updateUI) UI.updateUI();
 }

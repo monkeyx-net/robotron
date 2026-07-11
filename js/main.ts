@@ -21,6 +21,7 @@ import { SoundManager, initAudio } from './soundManager';
 import { UI } from './ui';
 // Removed old InputManager - using unified input manager instead
 import { gameState } from './gameState';
+import { TwoPlayer } from './core/TwoPlayer';
 import { gameEvents } from './core/EventSystem';
 import { saveLoadManager } from './core/SaveLoadManager';
 import { saveLoadUI } from './ui/SaveLoadUI';
@@ -353,6 +354,14 @@ const initializeGame = async () => {
         console.log('Press any key to test keyboard input...');
         
         // Set up fallback game start logic using the input manager events
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Digit2' &&
+                (gameState.currentGameState === 'TITLE_SCREEN' ||
+                 gameState.currentGameState === 'HIGH_SCORE_DISPLAY_SCREEN' ||
+                 gameState.currentGameState === 'DEMO_PLAY')) {
+                startGameFromTitle(2);
+            }
+        });
         gameEvents.on('input:start', (event) => {
             if (event.data.pressed && 
                 (gameState.currentGameState === 'TITLE_SCREEN' || 
@@ -885,7 +894,7 @@ document.addEventListener('keydown', initializeAudioOnceKey);
 
 
 // --- Game Start Logic ---
-function startGameFromTitle() {
+function startGameFromTitle(playerCount: number = 1) {
     console.log('startGameFromTitle called, current state:', gameState.currentGameState);
     
     if (gameState.currentGameState !== 'TITLE_SCREEN' && gameState.currentGameState !== 'HIGH_SCORE_DISPLAY_SCREEN' && gameState.currentGameState !== 'DEMO_PLAY') return;
@@ -895,6 +904,7 @@ function startGameFromTitle() {
     gameState.currentGameState = 'PLAYING';
     console.log('Game state changed to PLAYING');
     resetGameVariables();
+    TwoPlayer.startGame(playerCount);
     player = createPlayer();
 
     if (!player) {
