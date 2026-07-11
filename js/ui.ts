@@ -4,15 +4,17 @@ import { titleScreenContainer, highScoreDisplayContainer, demoPlayContainer, app
 import { gameState } from './gameState';
 import { saveHighScore } from './gameLogic';
 import { ArcadeHud } from './core/ArcadeHud';
+import { HighScoreEntry } from './core/HighScoreEntry';
+import { BitmapFont } from './core/BitmapFont';
 import { Attract } from './attractMode';
 import { gameEvents } from './core/EventSystem';
 
 // PIXI objects to be defined within setup functions and then potentially exposed
-let titleText: PIXI.Text;
+let titleText: PIXI.Text | null = null;
 let williamsText: PIXI.Text;
 export let insertCoinText: PIXI.Text;
 export let pressStartText: PIXI.Text;
-let highScoreTextElement: PIXI.Text;
+let highScoreTextElement: PIXI.Text | null = null;
 let highScoreScreenTitleText: PIXI.Text;
 let highScoreValueText: PIXI.Text;
 let attractOverlayText1: PIXI.Text;
@@ -138,32 +140,23 @@ export function setupTitleScreen() {
     }
 
     titleScreenContainer.removeChildren();
-    const titleStyle = new PIXI.TextStyle({ fontFamily: 'Press Start 2P', fontSize: 28, fill: 0xFFFF00, align: 'center', dropShadow: true, dropShadowColor: 0xFF0000, dropShadowDistance: 2 });
-    titleText = new PIXI.Text('ROBOTRON\n2084', titleStyle);
-    titleText.anchor.set(0.5); titleText.x = GameConfig.GAME_WIDTH / 2; titleText.y = GameConfig.GAME_HEIGHT / 3;
-    titleScreenContainer.addChild(titleText);
-
-    const williamsStyle = new PIXI.TextStyle({ fontFamily: 'Press Start 2P', fontSize: 10, fill: 0xFFFFFF });
-    williamsText = new PIXI.Text('(Williams Electronics, Inc.)', williamsStyle);
-    williamsText.anchor.set(0.5); williamsText.x = GameConfig.GAME_WIDTH / 2; williamsText.y = titleText.y + titleText.height / 2 + 20;
-    titleScreenContainer.addChild(williamsText);
-
-    const insertCoinStyle = new PIXI.TextStyle({ fontFamily: 'Press Start 2P', fontSize: 12, fill: 0xFFFFFF, align: 'center' });
-    insertCoinText = new PIXI.Text('INSERT COIN', insertCoinStyle);
-    insertCoinText.anchor.set(0.5); insertCoinText.x = GameConfig.GAME_WIDTH / 2; insertCoinText.y = GameConfig.GAME_HEIGHT * 0.8;
-    titleScreenContainer.addChild(insertCoinText);
-
-    const pressStartStyle = new PIXI.TextStyle({ fontFamily: 'Press Start 2P', fontSize: 10, fill: 0x00FF00, align: 'center' });
-    pressStartText = new PIXI.Text('PRESS ENTER TO START', pressStartStyle);
-    pressStartText.anchor.set(0.5); pressStartText.x = GameConfig.GAME_WIDTH / 2; pressStartText.y = insertCoinText.y + 25;
-    titleScreenContainer.addChild(pressStartText);
-
-    const highScoreStyle = new PIXI.TextStyle({ fontFamily: 'Press Start 2P', fontSize: 10, fill: 0x00FFFF, align: 'center' });
-    highScoreTextElement = new PIXI.Text(`HIGH SCORE: ${gameState.highScore}`, highScoreStyle);
-    highScoreTextElement.anchor.set(0.5);
-    highScoreTextElement.x = GameConfig.GAME_WIDTH / 2;
-    highScoreTextElement.y = williamsText.y + williamsText.height + 20;
-    titleScreenContainer.addChild(highScoreTextElement);
+    // ROM alt-font title, like the arcade attract card
+    const cx = GameConfig.GAME_WIDTH / 2;
+    const addTitleLine = (text: string, y: number, tint: number, font: 'main' | 'alt' = 'main', scale = 1) => {
+        const t = BitmapFont.createText(text, { font, tint });
+        t.scale.set(scale);
+        t.x = cx - (BitmapFont.measure(text, { font }) * scale) / 2;
+        t.y = y;
+        titleScreenContainer.addChild(t);
+        return t;
+    };
+    addTitleLine('ROBOTRON: 2084', 56, 0xFFFF44, 'alt', 2);
+    addTitleLine('(C) 1982 WILLIAMS ELECTRONICS INC.', 96, 0xFFFFFF);
+    addTitleLine(`HIGH SCORE ${gameState.highScore}`, 116, 0x44FFFF);
+    const insertCoinBmp = addTitleLine('INSERT COIN', 176, 0xFFFFFF, 'alt');
+    insertCoinText = insertCoinBmp as any;
+    const pressStartBmp = addTitleLine('PRESS ENTER TO START', 200, 0x44FF44);
+    pressStartText = pressStartBmp as any;
 
     titleScreenContainer.visible = true;
     if (highScoreDisplayContainer) highScoreDisplayContainer.visible = false;
@@ -176,29 +169,33 @@ export function setupHighScoreDisplayScreen() {
         return;
     }
 
+    // Arcade "ROBOTRON HEROES" table, rendered with the ROM fonts.
     highScoreDisplayContainer.removeChildren();
-    const hsTitleStyle = new PIXI.TextStyle({ fontFamily: 'Press Start 2P', fontSize: 20, fill: 0x00FFFF, align: 'center' });
-    highScoreScreenTitleText = new PIXI.Text('HIGH SCORE', hsTitleStyle);
-    highScoreScreenTitleText.anchor.set(0.5); highScoreScreenTitleText.x = GameConfig.GAME_WIDTH / 2; highScoreScreenTitleText.y = GameConfig.GAME_HEIGHT / 4;
-    highScoreDisplayContainer.addChild(highScoreScreenTitleText);
+    const cx = GameConfig.GAME_WIDTH / 2;
+    const addLine = (text: string, y: number, tint: number, font: 'main' | 'alt' = 'main') => {
+        const t = BitmapFont.createText(text, { font, tint });
+        t.x = cx - BitmapFont.measure(text, { font }) / 2;
+        t.y = y;
+        highScoreDisplayContainer.addChild(t);
+        return t;
+    };
 
-    const hsValueStyle = new PIXI.TextStyle({ fontFamily: 'Press Start 2P', fontSize: 24, fill: 0xFFFF00, align: 'center' });
-    highScoreValueText = new PIXI.Text(String(gameState.highScore), hsValueStyle);
-    highScoreValueText.anchor.set(0.5); highScoreValueText.x = GameConfig.GAME_WIDTH / 2; highScoreValueText.y = highScoreScreenTitleText.y + 40;
-    highScoreDisplayContainer.addChild(highScoreValueText);
+    addLine('ROBOTRON HEROES', 24, 0xFF4444, 'alt');
+    const table = HighScoreEntry.loadTable();
+    if (table.length === 0 && gameState.highScore > 0) {
+        table.push({ initials: '...', score: gameState.highScore });
+    }
+    let y = 52;
+    table.slice(0, 10).forEach((row, i) => {
+        // no parens in the ROM charset ('0'-'^')
+        addLine(`${String(i + 1).padStart(2, ' ')}. ${row.initials}  ${row.score}`, y, 0xFF4444);
+        y += 10;
+    });
+    if (table.length === 0) addLine('NO HEROES YET', y, 0xFF4444);
 
-    const overlayStyle = new PIXI.TextStyle({ fontFamily: 'Press Start 2P', fontSize: 10, fill: 0xFF0000, align: 'center', wordWrap: true, wordWrapWidth: GameConfig.GAME_WIDTH - 40 });
-    attractOverlayText1 = new PIXI.Text('SAVE THE LAST HUMAN FAMILY', overlayStyle);
-    attractOverlayText1.anchor.set(0.5); attractOverlayText1.x = GameConfig.GAME_WIDTH / 2; attractOverlayText1.y = highScoreValueText.y + 40;
-    highScoreDisplayContainer.addChild(attractOverlayText1);
-
-    attractOverlayText2 = new PIXI.Text('DESTROY THE ROBOTS', overlayStyle);
-    attractOverlayText2.anchor.set(0.5); attractOverlayText2.x = GameConfig.GAME_WIDTH / 2; attractOverlayText2.y = attractOverlayText1.y + 20;
-    highScoreDisplayContainer.addChild(attractOverlayText2);
-
-    attractOverlayText3 = new PIXI.Text('2084', {...overlayStyle, fontSize: 18, fill: 0xFF0000});
-    attractOverlayText3.anchor.set(0.5); attractOverlayText3.x = GameConfig.GAME_WIDTH / 2; attractOverlayText3.y = attractOverlayText2.y + 30;
-    highScoreDisplayContainer.addChild(attractOverlayText3);
+    addLine('SAVE THE LAST HUMAN FAMILY', 168, 0xFF4444);
+    addLine('DESTROY THE ROBOTS', 182, 0xFF4444);
+    addLine('2084', 205, 0xFFFF44, 'alt');
 
     highScoreDisplayContainer.visible = true;
     if (titleScreenContainer) titleScreenContainer.visible = false;
@@ -218,6 +215,24 @@ export function showGameOverScreen() {
          console.warn("UI.showGameOverScreen: Missing global state (gameState). Game over screen may not display correctly.");
          return;
     }
+
+    // Arcade flow: a qualifying score goes to 3-initial entry first.
+    if (HighScoreEntry.qualifies(gameState.score) && app?.stage) {
+        if (titleScreenContainer) titleScreenContainer.visible = false;
+        if (highScoreDisplayContainer) highScoreDisplayContainer.visible = false;
+        if (demoPlayContainer) demoPlayContainer.visible = false;
+        if (uiContainerEl) uiContainerEl.style.visibility = 'hidden';
+        const finalScore = gameState.score;
+        HighScoreEntry.show(app.stage, finalScore, () => {
+            gameState.score = finalScore;
+            finishGameOverScreen();
+        });
+        return;
+    }
+    finishGameOverScreen();
+}
+
+function finishGameOverScreen() {
     gameState.currentGameState = 'GAME_OVER';
 
     if (titleScreenContainer) titleScreenContainer.visible = false;
