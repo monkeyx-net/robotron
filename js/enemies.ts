@@ -8,6 +8,7 @@ import { Grunt, Hulk, Spheroid, Enforcer, Brain, Tank, ProgEnemy, Quark } from '
 import { Human, Prog } from './humanClasses';
 import { ArcadeAtlas } from './core/ArcadeAtlas';
 import { prng } from './core/Prng';
+import { isEntityGone } from './gameObject';
 
 /**
  * Animated sprite from a ROM-extracted atlas family; null when the atlas
@@ -219,7 +220,7 @@ export function updateEnemies(delta: number): void {
 
     for (let i = enemies.length - 1; i >= 0; i--) {
         const enemy = enemies[i];
-        if (!enemy || enemy._destroyed || !enemy.sprite || (enemy.sprite as any)._destroyed) {
+        if (isEntityGone(enemy)) {
             enemies.splice(i, 1);
             continue;
         }
@@ -396,9 +397,13 @@ export function updateEnemies(delta: number): void {
                 spheroid.sprite.y = spheroid.position.y;
             }
 
-            // Pulsing animation
-            spheroid.pulseTimer += spheroid.pulseRate * delta;
-            spheroid.sprite.alpha = 0.75 + Math.sin(spheroid.pulseTimer) * 0.25;
+            // Shimmer: the arcade spheroid pulses through the color-cycled
+            // palette entries (red -> orange -> yellow -> white). The atlas
+            // bakes those pixels near-white, so tint-cycle at runtime.
+            spheroid.pulseTimer += (spheroid.pulseRate || 0.1) * delta;
+            const SHIMMER = [0xFF2222, 0xFF8822, 0xFFFF44, 0xFFFFFF];
+            spheroid.sprite.tint = SHIMMER[Math.floor(spheroid.pulseTimer * 4) % SHIMMER.length];
+            spheroid.sprite.alpha = 1;
         } else if (enemy.type === 'enforcer') {
             // Arcade enforcer (REVERSE.md Ph16 enforcer_aim): velocity is
             // re-aimed on a PRNG timer toward player position + PRNG jitter,

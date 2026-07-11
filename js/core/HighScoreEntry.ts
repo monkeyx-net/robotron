@@ -73,16 +73,21 @@ export function show(stage: PIXI.Container, score: number, onDone: () => void): 
     slotsRow.y = 120;
     container.addChild(slotsRow);
 
+    // Fixed slot positions so variable glyph widths never shift the
+    // 2nd/3rd initials or the cursor.
+    const SLOT_W = 14;
+    const slotsX = cx - (SLOT_W * 3 - 6) / 2;
     const redraw = () => {
         slotsRow.removeChildren().forEach(c => c.destroy());
-        const text = initials.map(i => LETTERS[i]).join(' ');
-        const t = BitmapFont.createText(text, { font: 'alt', tint: 0xFFFF44, tracking: 4 });
-        t.x = cx - BitmapFont.measure(text, { font: 'alt', tracking: 4 }) / 2;
-        slotsRow.addChild(t);
-        // cursor under active slot
+        for (let i = 0; i < 3; i++) {
+            const ch = LETTERS[initials[i]];
+            const t = BitmapFont.createText(ch, { font: 'alt', tint: 0xFFFF44 });
+            t.x = slotsX + i * SLOT_W + (8 - BitmapFont.measure(ch, { font: 'alt' })) / 2;
+            slotsRow.addChild(t);
+        }
+        // cursor under the active slot
         const g = new PIXI.Graphics();
-        const slotW = BitmapFont.measure('A', { font: 'alt' }) + 4 + 5;
-        g.rect(t.x + slot * slotW, BitmapFont.lineHeight('alt') + 2, 8, 1).fill(0xFF4444);
+        g.rect(slotsX + slot * SLOT_W, BitmapFont.lineHeight('alt') + 3, 8, 1).fill(0xFF4444);
         slotsRow.addChild(g);
     };
     redraw();

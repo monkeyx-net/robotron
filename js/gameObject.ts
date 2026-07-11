@@ -37,5 +37,17 @@ export class GameObject {
     }
 }
 
+/**
+ * True when an entity or its PIXI sprite is destroyed/unusable. PIXI v8
+ * throws on property access of destroyed display objects, so update loops
+ * must check this BEFORE touching sprite.x/y — checking only the legacy
+ * `_destroyed` flag freezes every entity in the loop when any sprite is
+ * destroyed without that flag being set.
+ */
+export function isEntityGone(e: any): boolean {
+    return !e || e._destroyed || !e.sprite || e.sprite.destroyed === true
+        || (e.sprite as any)._destroyed === true;
+}
+
 // Export the new GameObject class as well for gradual migration
 export { NewGameObject };

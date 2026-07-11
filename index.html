@@ -120,6 +120,9 @@
         <button id="play-again-button" class="button">PLAY AGAIN?</button>
     </div>
 
-    <script type="module" src="/js/main.ts"></script>
+    <!-- Relative so the URL matches internal module imports under the
+         /robotron/ base; an absolute /js/main.ts loads a SECOND module
+         instance of the whole game (duplicate PIXI app, frozen entities). -->
+    <script type="module" src="./js/main.ts"></script>
 </body>
 </html>

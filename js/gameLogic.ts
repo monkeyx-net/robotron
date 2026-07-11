@@ -14,6 +14,7 @@ import { ArcadeBorder } from './core/ArcadeBorder';
 import { getWaveDef } from './waveTable';
 import { prng } from './core/Prng';
 import { TwoPlayer } from './core/TwoPlayer';
+import { isEntityGone } from './gameObject';
 
 // --- High Score ---
 export function loadHighScore() {
@@ -251,6 +252,13 @@ export function startNextWave() {
     }
     // Enemy projectiles clear (player projectiles might be kept briefly or cleared too)
      if (enemyProjectiles) enemyProjectiles.length = 0;
+
+    // Arcade behavior: unrescued humans do not carry over — each wave
+    // spawns a fresh family.
+    if (humansAndProgs) {
+        humansAndProgs.forEach(h => { if (!isEntityGone(h)) (h as any).destroy?.(); });
+        humansAndProgs.length = 0;
+    }
      // if (enemyProjectilesContainer) enemyProjectilesContainer.removeChildren(); // Removed as enemyProjectilesContainer is not imported
 
 
@@ -358,18 +366,18 @@ export function checkCollisions() {
     }
 
     const currentPlayer = gameState.currentGameState === 'DEMO_PLAY' ? demoPlayer : player;
-    if (!currentPlayer || !currentPlayer.sprite || (currentPlayer.sprite as any)._destroyed) {
+    if (isEntityGone(currentPlayer)) {
          // If no current player (e.g. during GAME_OVER transition or if demo player dies), skip player-related collisions
     }
 
     // Player Projectile vs Enemy
     for (let i = playerProjectiles.length - 1; i >= 0; i--) {
         const p = playerProjectiles[i];
-        if (!p || !p.sprite || (p.sprite as any)._destroyed) continue;
+        if (isEntityGone(p)) continue;
 
         for (let j = enemies.length - 1; j >= 0; j--) {
             const enemy = enemies[j];
-            if (!enemy || !enemy.sprite || (enemy.sprite as any)._destroyed) continue;
+            if (isEntityGone(enemy)) continue;
 
             // Arcade hulk behavior: bullets don't kill it, they nudge it
             // ~1px along the bullet's direction of travel.
@@ -463,7 +471,7 @@ export function checkCollisions() {
         // Enemy Projectile vs Player
         for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
             const p = enemyProjectiles[i];
-            if (!p || !p.sprite || (p.sprite as any)._destroyed) continue;
+            if (isEntityGone(p)) continue;
             if (!invulnerable && isColliding(p.sprite, currentPlayer.sprite, 5)) {
                 if (p.sprite && !(p.sprite as any)._destroyed) (p.sprite as any).destroy();
                 enemyProjectiles.splice(i,1);
@@ -477,7 +485,7 @@ export function checkCollisions() {
         if (!invulnerable) {
             for (let i = enemies.length - 1; i >= 0; i--) {
                 const enemy = enemies[i];
-                if (!enemy || !enemy.sprite || (enemy.sprite as any)._destroyed) continue;
+                if (isEntityGone(enemy)) continue;
                 if (isColliding(currentPlayer.sprite, enemy.sprite, 8)) {
                     if (gameState.currentGameState === 'PLAYING') playerHit();
                     break;
@@ -499,7 +507,7 @@ export function checkCollisions() {
         if (!invulnerable) {
             for (let i = obstacles.length - 1; i >= 0; i--) {
                 const obstacle = obstacles[i];
-                if (!obstacle || !obstacle.sprite || (obstacle.sprite as any)._destroyed) continue;
+                if (isEntityGone(obstacle)) continue;
                 if (obstacle.type === 'electrode' && isColliding(currentPlayer.sprite, obstacle.sprite, 6)) {
                     if (gameState.currentGameState === 'PLAYING') playerHit();
                     break;
@@ -535,7 +543,7 @@ export function checkCollisions() {
         // Player bullet vs Electrode — one shot destroys it (no points).
         for (let pi = playerProjectiles.length - 1; pi >= 0; pi--) {
             const pb = playerProjectiles[pi];
-            if (!pb || !pb.sprite || (pb.sprite as any)._destroyed) continue;
+            if (isEntityGone(pb)) continue;
             for (let oi = obstacles.length - 1; oi >= 0; oi--) {
                 const ob = obstacles[oi];
                 if (!ob || ob.type !== 'electrode' || !ob.sprite || (ob.sprite as any)._destroyed) continue;
@@ -601,7 +609,7 @@ export function checkCollisions() {
     // Enemy Projectile vs Human (Tank Shells only in original)
     for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
         const p = enemyProjectiles[i];
-        if (!p || !p.sprite || (p.sprite as any)._destroyed || p.type !== 'tank_shell') continue;
+        if (isEntityGone(p) || p.type !== 'tank_shell') continue;
         for (let j = humansAndProgs.length - 1; j >=0; j--) {
             const humanEntity = humansAndProgs[j];
             if (humanEntity.type === 'human' && humanEntity.sprite && !(humanEntity.sprite as any)._destroyed) {
@@ -624,7 +632,7 @@ export function checkCollisions() {
     // Enemy vs Human (Hulk killing human)
     for (let i = enemies.length - 1; i >= 0; i--) {
         const enemy = enemies[i];
-        if (!enemy || !enemy.sprite || (enemy.sprite as any)._destroyed || enemy.type !== 'hulk') continue;
+        if (isEntityGone(enemy) || enemy.type !== 'hulk') continue;
 
         for (let j = humansAndProgs.length - 1; j >= 0; j--) {
             const humanEntity = humansAndProgs[j];

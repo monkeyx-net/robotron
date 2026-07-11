@@ -832,7 +832,11 @@ if (!(window as any).__robotronBooted) {
         (window as any).__game = { app, gameState, get enemies() { return enemies; }, get obstacles() { return obstacles; }, get humansAndProgs() { return humansAndProgs; }, get player() { return player; } };
     });
 } else {
-    console.warn('Robotron already booted; skipping duplicate module initialization.');
+    // A second execution of this module means two module instances exist
+    // (HMR ?t= stamp or a mismatched entry URL — see index.html). Do NOT
+    // boot again and do NOT reload (a reload loops while HMR stamps are
+    // live); the first instance keeps running.
+    console.warn('Robotron module re-executed; skipping duplicate boot.');
 }
 
 // --- Player Object ---

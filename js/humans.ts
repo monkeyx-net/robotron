@@ -5,6 +5,7 @@ import { humansAndProgs } from './main';
 import { SoundManager } from './soundManager';
 import { Human, Prog } from './humanClasses';
 import { ArcadeAtlas } from './core/ArcadeAtlas';
+import { isEntityGone } from './gameObject';
 
 // Simple collision detection function for humans vs obstacles
 function checkObstacleCollision(x: number, y: number, radius: number = 12): boolean {
@@ -242,7 +243,7 @@ export function updateHumansAndProgs(delta: number) {
     }
 
     const initialHumansCount = humansAndProgs.length;
-    const filteredHumansAndProgs = humansAndProgs.filter(entity => !entity._destroyed);
+    const filteredHumansAndProgs = humansAndProgs.filter(entity => !isEntityGone(entity));
     humansAndProgs.length = 0; // Clear the original array
     humansAndProgs.push(...filteredHumansAndProgs); // Add filtered elements back
 
@@ -251,7 +252,7 @@ export function updateHumansAndProgs(delta: number) {
     }
 
     humansAndProgs.forEach(entity => {
-        if (entity._destroyed) return;
+        if (isEntityGone(entity)) return;
 
         if (entity instanceof Human) {
             // Check if human has been rescued
