@@ -8,9 +8,9 @@ import { runMilestone3Tests } from './core/milestone3-test';
 import { Attract } from './attractMode';
 import { loadHighScore, resetGameVariables, startNextWave, checkCollisions, checkForExtraLife, checkWaveCompletion, updateBonusDecay } from './gameLogic';
 import { collisionIntegration, IntegrationUtils } from './core/CollisionIntegration';
-import { gameEngine, GameSystem, EngineUtils } from './core/GameEngine';
-import { RenderSystem, RenderLayer, RenderUtils } from './core/RenderSystem';
-import { RenderIntegration, GameObjectType } from './core/RenderIntegration';
+import { gameEngine, EngineUtils } from './core/GameEngine';
+import { RenderSystem } from './core/RenderSystem';
+import { RenderIntegration } from './core/RenderIntegration';
 import { createPlayer, Player } from './player';
 import { Projectiles } from './projectiles';
 import { Enemies } from './enemies';
@@ -24,20 +24,11 @@ import { gameState } from './gameState';
 import { TwoPlayer } from './core/TwoPlayer';
 import { gameEvents } from './core/EventSystem';
 import { saveLoadManager } from './core/SaveLoadManager';
-import { saveLoadUI } from './ui/SaveLoadUI';
 import './core/SaveLoadTest'; // Import for manual testing
 import { VisualEffectsSystem } from './core/VisualEffects';
-import { EffectPresets, EffectCombinations } from './core/EffectPresets';
 import './core/VisualEffectsTest'; // Import for manual testing
 import { Vector2 } from './utils/Vector2';
-import { Vector2 } from './utils/Vector2';
-import { Vector2 } from './utils/Vector2';
-import { Vector2 } from './utils/Vector2';
 // --- Global Variables Setup ---
-// Fixed Timestep for physics
-const FIXED_TIME_STEP = 1000 / 60; // 60 frames per second
-let accumulator = 0;
-
 // Global input manager reference (will be set after async import)
 let globalInputManager: any = null;
 
@@ -72,63 +63,6 @@ export const effectsContainer = new PIXI.Container();
 
 // Containers will be added to stage after app is initialized
 
-// Debug function to check container states and monitor changes
-function debugContainers() {
-    console.log('=== Container Debug Info ===');
-    console.log('Stage children:', app.stage.children.length);
-    
-    app.stage.children.forEach((container, index) => {
-        console.log(`Container ${index}:`, {
-            name: container.name || container.constructor.name,
-            children: container.children.length,
-            visible: container.visible,
-            alpha: container.alpha,
-            x: container.x,
-            y: container.y
-        });
-        
-        if (container === humansContainer) {
-            console.log('  ^ This is the humans container');
-            container.children.forEach((child, childIndex) => {
-                console.log(`    Child ${childIndex}:`, {
-                    type: child.constructor.name,
-                    x: child.x,
-                    y: child.y,
-                    visible: child.visible,
-                    alpha: child.alpha,
-                    width: child.width,
-                    height: child.height
-                });
-            });
-        }
-        
-        // Also check enemies container for human sprites
-        if (container === enemiesContainer) {
-            console.log('  ^ This is the enemies container');
-            let humanSpritesInEnemies = 0;
-            container.children.forEach((child, childIndex) => {
-                // Check if this might be a human sprite (Graphics object with specific size)
-                if (child.constructor.name === 'r' && child.width === 32 && child.height === 32) {
-                    humanSpritesInEnemies++;
-                    if (childIndex < 5) { // Only log first few to avoid spam
-                        console.log(`    Possible human sprite ${childIndex}:`, {
-                            type: child.constructor.name,
-                            x: child.x,
-                            y: child.y,
-                            width: child.width,
-                            height: child.height
-                        });
-                    }
-                }
-            });
-            if (humanSpritesInEnemies > 0) {
-                console.warn(`    Found ${humanSpritesInEnemies} possible human sprites in enemies container!`);
-            }
-        }
-    });
-    console.log('=== End Container Debug ===');
-}
-
 // Make debug function available globally
 // window.debugContainers = debugContainers; // No longer global
 
@@ -136,12 +70,12 @@ console.log('PIXI containers initialized and added to stage');
 
 // Add debugging to track when sprites are moved between containers
 const originalRemoveChild = humansContainer.removeChild;
-humansContainer.removeChild = function(child) {
+humansContainer.removeChild = function(this: PIXI.Container, child: any) {
     console.log('[DEBUG] Removing child from humans container:', {
         type: child.constructor.name,
         x: child.x,
         y: child.y,
-        stack: new Error().stack.split('\n').slice(1, 4).join('\n') // Show more stack trace
+        stack: (new Error().stack ?? '').split('\n').slice(1, 4).join('\n') // Show more stack trace
     });
     const result = originalRemoveChild.call(this, child);
     
@@ -155,12 +89,12 @@ humansContainer.removeChild = function(child) {
     }, 0);
     
     return result;
-};
+} as typeof humansContainer.removeChild;
 
 // Debug functions will be set up after app is initialized
 
 const originalAddChild = enemiesContainer.addChild;
-enemiesContainer.addChild = function(child) {
+enemiesContainer.addChild = function(this: PIXI.Container, child: any) {
     // Check if this looks like a human sprite
     if (child.constructor.name === 'r' && (child as any).width === 16 && (child as any).height === 16) {
         console.warn('[DEBUG] Adding possible human sprite to enemies container:', {
@@ -169,11 +103,11 @@ enemiesContainer.addChild = function(child) {
             y: child.y,
             width: (child as any).width,
             height: (child as any).height,
-            stack: new Error().stack.split('\n').slice(1, 4).join('\n')
+            stack: (new Error().stack ?? '').split('\n').slice(1, 4).join('\n')
         });
     }
     return originalAddChild.call(this, child);
-};
+} as typeof enemiesContainer.addChild;
 
 // Load Global Assets (exposed on window)
 // Ensure these paths are correct and assets are available.
@@ -187,7 +121,7 @@ const loadTextures = async () => {
         console.log('Starting texture loading...');
         
         // Modern PIXI Assets API for texture loading
-        const loadTexture = async (url: string, id: string): Promise<PIXI.Texture> => {
+        const loadTexture = async (url: string, _id: string): Promise<PIXI.Texture> => {
             try {
                 const texture = await PIXI.Assets.load(url);
                 texture.source.scaleMode = 'nearest'; // Modern way to set scale mode
@@ -585,7 +519,7 @@ function setupGameEngine() {
     // Create game systems for different parts of the game
     const inputSystem = EngineUtils.createSystem(
         'InputSystem',
-        (deltaTime: number) => {
+        (_deltaTime: number) => {
             // The new unified input manager handles gamepad polling automatically
             // No manual polling needed
         },
@@ -685,7 +619,7 @@ function setupGameEngine() {
                     enemies,
                     humansAndProgs,
                     obstacles,
-                    player
+                    player as any // legacy Player shape differs from GameObjectWrapper; integration guards per-field
                 );
                 
                 // Run new collision system (currently in testing mode)
@@ -701,7 +635,7 @@ function setupGameEngine() {
     
     const uiSystem = EngineUtils.createSystem(
         'UISystem',
-        (deltaTime: number) => {
+        (_deltaTime: number) => {
             // UI updates can happen every frame
             if (gameState.currentGameState === 'PLAYING') {
                 UI.updateUI();
@@ -729,7 +663,7 @@ function setupGameEngine() {
     
     const renderSystem = EngineUtils.createSystem(
         'RenderSystem',
-        (deltaTime: number) => {
+        (_deltaTime: number) => {
             // Update render system (culling, batching, etc.)
             const renderSys = RenderSystem.getInstance();
             renderSys.render();

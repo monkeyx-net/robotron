@@ -3,6 +3,7 @@ import { GameObject } from './gameObject';
 
 export class Obstacle extends GameObject {
     flashTimer: number;
+    indestructible: boolean;
 
     constructor(sprite: PIXI.Graphics, type: string, indestructible: boolean, flashTimer: number = 0) {
         super(sprite, type);
@@ -10,13 +11,13 @@ export class Obstacle extends GameObject {
         this.flashTimer = flashTimer;
     }
 
-    update(delta: number): void {
+    update(_delta: number): void {
         // Base update logic for obstacles, can be overridden
     }
 }
 
 export class Electrode extends Obstacle {
-    constructor(sprite: PIXI.Sprite | PIXI.Graphics, x: number, y: number, width: number, height: number, color: number) {
+    constructor(sprite: PIXI.Sprite | PIXI.Graphics, x: number, y: number, _width: number, _height: number, _color: number) {
         super(sprite as PIXI.Graphics, 'electrode', true);
         this.sprite.x = x;
         this.sprite.y = y;
@@ -26,7 +27,7 @@ export class Electrode extends Obstacle {
         // per-wave shapes) — never paint the legacy rect over them.
     }
 
-    update(delta: number): void {
+    update(_delta: number): void {
         // Electrode-specific update logic will be handled in obstacles.ts for now
     }
 }

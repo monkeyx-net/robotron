@@ -38,7 +38,7 @@ export class Human extends GameObject {
         this.createdAt = Date.now();
     }
 
-    update(delta: number): void {
+    update(_delta: number): void {
         // Human-specific update logic will be handled in humans.ts for now
     }
 }
@@ -66,7 +66,7 @@ export class Prog extends GameObject {
         this.reprogramTimer = 0;
     }
 
-    update(delta: number): void {
+    update(_delta: number): void {
         // Prog-specific update logic will be handled in humans.ts for now
     }
 }

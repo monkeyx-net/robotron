@@ -10,7 +10,6 @@ import { GameObject, Component, SpriteRenderer, Collider, Rigidbody } from '../c
 import { Vector2 } from '../utils/Vector2';
 import { Constants } from '../utils/Constants';
 import { gameEvents } from '../core/EventSystem';
-import { errorHandler, ErrorCategory, ErrorSeverity } from '../core/ErrorHandler';
 
 /**
  * Human types enum
@@ -179,7 +178,7 @@ export class HumanAI implements Component {
     /**
      * Wander behavior - random movement with occasional direction changes
      */
-    private wanderBehavior(rigidbody: Rigidbody, deltaTime: number): void {
+    private wanderBehavior(rigidbody: Rigidbody, _deltaTime: number): void {
         // Change direction occasionally
         if (this.wanderTimer >= this.wanderChangeInterval) {
             this.wanderDirection = Vector2.random().normalize();

@@ -123,8 +123,6 @@ export class UnifiedInputManager {
     
     // Configuration
     private deadzone: number = 0.2;
-    private touchSensitivity: number = 1.0;
-    private mouseSensitivity: number = 1.0;
     
     // Event listeners
     private eventListeners: Map<InputAction, ((event: InputEvent) => void)[]> = new Map();
@@ -523,7 +521,7 @@ export class UnifiedInputManager {
   
    * Handle gamepad button events
      */
-    private handleGamepadButtonEvent(gamepadIndex: number, buttonIndex: number, pressed: boolean, timestamp: number): void {
+    private handleGamepadButtonEvent(_gamepadIndex: number, buttonIndex: number, pressed: boolean, timestamp: number): void {
         const binding = this.findGamepadButtonBinding(buttonIndex);
         if (binding) {
             const inputEvent: InputEvent = {
@@ -541,7 +539,7 @@ export class UnifiedInputManager {
     /**
      * Handle gamepad axis events
      */
-    private handleGamepadAxisEvent(gamepadIndex: number, axisIndex: number, value: number, timestamp: number): void {
+    private handleGamepadAxisEvent(_gamepadIndex: number, axisIndex: number, value: number, timestamp: number): void {
         const bindings = this.findGamepadAxisBindings(axisIndex);
         
         for (const binding of bindings) {

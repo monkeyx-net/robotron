@@ -12,19 +12,11 @@ import { gameEvents } from './core/EventSystem';
 
 // PIXI objects to be defined within setup functions and then potentially exposed
 let titleText: PIXI.Text | null = null;
-let williamsText: PIXI.Text;
 export let insertCoinText: PIXI.Text;
 export let pressStartText: PIXI.Text;
 let highScoreTextElement: PIXI.Text | null = null;
-let highScoreScreenTitleText: PIXI.Text;
-let highScoreValueText: PIXI.Text;
-let attractOverlayText1: PIXI.Text;
-let attractOverlayText2: PIXI.Text;
-let attractOverlayText3: PIXI.Text;
 
 // UI Elements (HTML) - define these at the top of the module
-const scoreTextEl = document.getElementById('score');
-const livesTextEl = document.getElementById('lives');
 const bonusTextEl = document.getElementById('bonus');
 const uiContainerEl = document.getElementById('ui-container');
 const messageBoxEl = document.getElementById('message-box');

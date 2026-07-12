@@ -1,5 +1,4 @@
 import { Vector2 } from '../utils/Vector2';
-import { Rectangle } from '../utils/Rectangle';
 import { GameObject } from './GameObject';
 
 /**

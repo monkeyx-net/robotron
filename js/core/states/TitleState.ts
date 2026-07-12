@@ -20,7 +20,7 @@ export class TitleState extends BaseGameState {
         super('TITLE_SCREEN');
     }
     
-    public enter(data?: any): void {
+    public enter(_data?: any): void {
         console.log('TitleState: Entering title screen');
         
         // Hide message box
@@ -65,7 +65,7 @@ export class TitleState extends BaseGameState {
         this.emitStateEvent('entered');
     }
     
-    public exit(data?: any): void {
+    public exit(_data?: any): void {
         console.log('TitleState: Exiting title screen');
         
         // Hide title screen UI

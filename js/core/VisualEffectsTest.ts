@@ -205,7 +205,7 @@ export class VisualEffectsTest {
         // Custom explosion sizes
         setTimeout(() => {
             console.log('Small explosion...');
-            const config = EffectPresets.createCustomExplosion(
+            EffectPresets.createCustomExplosion(
                 new Vector2(centerX - 100, centerY), 
                 'small', 
                 0xFF6600
@@ -215,7 +215,7 @@ export class VisualEffectsTest {
         
         setTimeout(() => {
             console.log('Large explosion...');
-            const config = EffectPresets.createCustomExplosion(
+            EffectPresets.createCustomExplosion(
                 new Vector2(centerX + 100, centerY), 
                 'large', 
                 0x6600FF
@@ -227,7 +227,7 @@ export class VisualEffectsTest {
         setTimeout(() => {
             console.log('Directional effect...');
             const direction = new Vector2(1, 0); // Right direction
-            const config = EffectPresets.createDirectionalEffect(
+            EffectPresets.createDirectionalEffect(
                 new Vector2(centerX, centerY), 
                 direction, 
                 1.5
@@ -275,7 +275,7 @@ export class VisualEffectsTest {
     /**
      * Get current system statistics
      */
-    public static getStats(): void {
+    public static getStats(): ReturnType<VisualEffectsSystem['getStats']> {
         const stats = this.visualEffects.getStats();
         console.log('📊 Current visual effects stats:', stats);
         return stats;

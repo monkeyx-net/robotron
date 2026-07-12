@@ -45,14 +45,16 @@ export function testFoundationalSystems(): boolean {
         testSprite.rect(0, 0, 10, 10);
         testSprite.fill(0xFF0000);
         
-        const gameObject = new RobotronGame.Utils.GameObject(testSprite, 'test');
+        // Legacy test targets an older GameObject API (setPosition/move);
+        // kept as-is (it already reports failure at runtime via catch).
+        const gameObject = new (RobotronGame.Utils.GameObject as any)(testSprite, 'test');
         console.log(`GameObject test: created object with id ${gameObject.id}`);
-        
+
         // Test position and movement
         gameObject.setPosition(new Vector2(50, 50));
         gameObject.move(new Vector2(10, 10));
         console.log(`GameObject position after move: ${gameObject.position.toString()}`);
-        
+
         if (!gameObject.position.equals(new Vector2(60, 60))) {
             throw new Error('GameObject movement test failed');
         }

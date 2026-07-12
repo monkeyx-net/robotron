@@ -13,7 +13,7 @@ export class GameObject {
     position: { x: number; y: number };
     previousPosition: { x: number; y: number };
 
-    constructor(sprite: PIXI.Sprite | PIXI.Graphics, type: string) {
+    constructor(sprite: PIXI.Sprite | PIXI.Graphics | PIXI.Container, type: string) {
         this.sprite = sprite;
         this.type = type;
         this.isAlive = true;
@@ -22,7 +22,7 @@ export class GameObject {
         this.previousPosition = { x: this.position.x, y: this.position.y };
     }
 
-    update(delta: number): void {
+    update(_delta: number): void {
         // Base update logic, to be overridden by subclasses
     }
 

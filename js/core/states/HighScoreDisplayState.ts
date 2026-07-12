@@ -17,7 +17,7 @@ export class HighScoreDisplayState extends BaseGameState {
         super('HIGH_SCORE_DISPLAY_SCREEN');
     }
     
-    public enter(data?: any): void {
+    public enter(_data?: any): void {
         console.log('HighScoreDisplayState: Entering high score display');
         
         // Hide message box
@@ -56,7 +56,7 @@ export class HighScoreDisplayState extends BaseGameState {
         this.emitStateEvent('entered');
     }
     
-    public exit(data?: any): void {
+    public exit(_data?: any): void {
         console.log('HighScoreDisplayState: Exiting high score display');
         
         // Hide high score display screen UI

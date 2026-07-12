@@ -93,7 +93,7 @@ function setupGameEventListeners(): void {
     });
     
     // Listen for game over events
-    gameEvents.on('game:game_over', (event) => {
+    gameEvents.on('game:game_over', (_event) => {
         console.log('StateInitialization: Game over event received');
         // Game over transition is handled by the PlayingState
     });

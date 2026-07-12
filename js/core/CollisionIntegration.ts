@@ -7,10 +7,9 @@
  */
 
 import { CollisionSystem, CollisionLayer, CollisionResponse, CollisionObject } from './CollisionSystem';
-import { SpatialGrid, spatialGrid } from './SpatialGrid';
+import { spatialGrid } from './SpatialGrid';
 import { Vector2 } from '../utils/Vector2';
 import { Rectangle } from '../utils/Rectangle';
-import { Constants } from '../utils/Constants';
 import { gameEvents } from './EventSystem';
 import { errorHandler, ErrorCategory, ErrorSeverity } from './ErrorHandler';
 

@@ -262,7 +262,7 @@ export const PoolUtils = {
                 dx: 0,
                 dy: 0,
                 active: false,
-                sprite: null,
+                sprite: null as any,
                 reset() {
                     this.x = 0;
                     this.y = 0;
@@ -294,7 +294,7 @@ export const PoolUtils = {
                 color: 0xFFFFFF,
                 size: 1,
                 active: false,
-                sprite: null,
+                sprite: null as any,
                 reset() {
                     this.x = 0;
                     this.y = 0;

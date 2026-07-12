@@ -537,9 +537,6 @@ export class SaveSystem {
     private estimateQuota(): number {
         try {
             // Try to estimate quota by attempting to store data
-            let testData = '';
-            let quota = 0;
-            
             // This is a rough estimation - actual quota detection is complex
             // Most browsers have 5-10MB for localStorage
             return 5 * 1024 * 1024; // 5MB estimate

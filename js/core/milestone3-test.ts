@@ -8,8 +8,8 @@
 import * as PIXI from 'pixi.js';
 import { GameObject } from './GameObject';
 import { PlayerFactory, PlayerController, PlayerInput } from '../entities/Player';
-import { EnemyFactory, GruntFactory, HulkFactory, EnforcerFactory } from '../entities/Enemy';
-import { ProjectileFactory, projectileManager } from '../entities/Projectile';
+import { GruntFactory, HulkFactory, EnforcerFactory } from '../entities/Enemy';
+import { projectileManager } from '../entities/Projectile';
 import { HumanFactory, HumanType, HumanAI, HumanState } from '../entities/Human';
 import { Vector2 } from '../utils/Vector2';
 import { gameEvents } from './EventSystem';
@@ -265,7 +265,6 @@ export class Milestone3Test {
             this.testResults['entity_event_system'] = eventReceived;
             
             // Test collision detection setup
-            const texture = this.createTestTexture(16, 16, 0xFFFFFF);
             const testEntity = new GameObject('TestEntity');
             testEntity.transform.setPosition(50, 50);
             

@@ -5,7 +5,7 @@
  * is working correctly with different input devices.
  */
 
-import { inputManager, InputAction, InputDevice } from './InputManager';
+import { inputManager, InputAction } from './InputManager';
 
 /**
  * Test the unified input manager

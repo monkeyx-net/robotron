@@ -13,7 +13,7 @@ import { gameState } from './gameState';
 let attractModeTimer = 0;
 let insertCoinFlashTimer = 0;
 
-function findNearestEnemyForDemo(playerInstance: Player, enemyList: Enemy[]) {
+function findNearestEnemyForDemo(playerInstance: Player, enemyList: Enemy[]): Enemy | null {
     if(!playerInstance || !playerInstance.sprite || !enemyList || enemyList.length === 0) return null;
     let nearest: Enemy | null = null;
     let minDistSq = Infinity;

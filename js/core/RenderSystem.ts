@@ -30,7 +30,7 @@ export enum RenderLayer {
  * Renderable object interface
  */
 export interface RenderableObject {
-    sprite: PIXI.DisplayObject;
+    sprite: PIXI.Container;
     layer: RenderLayer;
     visible: boolean;
     position: { x: number; y: number };
@@ -82,7 +82,6 @@ export interface RenderMetrics {
 export class RenderSystem {
     private static instance: RenderSystem;
     
-    private app: PIXI.Application;
     private viewport!: Viewport;
     private renderables: Map<string, RenderableObject> = new Map();
     private batches: Map<string, RenderBatch> = new Map();
@@ -108,8 +107,7 @@ export class RenderSystem {
     private optimizedRenderingThreshold: number = 5; // Use optimized rendering when batch has 5+ sprites
     private interpolationEnabled: boolean = true; // Enable smooth interpolation for movement
     
-    private constructor(app: PIXI.Application) {
-        this.app = app;
+    private constructor(_app: PIXI.Application) {
         this.setupViewport();
         this.setupLayerContainers();
         this.setupEventListeners();
@@ -198,18 +196,6 @@ export class RenderSystem {
     }
     
     /**
-     * Get layer for a container
-     */
-    private getContainerLayer(container: PIXI.Container): number {
-        for (const [layer, layerContainer] of this.layerContainers) {
-            if (layerContainer === container) {
-                return layer;
-            }
-        }
-        return RenderLayer.BACKGROUND;
-    }
-    
-    /**
      * Setup event listeners
      */
     private setupEventListeners(): void {
@@ -273,76 +259,6 @@ export class RenderSystem {
             
             this.renderables.delete(id);
             this.metrics.totalObjects = this.renderables.size;
-        }
-    }
-    
-    /**
-     * Add sprite to batch
-     */
-    private addToBatch(sprite: PIXI.Sprite, layer: RenderLayer): void {
-        if (!sprite.texture) return;
-        
-        const batchKey = `${layer}_${(sprite.texture as any).uid || 'default'}`;
-        let batch = this.batches.get(batchKey);
-        
-        if (!batch) {
-            batch = {
-                texture: sprite.texture,
-                sprites: [],
-                container: new PIXI.Container(),
-                layer: layer,
-                dirty: true,
-                useOptimizedRendering: false,
-                lastUpdateTime: Date.now()
-            };
-            
-            // Add batch container to appropriate layer
-            const layerContainer = this.layerContainers.get(layer);
-            if (layerContainer) {
-                layerContainer.addChild(batch.container);
-            }
-            
-            this.batches.set(batchKey, batch);
-        }
-        
-        if (batch.sprites.length < this.batchSize) {
-            batch.sprites.push(sprite);
-            batch.dirty = true;
-            
-            // Check if we should upgrade to optimized rendering for performance
-            this.checkOptimizedRenderingUpgrade(batch);
-        }
-    }
-    
-    /**
-     * Check if batch should be upgraded to optimized rendering for performance
-     */
-    private checkOptimizedRenderingUpgrade(batch: RenderBatch): void {
-        if (!batch.useOptimizedRendering && batch.sprites.length >= this.optimizedRenderingThreshold) {
-            // Upgrade to optimized rendering for better performance with many sprites
-            batch.useOptimizedRendering = true;
-            
-            // Create optimized container for many sprites
-            batch.optimizedContainer = new PIXI.Container();
-            batch.optimizedContainer.name = `OptimizedBatch_${batch.sprites.length}`;
-            
-            // Move sprites from regular container to optimized container
-            for (const sprite of batch.sprites) {
-                if (sprite.parent) {
-                    sprite.parent.removeChild(sprite);
-                }
-                batch.optimizedContainer.addChild(sprite);
-            }
-            
-            // Replace regular container with optimized container
-            if (batch.container.parent) {
-                const parent = batch.container.parent;
-                const index = parent.getChildIndex(batch.container);
-                parent.removeChild(batch.container);
-                parent.addChildAt(batch.optimizedContainer, index);
-            }
-            
-            console.log(`🚀 Upgraded batch to optimized rendering: ${batch.sprites.length} sprites`);
         }
     }
     
@@ -430,75 +346,6 @@ export class RenderSystem {
     }
     
     /**
-     * Apply anti-flickering optimizations for many sprites
-     */
-    private applyAntiFlickeringOptimizations(): void {
-        // Optimization 1: Ensure consistent z-ordering for batches
-        for (const batch of this.batches.values()) {
-            if (batch.useOptimizedRendering && batch.optimizedContainer) {
-                // Sort sprites by texture and position to reduce state changes
-                batch.sprites.sort((a, b) => {
-                    // First sort by texture UID for batching
-                    const textureA = (a.texture as any).uid || 0;
-                    const textureB = (b.texture as any).uid || 0;
-                    if (textureA !== textureB) {
-                        return textureA - textureB;
-                    }
-                    // Then sort by Y position for consistent rendering order
-                    return a.y - b.y;
-                });
-            }
-        }
-        
-        // Optimization 2: Minimize container operations
-        // Group similar operations together to reduce GPU state changes
-        this.minimizeContainerOperations();
-        
-        // Optimization 3: Apply consistent rendering order
-        this.ensureConsistentRenderOrder();
-    }
-    
-    /**
-     * Minimize container operations to reduce flickering
-     */
-    private minimizeContainerOperations(): void {
-        // Batch container updates to reduce the number of GPU state changes
-        for (const batch of this.batches.values()) {
-            if (batch.dirty && batch.sprites.length > this.optimizedRenderingThreshold) {
-                const container = batch.useOptimizedRendering ? batch.optimizedContainer : batch.container;
-                if (container) {
-                    // Temporarily disable rendering during batch updates
-                    const wasVisible = container.visible;
-                    container.visible = false;
-                    
-                    // Perform all updates at once
-                    // (Sprite positions are already updated by the game logic)
-                    
-                    // Re-enable rendering
-                    container.visible = wasVisible;
-                }
-            }
-        }
-    }
-    
-    /**
-     * Ensure consistent render order to prevent flickering
-     */
-    private ensureConsistentRenderOrder(): void {
-        // Sort layer containers by their layer priority
-        const sortedLayers = Array.from(this.layerContainers.entries())
-            .sort(([layerA], [layerB]) => layerA - layerB);
-        
-        // Ensure containers are in the correct order in their parent
-        for (const [layer, container] of sortedLayers) {
-            if (container.parent) {
-                // Move to front to maintain layer order
-                container.parent.setChildIndex(container, container.parent.children.length - 1);
-            }
-        }
-    }
-    
-    /**
      * Update viewport configuration
      */
     updateViewport(viewport: Partial<Viewport>): void {
@@ -545,7 +392,7 @@ export class RenderSystem {
         let visibleCount = 0;
         let culledCount = 0;
         
-        for (const [id, renderable] of this.renderables) {
+        for (const [_id, renderable] of this.renderables) {
             const isVisible = this.isInViewport(renderable);
             
             if (renderable.sprite.visible !== isVisible) {
@@ -587,34 +434,6 @@ export class RenderSystem {
             objBounds.y + objBounds.height < viewport.y - viewport.padding ||
             objBounds.y > viewport.y + viewport.height + viewport.padding
         );
-    }
-    
-    /**
-     * Update batches
-     */
-    private updateBatches(): void {
-        if (!this.enableBatching) return;
-        
-        let batchedCount = 0;
-        
-        for (const batch of this.batches.values()) {
-            if (batch.dirty) {
-                // Optimized rendering handles efficient batching
-                // Position updates are handled by interpolation system
-                if (batch.useOptimizedRendering && batch.optimizedContainer) {
-                    // Optimized container - mark as clean and update timestamp
-                    batch.dirty = false;
-                    batch.lastUpdateTime = Date.now();
-                } else {
-                    // Regular container - positions are updated by sprite renderers
-                    batch.dirty = false;
-                    batch.lastUpdateTime = Date.now();
-                }
-                batchedCount += batch.sprites.length;
-            }
-        }
-        
-        this.metrics.batchedSprites = batchedCount;
     }
     
     /**
@@ -741,7 +560,7 @@ export const RenderUtils = {
      * Create a renderable object from a sprite
      */
     createRenderable(
-        sprite: PIXI.DisplayObject,
+        sprite: PIXI.Container,
         layer: RenderLayer = RenderLayer.BACKGROUND,
         id?: string
     ): RenderableObject {

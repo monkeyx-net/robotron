@@ -92,7 +92,7 @@ export function testSpriteLifecycle(): boolean {
         RenderIntegration.registerGameObjectArray(
             testSprites, 
             GameObjectType.ENEMY,
-            (obj, index) => obj.id,
+            (obj, _index) => obj.id,
             (obj) => obj.sprite
         );
         
@@ -107,7 +107,7 @@ export function testSpriteLifecycle(): boolean {
         RenderIntegration.unregisterGameObjectArray(
             testSprites,
             GameObjectType.ENEMY,
-            (obj, index) => obj.id
+            (obj, _index) => obj.id
         );
         
         const afterCleanup = renderSystem.getDebugInfo().renderables;
@@ -133,7 +133,6 @@ export async function monitorPerformance(duration: number = 5000): Promise<void>
     console.log(`📈 Monitoring performance for ${duration / 1000} seconds...`);
     
     const renderSystem = RenderSystem.getInstance();
-    const startTime = Date.now();
     const samples: any[] = [];
     
     const sampleInterval = setInterval(() => {

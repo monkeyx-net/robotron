@@ -1,6 +1,5 @@
 import { saveLoadManager } from '../core/SaveLoadManager';
 import { gameEvents } from '../core/EventSystem';
-import { GameSettings, GameStatistics } from '../core/SaveSystem';
 
 /**
  * UI component for save/load operations

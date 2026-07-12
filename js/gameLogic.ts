@@ -131,7 +131,7 @@ export function playerHit() {
 
     const respawnHere = () => {
         gameState.playerInvulnerableTime = GameConfig.RESPAWN_INVULNERABILITY_TIME;
-        if (player.sprite) player.sprite.visible = false;
+        if (player && player.sprite) player.sprite.visible = false;
         setTimeout(() => {
             if (gameState.currentGameState === 'GAME_OVER') return;
             if (player && player.sprite && GameConfig) {

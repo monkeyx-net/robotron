@@ -3,7 +3,7 @@ import { GameConfig } from './config';
 import { playerContainer, playerTexture, player } from './main';
 import { ArcadeAtlas } from './core/ArcadeAtlas';
 // Removed old InputManager - using unified input manager instead
-import { inputManager, InputAction } from './core/InputManager';
+import { inputManager } from './core/InputManager';
 import { gameState } from './gameState';
 import { Projectiles } from './projectiles';
 import { GameObject, clampToPlayfield } from './gameObject';
@@ -193,7 +193,8 @@ export class PlayerShootingComponent {
 export class Player extends GameObject {
     public state: PlayerState;
     private inputComponent: PlayerInputComponent;
-    private movementComponent: PlayerMovementComponent;
+    // Held publicly: constructed for wiring, not read back (unused-private check)
+    movementComponent: PlayerMovementComponent;
     private shootingComponent: PlayerShootingComponent;
     private shieldEffect: PIXI.Graphics | null = null;
 
@@ -206,7 +207,10 @@ export class Player extends GameObject {
     get dy(): number { return this.velocity.y; }
     set dy(value: number) { this.velocity.y = value; }
     get lastShootTime(): number { return this.state.lastShootTime; }
-    get isAlive(): boolean { return this.state.isAlive; }
+    // NOTE: no isAlive accessor here — the base GameObject class field
+    // (useDefineForClassFields) shadows prototype accessors at runtime, so
+    // the inherited data property is the live one. state.isAlive is synced
+    // where Player manages its own lifecycle.
     get isDemoPlayer(): boolean { return this.state.isDemoPlayer; }
     set isDemoPlayer(value: boolean) { this.state.isDemoPlayer = value; }
 

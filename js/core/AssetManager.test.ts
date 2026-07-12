@@ -7,7 +7,6 @@
 
 import {
     AssetManager,
-    assetManager,
     AssetType,
     AssetStatus,
     AssetUtils

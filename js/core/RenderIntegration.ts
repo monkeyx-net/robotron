@@ -44,7 +44,7 @@ export class RenderIntegration {
      */
     static registerGameObject(
         id: string,
-        sprite: PIXI.DisplayObject,
+        sprite: PIXI.Container,
         type: GameObjectType,
         customLayer?: RenderLayer
     ): void {
@@ -114,8 +114,8 @@ export class RenderIntegration {
     static registerGameObjectArray(
         objects: any[],
         type: GameObjectType,
-        getIdFn: (obj: any, index: number) => string = (obj, index) => `${type}_${index}`,
-        getSpriteFn: (obj: any) => PIXI.DisplayObject = (obj) => obj.sprite || obj
+        getIdFn: (obj: any, index: number) => string = (_obj, index) => `${type}_${index}`,
+        getSpriteFn: (obj: any) => PIXI.Container = (obj) => obj.sprite || obj
     ): void {
         objects.forEach((obj, index) => {
             if (obj && !obj._destroyed) {
@@ -134,7 +134,7 @@ export class RenderIntegration {
     static unregisterGameObjectArray(
         objects: any[],
         type: GameObjectType,
-        getIdFn: (obj: any, index: number) => string = (obj, index) => `${type}_${index}`
+        getIdFn: (obj: any, index: number) => string = (_obj, index) => `${type}_${index}`
     ): void {
         objects.forEach((obj, index) => {
             const id = getIdFn(obj, index);
@@ -168,13 +168,13 @@ export class RenderIntegration {
             // Register player projectiles
             if (gameObjects.playerProjectiles) {
                 this.registerGameObjectArray(gameObjects.playerProjectiles, GameObjectType.PROJECTILE, 
-                    (obj, index) => `player_projectile_${index}`);
+                    (_obj, index) => `player_projectile_${index}`);
             }
             
             // Register enemy projectiles
             if (gameObjects.enemyProjectiles) {
                 this.registerGameObjectArray(gameObjects.enemyProjectiles, GameObjectType.PROJECTILE,
-                    (obj, index) => `enemy_projectile_${index}`);
+                    (_obj, index) => `enemy_projectile_${index}`);
             }
             
             // Register humans
@@ -269,7 +269,7 @@ export const RenderHelpers = {
     /**
      * Register a sprite with automatic type detection
      */
-    autoRegister(id: string, sprite: PIXI.DisplayObject, hint?: string): void {
+    autoRegister(id: string, sprite: PIXI.Container, hint?: string): void {
         let type = GameObjectType.BACKGROUND;
         
         // Try to detect type from ID or hint

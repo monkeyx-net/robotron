@@ -1,4 +1,4 @@
-import { saveSystem, SaveData, GameSettings, GameStatistics } from './SaveSystem';
+import { saveSystem, GameSettings, GameStatistics } from './SaveSystem';
 import { gameState, GameState } from '../gameState';
 import { gameEvents } from './EventSystem';
 
@@ -8,7 +8,6 @@ import { gameEvents } from './EventSystem';
 export class SaveLoadManager {
     private static instance: SaveLoadManager;
     private gameStartTime: number = 0;
-    private lastSaveTime: number = 0;
     
     private constructor() {
         this.setupEventListeners();
@@ -64,8 +63,6 @@ export class SaveLoadManager {
             const success = saveSystem.saveGame(gameState);
             
             if (success) {
-                this.lastSaveTime = Date.now();
-                
                 gameEvents.emit({
                     type: 'ui:show_message',
                     timestamp: Date.now(),
@@ -335,7 +332,7 @@ export class SaveLoadManager {
     /**
      * Handle game over for statistics and saving
      */
-    private handleGameOver(data: any): void {
+    private handleGameOver(_data: any): void {
         const playTime = Date.now() - this.gameStartTime;
         
         // Update statistics
@@ -387,7 +384,7 @@ export class SaveLoadManager {
     /**
      * Update wave progress
      */
-    private updateWave(newWave: number): void {
+    private updateWave(_newWave: number): void {
         // Auto-save on wave completion
         this.saveCurrentGame();
     }

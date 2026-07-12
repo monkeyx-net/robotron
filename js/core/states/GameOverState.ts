@@ -19,7 +19,7 @@ export class GameOverState extends BaseGameState {
         super('GAME_OVER');
     }
     
-    public enter(data?: any): void {
+    public enter(_data?: any): void {
         console.log('GameOverState: Entering game over');
         
         // Update game state
@@ -76,7 +76,7 @@ export class GameOverState extends BaseGameState {
         });
     }
     
-    public exit(data?: any): void {
+    public exit(_data?: any): void {
         console.log('GameOverState: Exiting game over');
         
         // Hide game over screen
@@ -199,7 +199,7 @@ export class GameOverState extends BaseGameState {
     /**
      * Update game over screen animations
      */
-    private updateGameOverScreen(deltaTime: number): void {
+    private updateGameOverScreen(_deltaTime: number): void {
         // Add any game over screen animations here
         // For example, flashing text, score counting animations, etc.
     }

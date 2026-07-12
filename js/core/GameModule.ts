@@ -3,7 +3,7 @@
  * Encapsulates the entire Robotron game to prevent global namespace pollution
  */
 
-import { IGameEngine, IGameState, GameStateType } from './interfaces';
+import { IGameEngine, IGameState } from './interfaces';
 import { GameObject } from './GameObject';
 import { Vector2 } from '../utils/Vector2';
 import { Rectangle } from '../utils/Rectangle';

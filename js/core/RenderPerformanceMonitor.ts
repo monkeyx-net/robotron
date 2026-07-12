@@ -7,7 +7,6 @@
 
 import { RenderSystem } from './RenderSystem';
 import { gameEvents } from './EventSystem';
-import { errorHandler, ErrorCategory, ErrorSeverity } from './ErrorHandler';
 
 /**
  * Performance sample for tracking over time
@@ -65,7 +64,6 @@ export class RenderPerformanceMonitor {
     private renderSystem: RenderSystem;
     private samples: PerformanceSample[] = [];
     private isMonitoring: boolean = false;
-    private monitoringStartTime: number = 0;
     private lastFrameTime: number = 0;
     private frameCount: number = 0;
     
@@ -128,7 +126,6 @@ export class RenderPerformanceMonitor {
         }
         
         this.isMonitoring = true;
-        this.monitoringStartTime = Date.now();
         this.samples = [];
         this.frameCount = 0;
         this.lastFrameTime = performance.now();
@@ -172,7 +169,7 @@ export class RenderPerformanceMonitor {
     /**
      * Record frame performance data
      */
-    private recordFrameData(renderData: any): void {
+    private recordFrameData(_renderData: any): void {
         const now = performance.now();
         const currentTime = Date.now();
         

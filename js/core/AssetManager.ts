@@ -557,7 +557,7 @@ export class AssetManager {
      * Load a font
      */
     private loadFont(url: string, fontFamily?: string): Promise<string> {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve, _reject) => {
             if (!fontFamily) {
                 // Extract font family from URL if not provided
                 const urlParts = url.split('/');

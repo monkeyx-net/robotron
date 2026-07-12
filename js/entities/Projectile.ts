@@ -10,7 +10,6 @@ import { GameObject, Component, SpriteRenderer, Collider, Rigidbody } from '../c
 import { Vector2 } from '../utils/Vector2';
 import { Constants } from '../utils/Constants';
 import { gameEvents } from '../core/EventSystem';
-import { errorHandler, ErrorCategory, ErrorSeverity } from '../core/ErrorHandler';
 import { ObjectPool } from '../utils/ObjectPool';
 
 /**
@@ -297,7 +296,7 @@ export class ProjectileFactory {
         graphics.beginFill(0xFFFF00);
         graphics.drawRect(-1, -2, 2, 4);
         graphics.endFill();
-        const texture = PIXI.RenderTexture.create(4, 8);
+        const texture = PIXI.RenderTexture.create({ width: 4, height: 8 });
         
         return this.createProjectile(
             texture,
@@ -324,7 +323,7 @@ export class ProjectileFactory {
         graphics.lineTo(-2, 0);
         graphics.closePath();
         graphics.endFill();
-        const texture = PIXI.RenderTexture.create(6, 8);
+        const texture = PIXI.RenderTexture.create({ width: 6, height: 8 });
         
         return this.createProjectile(
             texture,
@@ -347,7 +346,7 @@ export class ProjectileFactory {
         graphics.beginFill(0xFF88FF);
         graphics.drawCircle(0, 0, 3);
         graphics.endFill();
-        const texture = PIXI.RenderTexture.create(8, 8);
+        const texture = PIXI.RenderTexture.create({ width: 8, height: 8 });
         
         return this.createProjectile(
             texture,
@@ -370,7 +369,7 @@ export class ProjectileFactory {
         graphics.beginFill(0x888888);
         graphics.drawCircle(0, 0, 4);
         graphics.endFill();
-        const texture = PIXI.RenderTexture.create(10, 10);
+        const texture = PIXI.RenderTexture.create({ width: 10, height: 10 });
         
         return this.createProjectile(
             texture,
@@ -511,29 +510,6 @@ class ProjectileObjectPool {
      */
     private createPooledEnemyProjectile(): GameObject {
         return ProjectileFactory.createEnforcerProjectile(0, 0, new Vector2(1, 0));
-    }
-    
-    /**
-     * Reset a projectile for reuse
-     */
-    private resetProjectile(projectile: GameObject): void {
-        // Reset position
-        projectile.transform.setPosition(0, 0);
-        
-        // Reset velocity
-        const rigidbody = projectile.getComponent<Rigidbody>('rigidbody');
-        if (rigidbody) {
-            rigidbody.setVelocity(0, 0);
-        }
-        
-        // Reset controller
-        const controller = projectile.getComponent<ProjectileController>('projectileController');
-        if (controller) {
-            controller.reset();
-        }
-        
-        // Make sure it's inactive
-        projectile.setActive(false);
     }
     
     /**

@@ -10,7 +10,6 @@ import { GameObject, Component, SpriteRenderer, Collider, Rigidbody } from '../c
 import { Vector2 } from '../utils/Vector2';
 import { Constants } from '../utils/Constants';
 import { gameEvents } from '../core/EventSystem';
-import { errorHandler, ErrorCategory, ErrorSeverity } from '../core/ErrorHandler';
 
 /**
  * Base enemy AI component interface
@@ -176,7 +175,7 @@ export class EnemyMovement implements Component {
     /**
      * Chase movement towards target
      */
-    private chaseMovement(deltaTime: number): void {
+    private chaseMovement(_deltaTime: number): void {
         if (!this.target) {
             this.findTarget();
             return;
@@ -223,7 +222,7 @@ export class EnemyMovement implements Component {
     /**
      * Patrol movement pattern
      */
-    private patrolMovement(deltaTime: number): void {
+    private patrolMovement(_deltaTime: number): void {
         if (this.patrolPoints.length === 0) return;
         
         const targetPoint = this.patrolPoints[this.currentPatrolIndex];

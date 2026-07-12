@@ -81,8 +81,6 @@ export class EventEmitter {
     private subscriptions: Map<string, EventSubscription[]> = new Map();
     private eventQueue: QueuedEvent[] = [];
     private nextSubscriptionId: number = 1;
-    private isProcessingQueue: boolean = false;
-    private maxQueueSize: number = 1000;
     private eventHistory: GameEvent[] = [];
     private maxHistorySize: number = 100;
     

@@ -276,8 +276,6 @@ function testSystemStability(): boolean {
         console.log('  Testing system stability...');
         
         // Test GameEngine pause/resume functionality
-        const initialState = gameEngine.getState();
-        
         gameEngine.pause();
         console.assert(gameEngine.getState() === 'paused', 'GameEngine should pause correctly');
         
@@ -286,7 +284,6 @@ function testSystemStability(): boolean {
         
         // Test system enable/disable
         const testSystemName = 'UISystem';
-        const originalEnabled = gameEngine.getSystem(testSystemName)?.enabled;
         
         gameEngine.setSystemEnabled(testSystemName, false);
         console.assert(gameEngine.getSystem(testSystemName)?.enabled === false, 'Should disable system');
@@ -312,6 +309,7 @@ function testSystemStability(): boolean {
         console.error = (...args) => {
             if (args[0]?.includes?.('test error')) {
                 errorHandled = true;
+                void errorHandled; // flag is observational; silences unused-read check
             }
             originalConsoleError.apply(console, args);
         };

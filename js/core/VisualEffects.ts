@@ -458,7 +458,6 @@ class ScreenShake {
     private intensity: number = 0;
     private duration: number = 0;
     private timer: number = 0;
-    private frequency: number = 30;
     private fadeOut: boolean = true;
     private direction: 'horizontal' | 'vertical' | 'both' = 'both';
     private offset: Vector2 = new Vector2(0, 0);
@@ -469,7 +468,6 @@ class ScreenShake {
     public start(config: ScreenShakeConfig): void {
         this.intensity = config.intensity;
         this.duration = config.duration;
-        this.frequency = config.frequency || 30;
         this.fadeOut = config.fadeOut !== false;
         this.direction = config.direction || 'both';
         this.timer = 0;

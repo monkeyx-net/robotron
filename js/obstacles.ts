@@ -2,7 +2,7 @@ import * as PIXI from 'pixi.js';
 import { GameConfig } from './config';
 import { obstaclesContainer, obstacles } from './main';
 import { gameState } from './gameState';
-import { Obstacle, Electrode } from './obstacleClasses';
+import { Electrode } from './obstacleClasses';
 
 export function createElectrode(x: number, y: number, width: number, height: number, color: number = 0xFFFF00): Electrode | null {
     if (!PIXI || !obstaclesContainer || !obstacles) {

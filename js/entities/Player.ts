@@ -11,7 +11,7 @@ import { Vector2 } from '../utils/Vector2';
 import { Constants } from '../utils/Constants';
 import { gameEvents } from '../core/EventSystem';
 import { errorHandler, ErrorCategory, ErrorSeverity } from '../core/ErrorHandler';
-import { UnifiedInputManager, InputAction } from '../core/InputManager';
+import { UnifiedInputManager } from '../core/InputManager';
 
 /**
  * Player input component for handling keyboard and gamepad input
@@ -37,8 +37,9 @@ export class PlayerInput implements Component {
     update(): void {
         if (!this.enabled || !this.gameObject.active) return;
 
-        // Update input manager state
-        this.inputManager.update();
+        // Update input manager state (older manager builds exposed update();
+        // call it only when present so the type doesn't lie about the API)
+        (this.inputManager as { update?: () => void }).update?.();
 
         // Get input from the unified input manager
         this.moveDirection = this.inputManager.getMovementVector();
@@ -132,7 +133,7 @@ export class PlayerController implements Component {
     /**
      * Handle player movement
      */
-    handleMovement(deltaTime: number): void {
+    handleMovement(_deltaTime: number): void {
         const input = this.gameObject.getComponent<PlayerInput>('playerInput');
         const rigidbody = this.gameObject.getComponent<Rigidbody>('rigidbody');
         
@@ -458,7 +459,7 @@ export class PlayerFactory {
  * Legacy compatibility interface for existing code
  */
 export interface LegacyPlayerInterface {
-    sprite: PIXI.DisplayObject;
+    sprite: PIXI.Container;
     x: number;
     y: number;
     dx: number;
@@ -483,7 +484,7 @@ export class LegacyPlayerWrapper implements LegacyPlayerInterface {
         this.spriteRenderer = gameObject.getComponent<SpriteRenderer>('spriteRenderer')!;
     }
     
-    get sprite(): PIXI.DisplayObject {
+    get sprite(): PIXI.Container {
         return this.spriteRenderer.sprite;
     }
     

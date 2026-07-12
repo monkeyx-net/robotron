@@ -7,7 +7,6 @@ interface Particle extends PIXI.Graphics {
     life: number;
     maxLife: number;
     rotationSpeed: number;
-    fill: (color: number | { color: number; alpha?: number }) => void;
 }
 
 function createExplosion(x: number, y: number, color: number = 0xFFFFFF) {

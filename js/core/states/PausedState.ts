@@ -50,7 +50,7 @@ export class PausedState extends BaseGameState {
         });
     }
     
-    public update(deltaTime: number): void {
+    public update(_deltaTime: number): void {
         // No game updates while paused
         // Only update pause screen animations if any
     }

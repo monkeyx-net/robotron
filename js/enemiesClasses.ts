@@ -9,7 +9,7 @@ export class Enemy extends GameObject {
     speed: number;
     indestructible: boolean;
 
-    constructor(sprite: PIXI.Sprite | PIXI.Graphics, type: string, health: number, points: number, speed: number = 0, indestructible: boolean = false) {
+    constructor(sprite: PIXI.Sprite | PIXI.Graphics | PIXI.Container, type: string, health: number, points: number, speed: number = 0, indestructible: boolean = false) {
         super(sprite, type);
         this.health = health;
         this.points = points;

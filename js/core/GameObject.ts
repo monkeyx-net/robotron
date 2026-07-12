@@ -413,7 +413,7 @@ export class GameObject implements Poolable {
     /**
      * Get the display object for rendering (PIXI compatibility)
      */
-    getDisplayObject(): PIXI.DisplayObject {
+    getDisplayObject(): PIXI.Container {
         const spriteRenderer = this.getComponent<SpriteRenderer>('spriteRenderer');
         if (spriteRenderer) {
             return spriteRenderer.sprite;

@@ -24,7 +24,7 @@ export class DemoPlayState extends BaseGameState {
         super('DEMO_PLAY');
     }
     
-    public enter(data?: any): void {
+    public enter(_data?: any): void {
         console.log('DemoPlayState: Entering demo play');
         
         // Hide message box
@@ -74,7 +74,7 @@ export class DemoPlayState extends BaseGameState {
         this.emitStateEvent('entered');
     }
     
-    public exit(data?: any): void {
+    public exit(_data?: any): void {
         console.log('DemoPlayState: Exiting demo play');
         
         // Hide demo play container
