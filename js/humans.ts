@@ -5,7 +5,7 @@ import { humansAndProgs } from './main';
 import { SoundManager } from './soundManager';
 import { Human, Prog } from './humanClasses';
 import { ArcadeAtlas } from './core/ArcadeAtlas';
-import { isEntityGone } from './gameObject';
+import { isEntityGone, clampToPlayfield, spriteHalfExtents } from './gameObject';
 
 // Simple collision detection function for humans vs obstacles
 function checkObstacleCollision(x: number, y: number, radius: number = 12): boolean {
@@ -312,13 +312,15 @@ export function updateHumansAndProgs(delta: number) {
                 }
 
                 // Simple boundary collision against the arena border
+                // (sprite edge, not center — the sprite must not overlap it)
                 const pf = GameConfig.PLAYFIELD;
-                if (newX < pf.LEFT || newX > pf.RIGHT) {
-                    newX = Math.max(pf.LEFT, Math.min(pf.RIGHT, newX));
+                const { hw, hh } = spriteHalfExtents(entity.sprite);
+                if (newX < pf.LEFT + hw || newX > pf.RIGHT - hw) {
+                    newX = Math.max(pf.LEFT + hw, Math.min(pf.RIGHT - hw, newX));
                     entity.wanderTimer = 0; // Pick new direction
                 }
-                if (newY < pf.TOP || newY > pf.BOTTOM) {
-                    newY = Math.max(pf.TOP, Math.min(pf.BOTTOM, newY));
+                if (newY < pf.TOP + hh || newY > pf.BOTTOM - hh) {
+                    newY = Math.max(pf.TOP + hh, Math.min(pf.BOTTOM - hh, newY));
                     entity.wanderTimer = 0; // Pick new direction
                 }
 
@@ -373,9 +375,7 @@ export function updateHumansAndProgs(delta: number) {
             entity.sprite.alpha = Math.max(0.2, flashIntensity);
         }
 
-        const pf = GameConfig.PLAYFIELD;
-        entity.sprite.x = Math.max(pf.LEFT, Math.min(pf.RIGHT, entity.sprite.x));
-        entity.sprite.y = Math.max(pf.TOP, Math.min(pf.BOTTOM, entity.sprite.y));
+        clampToPlayfield(entity.sprite, entity.sprite);
     });
 
     const finalContainerChildren = humansContainer.children.length;

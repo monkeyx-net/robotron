@@ -300,8 +300,8 @@ export function startNextWave() {
     for (let i = 0; i < Math.max(1, numHumansToSpawn) ; i++) {
         console.log(`[GameLogic.startNextWave] Creating human ${i + 1}/${Math.max(1, numHumansToSpawn)}`);
         if (Humans && Humans.createHuman) {
-            const x = Math.random() * (GameConfig.GAME_WIDTH - 20) + 10;
-            const y = Math.random() * (GameConfig.GAME_HEIGHT - 20) + 10;
+            const x = spawnX();
+            const y = spawnY();
             console.log(`[GameLogic.startNextWave] Calling Humans.createHuman(${x}, ${y})`);
             Humans.createHuman(x, y);
         } else {

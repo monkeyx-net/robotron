@@ -1,5 +1,6 @@
 import * as PIXI from 'pixi.js';
 import { GameObject as NewGameObject } from './core/GameObject';
+import { GameConfig } from './config';
 
 // Legacy GameObject class for backward compatibility
 // This will be gradually replaced by the new GameObject class
@@ -47,6 +48,31 @@ export class GameObject {
 export function isEntityGone(e: any): boolean {
     return !e || e._destroyed || !e.sprite || e.sprite.destroyed === true
         || (e.sprite as any)._destroyed === true;
+}
+
+/**
+ * Half-extents of a center-anchored sprite, for playfield clamping.
+ * Falls back to 4px when dimensions aren't readable (e.g. empty container).
+ */
+export function spriteHalfExtents(sprite: PIXI.Container): { hw: number; hh: number } {
+    let hw = 4, hh = 4;
+    try {
+        if (sprite.width > 0) hw = sprite.width / 2;
+        if (sprite.height > 0) hh = sprite.height / 2;
+    } catch { /* destroyed or boundless sprite: keep fallback */ }
+    return { hw, hh };
+}
+
+/**
+ * Clamp a center-anchored sprite position so its bounding box stays inside
+ * the arena border (GameConfig.PLAYFIELD) — entities must not overlap the
+ * border line, matching the arcade.
+ */
+export function clampToPlayfield(pos: { x: number; y: number }, sprite: PIXI.Container): void {
+    const pf = GameConfig.PLAYFIELD;
+    const { hw, hh } = spriteHalfExtents(sprite);
+    pos.x = Math.max(pf.LEFT + hw, Math.min(pf.RIGHT - hw, pos.x));
+    pos.y = Math.max(pf.TOP + hh, Math.min(pf.BOTTOM - hh, pos.y));
 }
 
 // Export the new GameObject class as well for gradual migration

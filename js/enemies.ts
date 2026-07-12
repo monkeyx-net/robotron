@@ -8,7 +8,7 @@ import { Grunt, Hulk, Spheroid, Enforcer, Brain, Tank, ProgEnemy, Quark } from '
 import { Human, Prog } from './humanClasses';
 import { ArcadeAtlas } from './core/ArcadeAtlas';
 import { prng } from './core/Prng';
-import { isEntityGone } from './gameObject';
+import { isEntityGone, clampToPlayfield, spriteHalfExtents } from './gameObject';
 
 /**
  * Animated sprite from a ROM-extracted atlas family; null when the atlas
@@ -273,9 +273,7 @@ export function updateEnemies(delta: number): void {
                 const STEP = 2;
                 if (g.axis === 'x') grunt.position.x += Math.sign(dxs) * STEP;
                 else grunt.position.y += Math.sign(dys) * STEP;
-                const pf = GameConfig.PLAYFIELD;
-                grunt.position.x = Math.max(pf.LEFT, Math.min(pf.RIGHT, grunt.position.x));
-                grunt.position.y = Math.max(pf.TOP, Math.min(pf.BOTTOM, grunt.position.y));
+                clampToPlayfield(grunt.position, grunt.sprite);
                 grunt.sprite.x = grunt.position.x;
                 grunt.sprite.y = grunt.position.y;
             }
@@ -321,14 +319,15 @@ export function updateEnemies(delta: number): void {
                 let nx = hulk.position.x + hulk.dirX * STEP;
                 let ny = hulk.position.y + hulk.dirY * STEP;
                 const pfh = GameConfig.PLAYFIELD;
-                if (nx < pfh.LEFT + 4 || nx > pfh.RIGHT - 4 || ny < pfh.TOP + 4 || ny > pfh.BOTTOM - 4) {
+                const { hw: hhw, hh: hhh } = spriteHalfExtents(hulk.sprite);
+                if (nx < pfh.LEFT + hhw || nx > pfh.RIGHT - hhw || ny < pfh.TOP + hhh || ny > pfh.BOTTOM - hhh) {
                     // wall: pick a fresh random direction (hulk_rehome_random)
                     const d = prng.bounded(4);
                     hulk.dirX = d === 0 ? 1 : d === 1 ? -1 : 0;
                     hulk.dirY = d === 2 ? 1 : d === 3 ? -1 : 0;
                     hulk.turnTimer = prng.range(8, 40);
-                    nx = Math.max(pfh.LEFT + 4, Math.min(pfh.RIGHT - 4, hulk.position.x));
-                    ny = Math.max(pfh.TOP + 4, Math.min(pfh.BOTTOM - 4, hulk.position.y));
+                    nx = Math.max(pfh.LEFT + hhw, Math.min(pfh.RIGHT - hhw, hulk.position.x));
+                    ny = Math.max(pfh.TOP + hhh, Math.min(pfh.BOTTOM - hhh, hulk.position.y));
                 }
                 hulk.position.x = nx; hulk.position.y = ny;
                 hulk.sprite.x = nx; hulk.sprite.y = ny;
@@ -388,16 +387,20 @@ export function updateEnemies(delta: number): void {
 
             spheroid.update(delta);
 
-            // Boundary checks using logical position
-            if (spheroid.position.x < GameConfig.PLAYFIELD.LEFT || spheroid.position.x > GameConfig.PLAYFIELD.RIGHT) {
-                spheroid.dx *= -1;
-                spheroid.position.x = Math.max(GameConfig.PLAYFIELD.LEFT, Math.min(GameConfig.PLAYFIELD.RIGHT, spheroid.position.x));
-                spheroid.sprite.x = spheroid.position.x;
-            }
-            if (spheroid.position.y < GameConfig.PLAYFIELD.TOP || spheroid.position.y > GameConfig.PLAYFIELD.BOTTOM) {
-                spheroid.dy *= -1;
-                spheroid.position.y = Math.max(GameConfig.PLAYFIELD.TOP, Math.min(GameConfig.PLAYFIELD.BOTTOM, spheroid.position.y));
-                spheroid.sprite.y = spheroid.position.y;
+            // Boundary bounce using logical position (sprite edge, not center)
+            {
+                const pf = GameConfig.PLAYFIELD;
+                const { hw, hh } = spriteHalfExtents(spheroid.sprite);
+                if (spheroid.position.x < pf.LEFT + hw || spheroid.position.x > pf.RIGHT - hw) {
+                    spheroid.dx *= -1;
+                    spheroid.position.x = Math.max(pf.LEFT + hw, Math.min(pf.RIGHT - hw, spheroid.position.x));
+                    spheroid.sprite.x = spheroid.position.x;
+                }
+                if (spheroid.position.y < pf.TOP + hh || spheroid.position.y > pf.BOTTOM - hh) {
+                    spheroid.dy *= -1;
+                    spheroid.position.y = Math.max(pf.TOP + hh, Math.min(pf.BOTTOM - hh, spheroid.position.y));
+                    spheroid.sprite.y = spheroid.position.y;
+                }
             }
 
             // Shimmer: the arcade spheroid pulses through the color-cycled
@@ -425,8 +428,7 @@ export function updateEnemies(delta: number): void {
                 enforcer.dy = (jy / mag) * spd;
             }
             enforcer.update(delta);
-            enforcer.position.x = Math.max(GameConfig.PLAYFIELD.LEFT, Math.min(GameConfig.PLAYFIELD.RIGHT, enforcer.position.x));
-            enforcer.position.y = Math.max(GameConfig.PLAYFIELD.TOP, Math.min(GameConfig.PLAYFIELD.BOTTOM, enforcer.position.y));
+            clampToPlayfield(enforcer.position, enforcer.sprite);
             enforcer.sprite.x = enforcer.position.x;
             enforcer.sprite.y = enforcer.position.y;
             enforcer.shootTimer -= delta;
@@ -477,8 +479,7 @@ export function updateEnemies(delta: number): void {
             brain.position.x += Math.cos(angleToTarget) * (GameConfig.BRAIN_SPEED || 0.6) * delta;
             brain.position.y += Math.sin(angleToTarget) * (GameConfig.BRAIN_SPEED || 0.6) * delta;
             // Apply boundary constraints to logical position
-            brain.position.x = Math.max(GameConfig.PLAYFIELD.LEFT, Math.min(GameConfig.PLAYFIELD.RIGHT, brain.position.x));
-            brain.position.y = Math.max(GameConfig.PLAYFIELD.TOP, Math.min(GameConfig.PLAYFIELD.BOTTOM, brain.position.y));
+            clampToPlayfield(brain.position, brain.sprite);
             // Update sprite to match logical position
             brain.sprite.x = brain.position.x;
             brain.sprite.y = brain.position.y;
@@ -498,8 +499,7 @@ export function updateEnemies(delta: number): void {
             tank.position.x += Math.cos(angle) * (GameConfig.TANK_SPEED || 0.4) * delta;
             tank.position.y += Math.sin(angle) * (GameConfig.TANK_SPEED || 0.4) * delta;
             // Apply boundary constraints to logical position
-            tank.position.x = Math.max(GameConfig.PLAYFIELD.LEFT, Math.min(GameConfig.PLAYFIELD.RIGHT, tank.position.x));
-            tank.position.y = Math.max(GameConfig.PLAYFIELD.TOP, Math.min(GameConfig.PLAYFIELD.BOTTOM, tank.position.y));
+            clampToPlayfield(tank.position, tank.sprite);
             // Update sprite to match logical position
             tank.sprite.x = tank.position.x;
             tank.sprite.y = tank.position.y;
@@ -518,24 +518,27 @@ export function updateEnemies(delta: number): void {
             prog.position.x += Math.cos(angle) * prog.speed * delta;
             prog.position.y += Math.sin(angle) * prog.speed * delta;
             // Apply boundary constraints to logical position
-            prog.position.x = Math.max(GameConfig.PLAYFIELD.LEFT, Math.min(GameConfig.PLAYFIELD.RIGHT, prog.position.x));
-            prog.position.y = Math.max(GameConfig.PLAYFIELD.TOP, Math.min(GameConfig.PLAYFIELD.BOTTOM, prog.position.y));
+            clampToPlayfield(prog.position, prog.sprite);
             // Update sprite to match logical position
             prog.sprite.x = prog.position.x;
             prog.sprite.y = prog.position.y;
         } else if (enemy.type === 'quark') {
             const quark = enemy as Quark;
             quark.update(delta);
-            // Boundary checks using logical position
-            if (quark.position.x < GameConfig.PLAYFIELD.LEFT || quark.position.x > GameConfig.PLAYFIELD.RIGHT) {
-                quark.dx *= -1; 
-                quark.position.x = Math.max(GameConfig.PLAYFIELD.LEFT, Math.min(GameConfig.PLAYFIELD.RIGHT, quark.position.x));
-                quark.sprite.x = quark.position.x;
-            }
-            if (quark.position.y < GameConfig.PLAYFIELD.TOP || quark.position.y > GameConfig.PLAYFIELD.BOTTOM) {
-                quark.dy *= -1; 
-                quark.position.y = Math.max(GameConfig.PLAYFIELD.TOP, Math.min(GameConfig.PLAYFIELD.BOTTOM, quark.position.y));
-                quark.sprite.y = quark.position.y;
+            // Boundary bounce using logical position (sprite edge, not center)
+            {
+                const pf = GameConfig.PLAYFIELD;
+                const { hw, hh } = spriteHalfExtents(quark.sprite);
+                if (quark.position.x < pf.LEFT + hw || quark.position.x > pf.RIGHT - hw) {
+                    quark.dx *= -1;
+                    quark.position.x = Math.max(pf.LEFT + hw, Math.min(pf.RIGHT - hw, quark.position.x));
+                    quark.sprite.x = quark.position.x;
+                }
+                if (quark.position.y < pf.TOP + hh || quark.position.y > pf.BOTTOM - hh) {
+                    quark.dy *= -1;
+                    quark.position.y = Math.max(pf.TOP + hh, Math.min(pf.BOTTOM - hh, quark.position.y));
+                    quark.sprite.y = quark.position.y;
+                }
             }
             // Arcade behavior: quarks manufacture TANKS (not "sub-quarks"),
             // throttled by the wave's live-tank cap.

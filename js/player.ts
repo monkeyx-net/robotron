@@ -6,7 +6,7 @@ import { ArcadeAtlas } from './core/ArcadeAtlas';
 import { inputManager, InputAction } from './core/InputManager';
 import { gameState } from './gameState';
 import { Projectiles } from './projectiles';
-import { GameObject } from './gameObject';
+import { GameObject, clampToPlayfield } from './gameObject';
 import { Vector2 } from './utils/Vector2';
 import { gameEvents } from './core/EventSystem';
 import { Constants } from './utils/Constants';
@@ -286,9 +286,8 @@ export class Player extends GameObject {
         this.sprite.x += Math.sign(this.dx) * delta;
         this.sprite.y += Math.sign(this.dy) * delta;
 
-        const pf = GameConfig.PLAYFIELD;
-        this.sprite.x = Math.max(pf.LEFT, Math.min(pf.RIGHT, this.sprite.x));
-        this.sprite.y = Math.max(pf.TOP, Math.min(pf.BOTTOM, this.sprite.y));
+        // Keep the whole sprite inside the arena border, not just its center.
+        clampToPlayfield(this.sprite, this.sprite);
 
         if (gameState.playerInvulnerableTime > 0) {
             const invulnerablePhase = (gameState.playerInvulnerableTime / 1000) * Math.PI * 2 * 2;
