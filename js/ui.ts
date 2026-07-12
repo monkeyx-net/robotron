@@ -2,7 +2,7 @@ import * as PIXI from 'pixi.js';
 import { GameConfig } from './config';
 import { titleScreenContainer, highScoreDisplayContainer, demoPlayContainer, app } from './main';
 import { gameState } from './gameState';
-import { saveHighScore } from './gameLogic';
+import { saveHighScore, clearEntities } from './gameLogic';
 import { ArcadeHud } from './core/ArcadeHud';
 import { HighScoreEntry } from './core/HighScoreEntry';
 import { BitmapFont } from './core/BitmapFont';
@@ -216,6 +216,10 @@ export function showGameOverScreen() {
          console.warn("UI.showGameOverScreen: Missing global state (gameState). Game over screen may not display correctly.");
          return;
     }
+
+    // Arcade flow: the playfield is wiped before the game-over/initials
+    // screens — no frozen battlefield behind the prompt.
+    clearEntities(true);
 
     // Arcade flow: a qualifying score goes to 3-initial entry first.
     // In 2P mode, the best of both players' scores is entered.

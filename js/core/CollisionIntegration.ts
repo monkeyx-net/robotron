@@ -92,33 +92,33 @@ export class CollisionIntegration {
             this.gameObjects.clear();
             
             // Register player
-            if (player && player.sprite && !player.sprite._destroyed) {
+            if (player && player.sprite && !player.sprite._destroyed && !player.sprite.destroyed) {
                 this.registerObject(player, CollisionLayer.PLAYER);
             }
             
             // Register projectiles
             for (const projectile of playerProjectiles) {
-                if (projectile.sprite && !projectile.sprite._destroyed) {
+                if (projectile.sprite && !projectile.sprite._destroyed && !projectile.sprite.destroyed) {
                     this.registerObject(projectile, CollisionLayer.PLAYER_PROJECTILE);
                 }
             }
             
             for (const projectile of enemyProjectiles) {
-                if (projectile.sprite && !projectile.sprite._destroyed) {
+                if (projectile.sprite && !projectile.sprite._destroyed && !projectile.sprite.destroyed) {
                     this.registerObject(projectile, CollisionLayer.ENEMY_PROJECTILE);
                 }
             }
             
             // Register enemies
             for (const enemy of enemies) {
-                if (enemy.sprite && !enemy.sprite._destroyed) {
+                if (enemy.sprite && !enemy.sprite._destroyed && !enemy.sprite.destroyed) {
                     this.registerObject(enemy, CollisionLayer.ENEMY);
                 }
             }
             
             // Register humans and progs
             for (const entity of humansAndProgs) {
-                if (entity.sprite && !entity.sprite._destroyed) {
+                if (entity.sprite && !entity.sprite._destroyed && !entity.sprite.destroyed) {
                     const layer = entity.type === 'human' ? CollisionLayer.HUMAN : CollisionLayer.ENEMY;
                     this.registerObject(entity, layer);
                 }
@@ -126,7 +126,7 @@ export class CollisionIntegration {
             
             // Register obstacles
             for (const obstacle of obstacles) {
-                if (obstacle.sprite && !obstacle.sprite._destroyed) {
+                if (obstacle.sprite && !obstacle.sprite._destroyed && !obstacle.sprite.destroyed) {
                     this.registerObject(obstacle, CollisionLayer.OBSTACLE);
                 }
             }
