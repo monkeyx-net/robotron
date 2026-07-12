@@ -1,6 +1,6 @@
 # Robotron: 2084 Web Remake
 
-A faithful recreation of the classic 1982 arcade game **Robotron: 2084** built with modern web technologies.
+A faithful recreation of the classic 1982 arcade game **Robotron: 2084** built with modern web technologies — now with ROM-accurate arcade fidelity.
 
 [![Play Now](https://img.shields.io/badge/Play-Demo-brightgreen?style=for-the-badge)](https://shatch.github.io/robotron/)
 [![Release](https://img.shields.io/github/v/release/shatch/robotron?style=for-the-badge)](https://github.com/shatch/robotron/releases)
@@ -18,13 +18,40 @@ Robotron: 2084 is a multi-directional shooter arcade game developed by Eugene Ja
 - **Wave-based gameplay**: Survive increasingly difficult waves of robots
 - **Rescue mechanics**: Save human family members for bonus points
 - **Multiple enemy types**: Grunts, Hulks, Spheroids, Enforcers, Brains, Tanks, and Quarks
-- **Classic arcade feel**: Authentic retro graphics and sound effects
+- **Classic arcade feel**: Authentic retro graphics and sound effects, reverse-engineered from the original ROM
 
-## ✨ Release 2.0 Features
+## ✨ Release 3.0 — Arcade Fidelity
+
+Version 3.0 is a ground-up accuracy pass built directly against the original Williams 6809 ROM, using a custom disassembler/tracer and MAME-captured reference footage (`robotron-re`, 180 verified gameplay snapshots) to close the gap between this port and the arcade original.
+
+### 🔬 ROM-Accurate Assets & Systems
+
+- **ROM sprite atlas & bitmap fonts**: extracted directly from the ROM's graphics ROM banks and blitter source data, then hand-verified frame-by-frame against MAME captures (not redrawn or approximated)
+- **Ported PRNG**: the ROM's actual pseudo-random number generator (`$D6CD`), so enemy homing jitter, spawn positions, and re-homing decisions follow the same statistical behavior as the arcade
+- **ROM-captured wave table**: exact per-wave enemy composition (waves 1–12) read directly from ROM counter RAM in MAME, not estimated
+- **Arcade-authentic AI**: stepped grunt/hulk movement, drifting PRNG-jittered enforcers, cruise-missile brain projectiles with sinusoidal wiggle, hulks that seek humans via the ROM's pointer-table scan — all traced from disassembly, not reimplemented from memory of the game
+
+### 🎯 Faithful Game Feel
+
+- 1px-per-frame player movement (no acceleration/analog drift, matching the arcade's digital joystick feel)
+- Arcade scoring table, 3 lives, progressive human-rescue bonus (resets on death/wave per the ROM)
+- ROM bitmap-font title screen, "ROBOTRON HEROES" high-score table, 3-initial name entry
+- 2-player alternating play with per-player score tracking
+- Entities and projectiles are now properly confined to the true arena playfield — nothing can cross the yellow/colored inset border, including the player
+
+### 🛠️ Code Quality
+
+- **Zero TypeScript errors**: `tsc --noEmit` is clean (down from 154 legacy errors) and the typecheck gate is back in `npm run build`, so regressions fail the build instead of silently shipping
+- Verified end-to-end via Playwright against the production build — movement, shooting, scoring, wave progression, and playfield boundaries are all exercised, not just eyeballed
+
+See [`ARCADE_FIDELITY_PLAN.md`](ARCADE_FIDELITY_PLAN.md) for the full gap-closure roadmap (PRNG golden tests, 4-direction sprite facing, shootable projectiles, arcade attract-mode flow, and more).
+
+<details>
+<summary><strong>✨ Release 2.0 Features</strong> (previous release — click to expand)</summary>
 
 ### 🏗️ Complete Architectural Refactoring
 
-Version 2.0 represents a ground-up refactoring using modern software engineering patterns:
+Version 2.0 represented a ground-up refactoring using modern software engineering patterns:
 
 - **State Pattern**: Clean state management for Title, Playing, Paused, Game Over states
 - **Entity-Component System**: Modular, maintainable game entity architecture
@@ -32,53 +59,25 @@ Version 2.0 represents a ground-up refactoring using modern software engineering
 - **Singleton Pattern**: Unified input and difficulty managers
 - **Fixed Timestep Game Loop**: Consistent 60 FPS physics simulation
 
-### 🎯 New Gameplay Features
+### 🎯 Gameplay Features
 
-- **Progressive Difficulty Scaling**:
-  - 5 difficulty levels: Easy, Normal, Hard, Nightmare, Adaptive
-  - Dynamic difficulty adjustment based on player performance
-  - Wave-based scaling that increases challenge over time
-
-- **Enhanced Controls**:
-  - Unified input system supporting keyboard, gamepad, and touch
-  - Configurable key bindings
-  - Input buffering for responsive controls
-  - Mac-friendly keyboard shortcuts
-
-- **Improved Enemy AI**:
-  - Spheroids now seek corners after spawning (authentic arcade behavior)
-  - Better pathfinding for all enemy types
-  - Performance-optimized collision detection
-
-- **Visual Polish**:
-  - Screen shake effects on damage
-  - Particle system for explosions
-  - User-configurable visual effects
-  - Crisp pixel-perfect scaling
+- **Progressive Difficulty Scaling**: 5 difficulty levels (Easy, Normal, Hard, Nightmare, Adaptive) with dynamic adjustment based on player performance
+- **Enhanced Controls**: Unified input system supporting keyboard, gamepad, and touch, with input buffering
+- **Improved Enemy AI**: Spheroids seek corners after spawning, better pathfinding, optimized collision detection
+- **Visual Polish**: Screen shake, particle explosions, user-configurable visual effects, pixel-perfect scaling
 
 ### 🛠️ Technical Improvements
 
-- **Rendering System**: Optimized sprite batching and viewport culling
-- **Collision System**: Spatial partitioning for performance
-- **Save/Load System**: LocalStorage-based game state persistence
-- **Error Handling**: Comprehensive error tracking and recovery
-- **Debug Tools**: Built-in console debugging interfaces
-
-### 🐛 Bug Fixes
-
-- Fixed game scaling to properly adapt to browser window size
-- Fixed sprite flickering during gameplay
-- Fixed enemy spawning positions (no more clumping at origin)
-- Fixed pause/resume to preserve game state
-- Fixed Spheroid movement to match original arcade behavior
-- Game now starts with correct 30 lives (original arcade behavior)
+- Optimized sprite batching and viewport culling
+- Spatial partitioning collision system
+- LocalStorage-based save/load
+- Comprehensive error handling and built-in debug console interfaces
 
 ### ✅ Testing & Quality
 
-- **43 automated tests** with 88% pass rate
-- Browser-verified with Playwright automated testing
-- Comprehensive test coverage for core systems
-- Performance monitoring and profiling tools
+- 43 automated tests with 88% pass rate, browser-verified with Playwright
+
+</details>
 
 ## 🕹️ Controls
 
@@ -87,6 +86,7 @@ Version 2.0 represents a ground-up refactoring using modern software engineering
 - **Shooting**: Arrow Keys (independent of movement)
 - **Pause**: P or Escape
 - **Start Game**: Enter
+- **Start 2P Game**: 2
 
 ### Gamepad
 - **Left Stick**: Movement
@@ -121,7 +121,7 @@ npm run dev
 ### Build for Production
 
 ```bash
-# Create optimized production build
+# Type-check and create an optimized production build
 npm run build
 
 # Preview production build
@@ -130,7 +130,7 @@ npm run preview
 
 ## 📦 Tech Stack
 
-- **TypeScript**: Static typing for robust code
+- **TypeScript**: Static typing for robust code (zero-error `tsc --noEmit` gate)
 - **PixiJS v8**: High-performance WebGL 2D rendering
 - **Vite**: Lightning-fast build tool and dev server
 - **Howler.js**: Cross-browser audio management
@@ -147,13 +147,19 @@ robotron/
 │   │   ├── InputManager.ts
 │   │   ├── DifficultyManager.ts
 │   │   ├── CollisionSystem.ts
-│   │   └── RenderSystem.ts
+│   │   ├── RenderSystem.ts
+│   │   ├── Prng.ts            # ROM-accurate PRNG ($D6CD port)
+│   │   ├── ArcadeAtlas.ts     # ROM sprite atlas loader
+│   │   ├── BitmapFont.ts      # ROM bitmap font renderer
+│   │   └── ArcadeBorder.ts    # Inset arena playfield border
 │   ├── entities/          # Game entity classes
 │   ├── states/            # Game state implementations
 │   ├── enemies.ts         # Enemy behavior
 │   ├── player.ts          # Player logic
+│   ├── waveTable.ts       # ROM-captured per-wave enemy composition
 │   └── main.ts            # Entry point
-├── assets/                # Textures and sounds
+├── sprites/                # ROM-extracted sprite atlas & bitmap fonts
+├── assets/                 # Sounds
 ├── index.html
 └── package.json
 ```
@@ -184,13 +190,25 @@ globalInputManager.inputManager.getMovementVector()
 gameStateDebug.getCurrentState()
 gameStateDebug.forceTransition('PLAYING')
 
+// Access live game state in-browser
+window.__game.gameState
+window.__game.player
+window.__game.enemies
+
 // Run automated tests
 difficultyTests.runAll()
 ```
 
 ## 🔄 Version History
 
-### Version 2.0 (Current)
+### Version 3.0 (Current) — Arcade Fidelity
+- ROM-accurate sprite atlas and bitmap fonts, extracted and hand-verified against MAME
+- Ported ROM PRNG, ROM-captured wave table, ROM-traced enemy AI behaviors
+- Arcade scoring, 3-initial high-score entry, 2-player alternating play
+- Entities and projectiles fully confined to the true arena playfield
+- Zero TypeScript errors; typecheck gate restored in the build
+
+### Version 2.0
 - Complete Phase 3 refactoring with modern architecture
 - Progressive difficulty scaling system
 - Unified input management
@@ -224,6 +242,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Eugene Jarvis & Larry DeMar**: Original Robotron: 2084 creators
 - **Williams Electronics**: Original arcade game publisher
 - Classic arcade gaming community for preservation efforts
+- The MAME project, for making ROM-accurate verification possible
 - Modern web development community for amazing tools
 
 ## 📞 Support
@@ -233,12 +252,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🎯 Roadmap
 
-### Phase 4 (Planned)
+Full detail in [`ARCADE_FIDELITY_PLAN.md`](ARCADE_FIDELITY_PLAN.md). Highlights:
+
+- [ ] PRNG golden test + MAME scoring-ledger spot checks
+- [ ] 4-direction sprite facing for player, grunts, humans (currently down-facing only)
+- [ ] Shootable enforcer sparks & tank shells for their ROM point values
+- [ ] Arcade-accurate game-over → high-score → attract flow (retire the DOM "Play Again?" button)
+- [ ] 2P dual-score HUD, richer per-wave electrode shapes
 - [ ] Performance optimization with object pooling
-- [ ] Enhanced particle effects
-- [ ] Online leaderboards
-- [ ] Replay system
-- [ ] Additional arcade modes
+- [ ] Online leaderboards, replay system
 
 ---
 

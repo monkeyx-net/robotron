@@ -1,6 +1,6 @@
 {
   "name": "robotron",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "A web-based remake of the classic arcade game Robotron 2084",
   "main": "index.js",
   "scripts": {
