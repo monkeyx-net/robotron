@@ -163,10 +163,11 @@ export function createHuman(x: number, y: number, humanType: string | null = nul
         human.targetX = x + Math.cos(initialAngle) * initialDistance;
         human.targetY = y + Math.sin(initialAngle) * initialDistance;
 
-        // Ensure initial targets are within bounds
-        const padding = 20;
-        human.targetX = Math.max(padding, Math.min(GameConfig.GAME_WIDTH - padding, human.targetX));
-        human.targetY = Math.max(padding, Math.min(GameConfig.GAME_HEIGHT - padding, human.targetY));
+        // Ensure initial targets are within the arena (yellow border inset)
+        const pf = GameConfig.PLAYFIELD;
+        const inset = 4;
+        human.targetX = Math.max(pf.LEFT + inset, Math.min(pf.RIGHT - inset, human.targetX));
+        human.targetY = Math.max(pf.TOP + inset, Math.min(pf.BOTTOM - inset, human.targetY));
 
         // Ensure human starts with a short timer so it begins moving quickly
         human.wanderTimer = Math.random() * 30 + 10; // 10-40 frames (very short initial delay)
@@ -277,10 +278,11 @@ export function updateHumansAndProgs(delta: number) {
                 let newTargetX = entity.sprite.x + Math.cos(angle) * distance;
                 let newTargetY = entity.sprite.y + Math.sin(angle) * distance;
 
-                // Keep targets within game bounds with padding
-                const padding = 20;
-                newTargetX = Math.max(padding, Math.min(GameConfig.GAME_WIDTH - padding, newTargetX));
-                newTargetY = Math.max(padding, Math.min(GameConfig.GAME_HEIGHT - padding, newTargetY));
+                // Keep targets within the arena (yellow border inset)
+                const pf = GameConfig.PLAYFIELD;
+                const inset = 4;
+                newTargetX = Math.max(pf.LEFT + inset, Math.min(pf.RIGHT - inset, newTargetX));
+                newTargetY = Math.max(pf.TOP + inset, Math.min(pf.BOTTOM - inset, newTargetY));
 
                 entity.targetX = newTargetX;
                 entity.targetY = newTargetY;
@@ -309,14 +311,14 @@ export function updateHumansAndProgs(delta: number) {
                     return; // Don't move this frame
                 }
 
-                // Simple boundary collision
-                const padding = 15;
-                if (newX < padding || newX > GameConfig.GAME_WIDTH - padding) {
-                    newX = Math.max(padding, Math.min(GameConfig.GAME_WIDTH - padding, newX));
+                // Simple boundary collision against the arena border
+                const pf = GameConfig.PLAYFIELD;
+                if (newX < pf.LEFT || newX > pf.RIGHT) {
+                    newX = Math.max(pf.LEFT, Math.min(pf.RIGHT, newX));
                     entity.wanderTimer = 0; // Pick new direction
                 }
-                if (newY < padding || newY > GameConfig.GAME_HEIGHT - padding) {
-                    newY = Math.max(padding, Math.min(GameConfig.GAME_HEIGHT - padding, newY));
+                if (newY < pf.TOP || newY > pf.BOTTOM) {
+                    newY = Math.max(pf.TOP, Math.min(pf.BOTTOM, newY));
                     entity.wanderTimer = 0; // Pick new direction
                 }
 
@@ -371,9 +373,9 @@ export function updateHumansAndProgs(delta: number) {
             entity.sprite.alpha = Math.max(0.2, flashIntensity);
         }
 
-        const padding = 15;
-        entity.sprite.x = Math.max(padding, Math.min(GameConfig.GAME_WIDTH - padding, entity.sprite.x));
-        entity.sprite.y = Math.max(padding, Math.min(GameConfig.GAME_HEIGHT - padding, entity.sprite.y));
+        const pf = GameConfig.PLAYFIELD;
+        entity.sprite.x = Math.max(pf.LEFT, Math.min(pf.RIGHT, entity.sprite.x));
+        entity.sprite.y = Math.max(pf.TOP, Math.min(pf.BOTTOM, entity.sprite.y));
     });
 
     const finalContainerChildren = humansContainer.children.length;

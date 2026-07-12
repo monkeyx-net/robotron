@@ -107,7 +107,8 @@ export function updatePlayerProjectiles(delta: number): void {
             continue;
         }
         p.update(delta);
-        if (p.sprite.x < 0 || p.sprite.x > GameConfig.GAME_WIDTH || p.sprite.y < 0 || p.sprite.y > GameConfig.GAME_HEIGHT) {
+        const pf = GameConfig.PLAYFIELD;
+        if (p.sprite.x < pf.LEFT || p.sprite.x > pf.RIGHT || p.sprite.y < pf.TOP || p.sprite.y > pf.BOTTOM) {
             p.destroy();
             playerProjectiles.splice(i, 1);
         }
@@ -138,7 +139,8 @@ export function updateEnemyProjectiles(delta: number): void {
             const wiggle = Math.sin(cm.wigglePhase) * spd * 0.9;
             p.sprite.x += Math.cos(heading) * spd * delta + Math.cos(heading + Math.PI / 2) * wiggle * delta;
             p.sprite.y += Math.sin(heading) * spd * delta + Math.sin(heading + Math.PI / 2) * wiggle * delta;
-            if (p.sprite.x < -10 || p.sprite.x > GameConfig.GAME_WIDTH + 10 || p.sprite.y < -10 || p.sprite.y > GameConfig.GAME_HEIGHT + 10) {
+            const pfb = GameConfig.PLAYFIELD;
+            if (p.sprite.x < pfb.LEFT || p.sprite.x > pfb.RIGHT || p.sprite.y < pfb.TOP || p.sprite.y > pfb.BOTTOM) {
                 p.destroy();
                 enemyProjectiles.splice(i, 1);
             }
@@ -147,21 +149,22 @@ export function updateEnemyProjectiles(delta: number): void {
 
         p.update(delta);
 
+        const pf = GameConfig.PLAYFIELD;
         if (p.type === 'tank_shell') {
             let bounced = false;
-            if (p.sprite.x <= 0 || p.sprite.x >= GameConfig.GAME_WIDTH) {
+            if (p.sprite.x <= pf.LEFT || p.sprite.x >= pf.RIGHT) {
                 if (p.bouncesLeft && p.bouncesLeft > 0) {
                     p.dx *= -1; p.bouncesLeft--; bounced = true;
-                    p.sprite.x = Math.max(1, Math.min(GameConfig.GAME_WIDTH - 1, p.sprite.x));
+                    p.sprite.x = Math.max(pf.LEFT + 1, Math.min(pf.RIGHT - 1, p.sprite.x));
                 } else {
                     p.destroy();
                     enemyProjectiles.splice(i, 1); continue;
                 }
             }
-            if (p.sprite.y <= 0 || p.sprite.y >= GameConfig.GAME_HEIGHT) {
+            if (p.sprite.y <= pf.TOP || p.sprite.y >= pf.BOTTOM) {
                  if (p.bouncesLeft && p.bouncesLeft > 0) {
                     p.dy *= -1; p.bouncesLeft--; bounced = true;
-                    p.sprite.y = Math.max(1, Math.min(GameConfig.GAME_HEIGHT - 1, p.sprite.y));
+                    p.sprite.y = Math.max(pf.TOP + 1, Math.min(pf.BOTTOM - 1, p.sprite.y));
                 } else {
                     p.destroy();
                     enemyProjectiles.splice(i, 1); continue;
@@ -169,7 +172,7 @@ export function updateEnemyProjectiles(delta: number): void {
             }
             if (bounced) SoundManager.play('shellBounce');
         } else {
-            if (p.sprite.x < -10 || p.sprite.x > GameConfig.GAME_WIDTH + 10 || p.sprite.y < -10 || p.sprite.y > GameConfig.GAME_HEIGHT + 10) {
+            if (p.sprite.x < pf.LEFT || p.sprite.x > pf.RIGHT || p.sprite.y < pf.TOP || p.sprite.y > pf.BOTTOM) {
                 p.destroy();
                 enemyProjectiles.splice(i, 1);
             }

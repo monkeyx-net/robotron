@@ -136,8 +136,9 @@ function showDemoPlayScreen() {
         (demoPlayer as any).isDemoPlayer = true;
         (demoPlayer as any).speed = (GameConfig.PLAYER_SPEED || 2) * 0.4;
         if(demoPlayer.sprite) {
-             demoPlayer.sprite.x = GameConfig.GAME_WIDTH / 4;
-             demoPlayer.sprite.y = GameConfig.GAME_HEIGHT / 2;
+             const pf = GameConfig.PLAYFIELD;
+             demoPlayer.sprite.x = pf.LEFT + (pf.RIGHT - pf.LEFT) * 0.25;
+             demoPlayer.sprite.y = pf.TOP + (pf.BOTTOM - pf.TOP) * 0.5;
         }
         (demoPlayer as any).aiMoveTimer = 0;
         (demoPlayer as any).aiShootTimer = 0;
@@ -148,10 +149,13 @@ function showDemoPlayScreen() {
         return;
     }
 
-    if(createGrunt) createGrunt(GameConfig.GAME_WIDTH * 0.75, GameConfig.GAME_HEIGHT * 0.25);
-    if(createHulk) createHulk(GameConfig.GAME_WIDTH * 0.7, GameConfig.GAME_HEIGHT * 0.6);
-    if(createBrain) createBrain(GameConfig.GAME_WIDTH * 0.75, GameConfig.GAME_HEIGHT * 0.75);
-    if(createHuman) createHuman(GameConfig.GAME_WIDTH * 0.6, GameConfig.GAME_HEIGHT * 0.3);
+    const pf = GameConfig.PLAYFIELD;
+    const px = (f: number) => pf.LEFT + (pf.RIGHT - pf.LEFT) * f;
+    const py = (f: number) => pf.TOP + (pf.BOTTOM - pf.TOP) * f;
+    if(createGrunt) createGrunt(px(0.75), py(0.25));
+    if(createHulk) createHulk(px(0.7), py(0.6));
+    if(createBrain) createBrain(px(0.75), py(0.75));
+    if(createHuman) createHuman(px(0.6), py(0.3));
 
     gameState.score = 0;
     if (UI && UI.updateScoreDisplay) UI.updateScoreDisplay();

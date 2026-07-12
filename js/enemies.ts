@@ -339,11 +339,12 @@ export function updateEnemies(delta: number): void {
             // Spheroid AI: Float randomly, then move toward corners after spawning enforcers
             if (spheroid.enforcersSpawned >= spheroid.maxEnforcersToSpawn) {
                 // After spawning, move toward nearest corner and continue spawning
+                const pfc = GameConfig.PLAYFIELD;
                 const corners = [
-                    { x: 20, y: 20 },
-                    { x: GameConfig.GAME_WIDTH - 20, y: 20 },
-                    { x: 20, y: GameConfig.GAME_HEIGHT - 20 },
-                    { x: GameConfig.GAME_WIDTH - 20, y: GameConfig.GAME_HEIGHT - 20 }
+                    { x: pfc.LEFT + 10, y: pfc.TOP + 10 },
+                    { x: pfc.RIGHT - 10, y: pfc.TOP + 10 },
+                    { x: pfc.LEFT + 10, y: pfc.BOTTOM - 10 },
+                    { x: pfc.RIGHT - 10, y: pfc.BOTTOM - 10 }
                 ];
 
                 // Find nearest corner
@@ -475,6 +476,9 @@ export function updateEnemies(delta: number): void {
             // Update logical position first
             brain.position.x += Math.cos(angleToTarget) * (GameConfig.BRAIN_SPEED || 0.6) * delta;
             brain.position.y += Math.sin(angleToTarget) * (GameConfig.BRAIN_SPEED || 0.6) * delta;
+            // Apply boundary constraints to logical position
+            brain.position.x = Math.max(GameConfig.PLAYFIELD.LEFT, Math.min(GameConfig.PLAYFIELD.RIGHT, brain.position.x));
+            brain.position.y = Math.max(GameConfig.PLAYFIELD.TOP, Math.min(GameConfig.PLAYFIELD.BOTTOM, brain.position.y));
             // Update sprite to match logical position
             brain.sprite.x = brain.position.x;
             brain.sprite.y = brain.position.y;
@@ -493,6 +497,9 @@ export function updateEnemies(delta: number): void {
             // Update logical position first
             tank.position.x += Math.cos(angle) * (GameConfig.TANK_SPEED || 0.4) * delta;
             tank.position.y += Math.sin(angle) * (GameConfig.TANK_SPEED || 0.4) * delta;
+            // Apply boundary constraints to logical position
+            tank.position.x = Math.max(GameConfig.PLAYFIELD.LEFT, Math.min(GameConfig.PLAYFIELD.RIGHT, tank.position.x));
+            tank.position.y = Math.max(GameConfig.PLAYFIELD.TOP, Math.min(GameConfig.PLAYFIELD.BOTTOM, tank.position.y));
             // Update sprite to match logical position
             tank.sprite.x = tank.position.x;
             tank.sprite.y = tank.position.y;
