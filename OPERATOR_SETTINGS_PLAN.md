@@ -1,6 +1,6 @@
 # Operator Settings Plan (arcade "GAME ADJUSTMENT" menu)
 
-Status: **steps 1–3 committed (`62d5a8f`); step 4 committed (`fb0d989`); step 4b (remaining enemy params) done 2026-10-11 (uncommitted); step 5 optional.** Branch: `release-3.0`.
+Status: **steps 1–3 committed (`62d5a8f`); step 4 committed (`fb0d989`); step 4b (remaining enemy params) committed (`96a110d`); wave counts from the ROM done 2026-10-11 (uncommitted); step 5 optional.** Branch: `release-3.0`.
 
 Goal: add the original ROM's operator adjustments that matter to gameplay,
 and skip those that only make sense on physical cabinet hardware.
@@ -134,8 +134,15 @@ physical high-score-reset switch; SET ATTRACT MODE MESSAGE and SET HIGHEST SCORE
        at 20 and fire every 64 frames; no console errors; `tsc` and `npm run build` pass.
      - Not ported: the tank's bank-shot aiming ($8ED4), spheroid random acceleration
        ($125F), materialize animations for spheroids/quarks.
-   - Follow-up: reconcile `waveTable.ts` grunt/electrode/hulk/human counts with the ROM
-     count tables (see REVERSE.md); generate the table from the ROM like WaveParams.
+   - **Wave counts reconciled (2026-10-11).** `waveTable.ts` is now generated from the ROM's
+     nine count tables (robotron-re `tools/gen_wavetable_ts.py`): all 40 waves, wrap 41+ →
+     21–40, family members by type (mommies/daddies/mikeys). The old 12-wave capture had
+     approximated electrodes, no electrodes on brain waves, wrong hulks on waves 5/8/10,
+     3 humans on wave 1 (ROM: 2) and 59 grunts on wave 9 (ROM: 60). MAME confirmed wave 1's
+     human pointer table holds 2 and $BE69 is electrodes. Browser check on waves 1, 2, 5, 7,
+     9, 10, 15, 24, 41 matched the table.
+   - Still open: per-wave electrode shapes/colors (DP $93 at wave init), ROM spawn
+     positions.
 5. **Optional:** FANCY ATTRACT MODE toggle; a statistics page (extra men earned, play
    time, men played — non-coin bookkeeping); a controller test screen (the web version
    of the switch test).

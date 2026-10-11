@@ -154,6 +154,7 @@ gameEvents.subscribe('player:hit', (data) => {
 - `js/core/InputManager.ts` - Unified input system (keyboard, gamepad, touch)
 - `js/core/OperatorSettings.ts` / `OperatorMenu.ts` - Arcade GAME ADJUSTMENT settings (F2 / `?` / pad Select+Start on the title screens)
 - `js/core/WaveParams.ts` - ROM per-wave timer tables + DIFFICULTY OF PLAY (generated from the ROM; do not hand-edit)
+- `js/waveTable.ts` - ROM per-wave counts for all 40 waves (generated from the ROM; do not hand-edit)
 - `js/core/WavePacing.ts` - Live enemy pacing: ROM grunt cadence/ramp, mercy table, prng_le timers for the other enemies (wired in `enemies.ts`)
 - `js/core/CollisionSystem.ts` - Optimized collision detection
 - `js/core/RenderSystem.ts` - Rendering pipeline with effects
@@ -252,7 +253,7 @@ See `OPERATOR_SETTINGS_PLAN.md` and robotron-re REVERSE.md Phase 21.
 1. Create class in `enemiesClasses.ts` extending base enemy
 2. Add sprite loading in asset manager/main.ts
 3. Implement AI behavior (movement, shooting patterns)
-4. Add spawn logic in wave management (`js/waveTable.ts`); take timers from `WavePacing`
+4. Add spawn logic in `startNextWave()`; counts come from `js/waveTable.ts` (generated from the ROM by robotron-re `tools/gen_wavetable_ts.py` — do not hand-edit); take timers from `WavePacing`
 5. Configure collision detection and scoring (award points via `addScore` in gameLogic)
 
 ### Adding Visual Effects

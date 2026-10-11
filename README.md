@@ -28,7 +28,7 @@ Version 3.0 is a ground-up accuracy pass built directly against the original Wil
 
 - **ROM sprite atlas & bitmap fonts**: extracted directly from the ROM's graphics ROM banks and blitter source data, then hand-verified frame-by-frame against MAME captures (not redrawn or approximated)
 - **Ported PRNG**: the ROM's actual pseudo-random number generator (`$D6CD`), so enemy homing jitter, spawn positions, and re-homing decisions follow the same statistical behavior as the arcade
-- **ROM-captured wave table**: exact per-wave enemy composition (waves 1–12) read directly from ROM counter RAM in MAME, not estimated
+- **ROM wave table**: all 40 waves of enemies, electrodes and family members (mommies, daddies, mikeys) generated from the ROM's count tables and checked in MAME; waves past 40 cycle 21–40 as in the arcade
 - **Arcade-authentic AI**: stepped grunt/hulk movement, drifting PRNG-jittered enforcers, cruise-missile brain projectiles with sinusoidal wiggle, hulks that seek humans via the ROM's pointer-table scan — all traced from disassembly, not reimplemented from memory of the game
 
 ### 🎯 Faithful Game Feel
@@ -157,7 +157,7 @@ robotron/
 │   ├── states/            # Game state implementations
 │   ├── enemies.ts         # Enemy behavior
 │   ├── player.ts          # Player logic
-│   ├── waveTable.ts       # ROM-captured per-wave enemy composition
+│   ├── waveTable.ts       # ROM per-wave counts (generated; do not hand-edit)
 │   └── main.ts            # Entry point
 ├── sprites/                # ROM-extracted sprite atlas & bitmap fonts
 ├── assets/                 # Sounds
@@ -199,7 +199,7 @@ window.__game.enemies
 
 ### Version 3.0 (Current) — Arcade Fidelity
 - ROM-accurate sprite atlas and bitmap fonts, extracted and hand-verified against MAME
-- Ported ROM PRNG, ROM-captured wave table, ROM-traced enemy AI behaviors
+- Ported ROM PRNG, ROM wave table, ROM-traced enemy AI behaviors
 - Arcade scoring, 3-initial high-score entry, 2-player alternating play
 - Entities and projectiles fully confined to the true arena playfield
 - Zero TypeScript errors; typecheck gate restored in the build

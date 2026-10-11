@@ -276,12 +276,12 @@ export function startNextWave() {
         player.dy = 0;
     }
 
-    // Arcade-authentic wave composition (ROM-captured, see js/waveTable.ts).
+    // Arcade wave composition: the ROM's count tables (js/waveTable.ts).
     const def = getWaveDef(gameState.wave);
     WavePacing.beginWave(gameState.wave, Math.max(0, gameState.lives - 1));
     const numGrunts = def.grunts, numHulks = def.hulks, numSpheroids = def.spheroids;
     const numBrains = def.brains, numQuarks = def.quarks;
-    const numHumansToSpawn = def.humans, numElectrodes = def.electrodes;
+    const numElectrodes = def.electrodes;
     // Tanks are not wave-spawned in the arcade: quarks drop them.
     const numTanks = 0;
 
@@ -302,17 +302,11 @@ export function startNextWave() {
     for(let i=0;i<numTanks;i++){ if (Enemies && Enemies.createTank) Enemies.createTank(spawnX(), spawnY());}
     for(let i=0;i<numQuarks;i++){ if (Enemies && Enemies.createQuark) Enemies.createQuark(spawnX(), spawnY());}
 
-    console.log(`[GameLogic.startNextWave] About to spawn ${numHumansToSpawn} humans`);
-    for (let i = 0; i < Math.max(1, numHumansToSpawn) ; i++) {
-        console.log(`[GameLogic.startNextWave] Creating human ${i + 1}/${Math.max(1, numHumansToSpawn)}`);
-        if (Humans && Humans.createHuman) {
-            const x = spawnX();
-            const y = spawnY();
-            console.log(`[GameLogic.startNextWave] Calling Humans.createHuman(${x}, ${y})`);
-            Humans.createHuman(x, y);
-        } else {
-            console.error(`[GameLogic.startNextWave] Humans or Humans.createHuman is undefined!`, { Humans, createHuman: Humans?.createHuman });
-        }
+    // The ROM spawns each family member type in its own count ($42B2):
+    // mommies = WOMAN, daddies = MAN, mikeys = CHILD.
+    const family: [string, number][] = [['WOMAN', def.mommies], ['MAN', def.daddies], ['CHILD', def.mikeys]];
+    for (const [type, n] of family) {
+        for (let i = 0; i < n; i++) Humans.createHuman(spawnX(), spawnY(), type);
     }
 
     if (player) player.isAlive = true;
