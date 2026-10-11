@@ -7,6 +7,8 @@ import { Projectile } from './projectile';
 import { ColorCycles } from './core/ColorCycles';
 import { WavePacing } from './core/WavePacing';
 import { prng } from './core/Prng';
+import { ArcadeAtlas } from './core/ArcadeAtlas';
+import { moveBlockedAtWalls } from './gameObject';
 
 export function createPlayerProjectile(x: number, y: number, dx: number, dy: number): Projectile {
     if (!GameConfig || !PIXI || !playerProjectilesContainer || !playerProjectiles || !SoundManager) {
@@ -34,26 +36,71 @@ export function createPlayerProjectile(x: number, y: number, dx: number, dy: num
     return newProjectile;
 }
 
+// Enforcer spark (ROM $5404 spawn, $54A8 process; robotron-re REVERSE.md
+// Phase 21 "Enforcers and sparks"). Aimed at the player + a random -16..15
+// (bytes across, lines down; no x jitter near the left wall), with velocity
+// (aim - position) x 4/256 per frame, so it would arrive in 64 frames. Every
+// 4 frames it adds a fixed random impulse (-16..15 / 256) to that velocity,
+// so it curves, and steps its 4-frame spin. It fizzles after (rand & 15) + 20
+// passes, and slides along walls (the ROM mover, $DD09).
+const SPARK_PASS_FRAMES = 4;
+
+interface Spark { ix: number; iy: number; life: number; passTimer: number; frame: number; }
+
 export function createEnforcerProjectile(x: number, y: number, targetX: number, targetY: number): Projectile {
     if (!GameConfig || !PIXI || !enemyProjectilesContainer || !enemyProjectiles || !SoundManager) {
         console.warn("Projectiles.createEnforcerProjectile: Missing dependencies.");
         const dummySprite = new PIXI.Graphics();
         return new Projectile(dummySprite, 'enforcer_shot', 0, 0);
     }
-    const projectileSprite = new PIXI.Graphics();
-    projectileSprite.beginFill(0x00FFFF);
-    projectileSprite.moveTo(0, -3); projectileSprite.lineTo(2, 0);
-    projectileSprite.lineTo(0, 3); projectileSprite.lineTo(-2, 0);
-    projectileSprite.closePath();
-    projectileSprite.endFill();
+    const frames = ArcadeAtlas.frames('spark');
+    let projectileSprite: PIXI.Container;
+    if (frames.length === 4) {
+        const spr = new PIXI.AnimatedSprite(frames);
+        spr.anchor.set(0.5);
+        spr.gotoAndStop(0);
+        projectileSprite = spr;
+    } else {
+        const g = new PIXI.Graphics();
+        g.beginFill(0x00FFFF);
+        g.moveTo(0, -3); g.lineTo(2, 0); g.lineTo(0, 3); g.lineTo(-2, 0);
+        g.closePath(); g.endFill();
+        projectileSprite = g;
+    }
     projectileSprite.x = x; projectileSprite.y = y;
-    const angle = Math.atan2(targetY - y, targetX - x);
     enemyProjectilesContainer.addChild(projectileSprite);
-    
-    const newProjectile = new Projectile(projectileSprite, 'enforcer_shot', Math.cos(angle) * GameConfig.ENFORCER_PROJECTILE_SPEED, Math.sin(angle) * GameConfig.ENFORCER_PROJECTILE_SPEED);
+
+    // $5431: jitter, none on x when the player is near the left wall ($5E < $17)
+    const jx = targetX < 2 * 0x17 - 6 ? 0 : (prng.step() & 0x1F) - 16;
+    const jy = (prng.step() & 0x1F) - 16;
+    const vx = (targetX + 2 * jx - x) * 4 / 256;
+    const vy = (targetY + jy - y) * 4 / 256;
+    const newProjectile = new Projectile(projectileSprite as PIXI.Graphics, 'enforcer_shot', vx, vy);
+    const spark: Spark = {
+        ix: 2 * ((prng.step() & 0x1F) - 16) / 256,
+        iy: ((prng.step() & 0x1F) - 16) / 256,
+        life: (prng.step() & 0x0F) + 0x14,
+        passTimer: SPARK_PASS_FRAMES,
+        frame: 0,
+    };
+    (newProjectile as any).spark = spark;
     enemyProjectiles.push(newProjectile);
     SoundManager.play('enforcerFire');
     return newProjectile;
+}
+
+/** One frame of a spark; false when it has fizzled out. */
+function updateSpark(p: Projectile, sp: Spark, delta: number): boolean {
+    sp.passTimer -= delta;
+    while (sp.passTimer <= 0) {
+        sp.passTimer += SPARK_PASS_FRAMES;
+        p.dx += sp.ix; p.dy += sp.iy;
+        sp.frame = (sp.frame + 1) % 4;
+        if (p.sprite instanceof PIXI.AnimatedSprite) p.sprite.gotoAndStop(sp.frame);
+        if (--sp.life <= 0) return false;
+    }
+    moveBlockedAtWalls(p.sprite, p.sprite, p.dx * delta, p.dy * delta);
+    return true;
 }
 
 // Brain cruise missile (ROM $6006 spawn, $20B0 process, $20C7 move, $207B aim;
@@ -226,6 +273,11 @@ export function updateEnemyProjectiles(delta: number): void {
         const p = enemyProjectiles[i];
         if (!p || p._destroyed) {
             enemyProjectiles.splice(i, 1);
+            continue;
+        }
+        const sp = (p as any).spark as Spark | undefined;
+        if (sp) {
+            if (!updateSpark(p, sp, delta)) { p.destroy(); enemyProjectiles.splice(i, 1); }
             continue;
         }
         if (p.type === 'brain_shot') {

@@ -64,7 +64,9 @@ frame order (left 0–2, right 3–5, down 6–8, up 9–11; hulks are reordered
    - The fire stick never changes the pose. The old note here, "face the shoot vector",
      was wrong: Ph11 had misread the walker as fire-driven.
    - The game starts on frame 6 (standing, facing down).
-4. **Enforcer atlas sprite.** Already done: enforcers use the atlas `enforcer` family.
+4. **Enforcer atlas sprite.** Fixed in M3 (2026-10-11). The atlas `enforcer` family is not the
+   enforcer; the ROM's records ($18D2–$18E6) are `enforcer_spawn_1`…`5` (materializing)
+   and `enforcer_spawn_0`.
 5. **Brains** ($5C58): sideways frames when stepping sideways, else up or down; one frame
    per step.
 6. **Hulks** ($4030/$4106):
@@ -85,24 +87,39 @@ frame order (left 0–2, right 3–5, down 6–8, up 9–11; hulks are reordered
 
 ---
 
-## M3 — Combat authenticity
+## M3 — Combat authenticity — DONE 2026-10-11
 
-1. **Shootable enforcer sparks and brain cruise missiles.** ROM: enforcer bullets die
-   to player fire and award 25 pts ($54DC — Ph16). Brain cruise missiles also die to
-   player fire for 25 pts ($6119; Ph21 "Cruise missiles"). Their ROM movement, look and
-   cap of 8 (DP[$8E]) are ported (2026-10-11); being shot is not.
-2. **Shootable tank shells.** ROM sub-bullet on-hit awards 115 pts ($5483 — Ph18).
-3. **Enforcer fire throttling.** Match per-wave spawn params ($BE5F/$BE60) and the
-   aim model: PRNG[$85]>>3 + clamped homing delta ×4 → velocity (Ph16), replacing
-   any smooth-aim approximation.
-4. ~~**Spheroid child-spawn pacing.**~~ Done (`96a110d`); re-checked in MAME
-   2026-10-11 at difficulty 0 and 10 (Ph21 "Spheroids and difficulty"). ($BE66 and
-   $BE71 belong to quarks and tanks, also done.)
-5. ~~**Hulk human-seeking.**~~ Done in M2 (`01a1c77`): one target for life, set at
-   spawn ($41B3), the player once that human dies.
+All from the ROM (robotron-re REVERSE.md Phase 21, "Enforcers and sparks" and "Cruise
+missiles"):
 
-**Exit criteria:** sparks/shells killable for the RE point values; enforcer volley
-density comparable to MAME at waves 3–5; hulks visibly hunt humans.
+1. **Shootable enemy shots.** Player fire destroys enforcer sparks ($54DC), brain cruise
+   missiles ($6119) and tank shells ($8FD5), each worth 25 points (`score_update` $0025).
+2. **Tank shells.** The old "115 pts ($5483)" note was a misread: $5483 is the enforcer's
+   death, worth 150. Shells are worth 25, like the other shots.
+3. **Enforcers.**
+   - They use the ROM sprite, materializing through 5 frames over 40 frames.
+   - Every 3 frames they ease toward the player plus random −16..15: velocity = distance ×
+     2/256 per frame, re-aimed every (rand & 31) passes.
+   - A spark every prng_le($BE5F) passes, at most 20 live.
+4. **Sparks.**
+   - They spin through the 4 atlas `spark` frames.
+   - Velocity is distance × 4/256 per frame toward the player plus random −16..15.
+   - A fixed random impulse every 4 frames makes them curve.
+   - They fizzle after 80–140 frames and slide along walls, using the ROM mover ($DD09).
+5. ~~**Spheroid child-spawn pacing.**~~ Done (`96a110d`); re-checked in MAME 2026-10-11 at
+   difficulty 0 and 10.
+6. ~~**Hulk human-seeking.**~~ Done in M2 (`01a1c77`).
+
+**Verified in the browser** (wave 4):
+- Enforcer frames 1–5 at 8-frame steps, then the enforcer, 10 × 11.
+- Spark lifetimes 80–140 frames; sparks curve and slide along the side walls.
+- Shooting a spark scores 25. No errors.
+- Not done: the exit criterion's side-by-side volley count against MAME. The timers it
+  depends on were MAME-checked in `96a110d`.
+
+**Not ported:** tank shells that bank off a wall point ($8ED4), and per-shot sound samples
+for sparks and missiles. All three shot deaths play `sub_quark_pop`; the ROM's shell-death
+sound is $4B1E.
 
 ---
 

@@ -10,7 +10,7 @@ import { ArcadeAtlas } from './core/ArcadeAtlas';
 import { prng } from './core/Prng';
 import { WavePacing } from './core/WavePacing';
 import { SoundManager } from './soundManager';
-import { isEntityGone, clampToPlayfield, spriteHalfExtents } from './gameObject';
+import { isEntityGone, clampToPlayfield, spriteHalfExtents, moveBlockedAtWalls } from './gameObject';
 
 // Process cadences of the ROM enemy routines (robotron-re REVERSE.md Ph21,
 // measured in MAME with tools/enemy_probe.lua). The per-wave counts come
@@ -127,6 +127,18 @@ function hulkRehome(hulk: any, currentPlayer: any): void {
     showFrame(hulk.sprite, HULK_ATLAS[HULK_WALK[hulk.walkTable as HulkDir][0][0]]);   // $4164
 }
 
+/** $53B5: aim at the player + (rand >> 3) on each axis; next aim in (rand & $1F) passes. */
+function aimEnforcer(enforcer: any, currentPlayer: any): void {
+    const pass = prng.step() & 0x1F;
+    enforcer.aimPasses = pass || 256;
+    const pf = GameConfig.PLAYFIELD;
+    const jx = (prng.step() >> 3) - 16, jy = (prng.step() >> 3) - 16;
+    const tx = Math.max(pf.LEFT, Math.min(pf.RIGHT, currentPlayer.sprite.x + 2 * jx));
+    const ty = Math.max(pf.TOP, Math.min(pf.BOTTOM, currentPlayer.sprite.y + jy));
+    enforcer.dx = (tx - enforcer.position.x) * 2 / 256;
+    enforcer.dy = (ty - enforcer.position.y) * 2 / 256;
+}
+
 // Brain frames ($1CA2/$1CAA/$1CB2/$1CBA, records at $2141).
 const BRAIN_WALK = { left: [0, 1, 0, 2], right: [3, 4, 3, 5], down: [6, 7, 6, 8], up: [9, 10, 9, 11] };
 
@@ -229,7 +241,9 @@ export function createEnforcer(x: number, y: number): Enforcer | null {
     if (!PIXI || !enemiesContainer || !enemies || !GameConfig) {
         console.warn("Enemies.createEnforcer: Missing dependencies."); return null;
     }
-    const enforcerSprite = atlasAnim('enforcer', 0.1) ?? (() => {
+    // ROM sprite records $18D2-$18E6: materialize frames enforcer_spawn_1..5,
+    // then the enforcer itself, enforcer_spawn_0 (source $18EA)
+    const enforcerSprite = atlasStill('enforcer_spawn', 1) ?? (() => {
         const g = new PIXI.Graphics();
         g.beginFill(0x0000FF);
         g.moveTo(0, -6); g.lineTo(4, 0);
@@ -240,7 +254,7 @@ export function createEnforcer(x: number, y: number): Enforcer | null {
 
     const enforcer = new Enforcer(enforcerSprite, x, y, GameConfig.ENFORCER_SPEED || 0.8, GameConfig.POINTS.ENFORCER, GameConfig.ENFORCER_SHOOT_DELAY || 120);
     // $536D: first shot after the 40-frame materialize plus prng_le($BE5F) 3-frame passes
-    enforcer.shootTimer = ENFORCER_MATERIALIZE_FRAMES + WavePacing.prngLe(WavePacing.params.enforcerShotTimer) * ENFORCER_PASS_FRAMES;
+    (enforcer as any).shootPasses = WavePacing.prngLe(WavePacing.params.enforcerShotTimer);
     enemiesContainer.addChild(enforcer.sprite);
     enemies.push(enforcer);
     return enforcer;
@@ -484,37 +498,40 @@ export function updateEnemies(delta: number): void {
             spheroid.sprite.tint = SHIMMER[Math.floor(spheroid.pulseTimer * 4) % SHIMMER.length];
             spheroid.sprite.alpha = 1;
         } else if (enemy.type === 'enforcer') {
-            // Arcade enforcer (REVERSE.md Ph16 enforcer_aim): velocity is
-            // re-aimed on a PRNG timer toward player position + PRNG jitter,
-            // giving the characteristic drifting float instead of a beeline.
+            // Enforcer (ROM $5354 spawn, $5381 process, $53B5 aim; robotron-re
+            // REVERSE.md Phase 21 "Enforcers and sparks"). It materializes
+            // through 5 frames, 8 frames each, then runs every 3 frames.
+            // Velocity = (aim - position) x 2/256 per frame, so it eases in
+            // toward the player + a random -16..15 (bytes across, lines down),
+            // re-aimed every (rand & $1F) passes (0 = 256). A spark every
+            // prng_le($BE5F) passes, up to 20 live.
             const enforcer = enemy as any;
             if (!currentPlayer || !currentPlayer.sprite || (currentPlayer.sprite as any)._destroyed) continue;
-            if (enforcer.aimTimer === undefined) enforcer.aimTimer = 0;
-            enforcer.aimTimer -= delta;
-            if (enforcer.aimTimer <= 0) {
-                enforcer.aimTimer = prng.range(20, 50);   // jitter timer (obj[14])
-                const jx = currentPlayer.sprite.x + prng.range(-16, 15) - enforcer.position.x;
-                const jy = currentPlayer.sprite.y + prng.range(-16, 15) - enforcer.position.y;
-                const mag = Math.hypot(jx, jy) || 1;
-                const spd = GameConfig.ENFORCER_SPEED || 0.8;
-                enforcer.dx = (jx / mag) * spd;
-                enforcer.dy = (jy / mag) * spd;
+            if (enforcer.age === undefined) { enforcer.age = 0; enforcer.passTimer = 0; enforcer.aimPasses = 0; enforcer.dx = enforcer.dy = 0; }
+            enforcer.age += delta;
+            if (enforcer.age < ENFORCER_MATERIALIZE_FRAMES) {
+                showFrame(enforcer.sprite, 1 + Math.min(4, Math.floor(enforcer.age / 8)));
+                continue;
             }
-            enforcer.update(delta);
-            clampToPlayfield(enforcer.position, enforcer.sprite);
-            enforcer.sprite.x = enforcer.position.x;
-            enforcer.sprite.y = enforcer.position.y;
-            // $5404: a spark every prng_le($BE5F) 3-frame passes, up to 20 live
-            enforcer.shootTimer -= delta;
-            if (enforcer.shootTimer <= 0) {
-                enforcer.shootTimer += WavePacing.prngLe(wp.enforcerShotTimer) * ENFORCER_PASS_FRAMES;
-                if (currentPlayer.isAlive && countProjectiles('enforcer_shot') < MAX_SPARKS) {
-                    // spark: lead-aim with PRNG spread (enforcer_aim >>3 jitter)
-                    const sx = currentPlayer.sprite.x + prng.range(-14, 14);
-                    const sy = currentPlayer.sprite.y + prng.range(-14, 14);
-                    Projectiles.createEnforcerProjectile(enforcer.sprite.x, enforcer.sprite.y, sx, sy);
+            if (!enforcer.active) {
+                enforcer.active = true;
+                showFrame(enforcer.sprite, 0);
+                aimEnforcer(enforcer, currentPlayer);
+            }
+            enforcer.passTimer -= delta;
+            while (enforcer.passTimer <= 0) {
+                enforcer.passTimer += ENFORCER_PASS_FRAMES;
+                if (--enforcer.aimPasses <= 0) aimEnforcer(enforcer, currentPlayer);
+                if (--enforcer.shootPasses <= 0) {
+                    enforcer.shootPasses = WavePacing.prngLe(wp.enforcerShotTimer);
+                    if (currentPlayer.isAlive && countProjectiles('enforcer_shot') < MAX_SPARKS) {
+                        Projectiles.createEnforcerProjectile(enforcer.position.x, enforcer.position.y, currentPlayer.sprite.x, currentPlayer.sprite.y);
+                    }
                 }
             }
+            moveBlockedAtWalls(enforcer.position, enforcer.sprite, enforcer.dx * delta, enforcer.dy * delta);
+            enforcer.sprite.x = enforcer.position.x;
+            enforcer.sprite.y = enforcer.position.y;
         } else if (enemy.type === 'brain') {
             const brain = enemy as Brain;
             let targetX = (currentPlayer && currentPlayer.sprite && !(currentPlayer.sprite as any)._destroyed) ? currentPlayer.sprite.x : brain.sprite.x;

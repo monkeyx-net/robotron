@@ -77,3 +77,15 @@ export function clampToPlayfield(pos: { x: number; y: number }, sprite: PIXI.Con
 
 // Export the new GameObject class as well for gradual migration
 export { NewGameObject };
+
+/**
+ * The ROM's velocity mover ($DD09): each axis moves only if the sprite stays
+ * inside the playfield; a blocked axis just doesn't move that frame.
+ */
+export function moveBlockedAtWalls(pos: { x: number; y: number }, sprite: PIXI.Container, dx: number, dy: number): void {
+    const pf = GameConfig.PLAYFIELD;
+    const { hw, hh } = spriteHalfExtents(sprite);
+    const nx = pos.x + dx, ny = pos.y + dy;
+    if (nx - hw >= pf.LEFT && nx + hw <= pf.RIGHT) pos.x = nx;
+    if (ny - hh >= pf.TOP && ny + hh <= pf.BOTTOM) pos.y = ny;
+}

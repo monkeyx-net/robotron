@@ -605,6 +605,32 @@ export function checkCollisions() {
             }
         }
 
+        // Player bullet vs enemy shots: enforcer sparks ($54DC), brain cruise
+        // missiles ($6119) and tank shells ($8FD5) all die to player fire for
+        // 25 points each (score_update $0025).
+        const SHOT_POINTS: Record<string, number> = {
+            enforcer_shot: GameConfig.POINTS.ENFORCER_SPARK,
+            brain_shot: GameConfig.POINTS.CRUISE_MISSILE,
+            tank_shell: GameConfig.POINTS.TANK_SHELL,
+        };
+        for (let pi = playerProjectiles.length - 1; pi >= 0; pi--) {
+            const pb = playerProjectiles[pi];
+            if (isEntityGone(pb)) continue;
+            for (let ei = enemyProjectiles.length - 1; ei >= 0; ei--) {
+                const ep = enemyProjectiles[ei];
+                if (isEntityGone(ep) || !(ep.type in SHOT_POINTS)) continue;
+                if (isColliding(pb.sprite, ep.sprite, 5)) {
+                    (pb.sprite as any).destroy();
+                    playerProjectiles.splice(pi, 1);
+                    (ep.sprite as any).destroy();
+                    enemyProjectiles.splice(ei, 1);
+                    SoundManager.play('subQuarkPop');   // ROM $4B1E for shells; sparks/missiles have no captured sample
+                    if (gameState.currentGameState === 'PLAYING' && !pb.isDemoProjectile) addScore(SHOT_POINTS[ep.type]);
+                    break;
+                }
+            }
+        }
+
         // Player vs Human (Rescue) - TEMPORARILY DISABLED FOR DEBUGGING
         for (let i = humansAndProgs.length - 1; i >= 0; i--) {
             const humanEntity = humansAndProgs[i];
