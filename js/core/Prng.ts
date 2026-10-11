@@ -15,16 +15,23 @@ export class ArcadePrng {
     private hi = 0xA5;   // DP[$85] — ROM seeds $A55A at main_game_entry
     private lo = 0x5A;   // DP[$86]
 
-    /** Step once (call once per frame, like `JSR $D039`). Returns DP[$84]. */
+    /**
+     * One call of prng_update ($D6CD). Returns DP[$84]. Matches the first
+     * 1000 MAME outputs from the boot seed (tests/prng-golden.test.ts).
+     *
+     *   B = $84*3 + $11
+     *   A = ($86 >> 3) ^ $86; LSRA          ; carry = feedback bit
+     *   ROR $85; ROR $86                     ; 16-bit shift, feedback into $85 bit 7
+     *   ADDB $86; ADCB $85                   ; carry from the ADDB
+     */
     step(): number {
-        let b = ((this.accum * 3) + 0x11) & 0xff;
-        let a = ((this.lo >> 3) ^ this.lo) & 0xff;
-        a = (a >> 1) & 0x7f;
-        const carry = this.hi & 1;
-        this.hi = ((this.hi >> 1) | ((a & 1) << 7)) & 0xff;
-        this.lo = ((this.lo >> 1) | (carry << 7)) & 0xff;
-        b = (b + this.lo + this.hi + (a & 1)) & 0xff;
-        this.accum = b;
+        const b = (this.accum * 3 + 0x11) & 0xff;
+        const feedback = ((this.lo >> 3) ^ this.lo) & 1;
+        const hiOut = this.hi & 1;
+        this.hi = (this.hi >> 1) | (feedback << 7);
+        this.lo = (this.lo >> 1) | (hiOut << 7);
+        const sum = b + this.lo;
+        this.accum = ((sum & 0xff) + this.hi + (sum >> 8)) & 0xff;
         return this.accum;
     }
 

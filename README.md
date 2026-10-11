@@ -256,7 +256,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 Full detail in [`ARCADE_FIDELITY_PLAN.md`](ARCADE_FIDELITY_PLAN.md). Highlights:
 
-- [ ] PRNG golden test + MAME scoring-ledger spot checks
+- [x] PRNG golden test (`npm test`, 1000 MAME-captured calls) + scoring ledger checked against the ROM
 - [x] 4-direction sprite facing from the ROM's walk tables: the player (move stick only), humans, hulks, brains and progs face the way they move; grunts have no facing
 - [x] Shootable enforcer sparks, cruise missiles & tank shells for their ROM point values (25 each)
 - [x] Arcade-accurate game-over → high-score → attract flow (the DOM "Play Again?" button is gone)

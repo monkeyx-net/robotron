@@ -19,28 +19,37 @@ check and a commit; nothing ships without on-screen verification via Playwright.
 
 ---
 
-## M1 — Verification foundation + known defects
+## M1 — Verification foundation + known defects — DONE 2026-10-11
 
-*Why first: everything after this is judged against these tools.*
+1. **PRNG golden test.**
+   - robotron-re `tools/prng_probe.lua` captured DP $84/$85/$86 after the first 1000 calls
+     of `prng_update` ($D6CD) from a cold boot (seed $A55A). That's
+     `tests/fixtures/prng_golden.txt`, checked by `npm test` (`tests/prng-golden.test.mts`).
+   - **It found a real bug.** `Prng.ts` rotated the wrong feedback bit into $85 (bit 1 of
+     `($86>>3)^$86` instead of bit 0) and added that bit where the ROM adds the carry from
+     `ADDB <$86`.
+   - Every one of the 1000 calls differed, and the old generator repeated after 8,064
+     calls instead of the ROM's 114,674. Fixed; the test passes.
+2. **Scoring ledger.** The figures listed here were old misreads; the ROM's `score_update`
+   table (REVERSE.md Phase 21) is the reference. Shooting one of each in the browser gives:
 
-1. **PRNG golden test.** Capture 1,000 consecutive outputs of the ROM PRNG ($D6CD)
-   in MAME Lua (read DP[$85:$86] per call), commit as a fixture, and assert
-   `js/core/Prng.ts` reproduces the sequence exactly from seed $A55A (the ROM's
-   startup seed per REVERSE.md Ph23). Wire it as a browser-console test now;
-   port to Vitest when a test runner lands.
-2. **Scoring ledger check.** One scripted MAME session + one web session killing the
-   same enemy types; compare per-event awards against the RE ground truth:
-   grunt 100, flat-grunt 110, quark bullet 115, prog 120 (quark 120 BCD $0120),
-   brain 150, side-enemy/spheroid 210 BCD, spark/enforcer bullet 25.
-   Fix any web-side mismatch.
-3. **Stray blue pixel-block at canvas top-left** (outside the arena). Reproduce on a
-   fresh load, identify the orphan sprite/graphics via stage traversal, remove.
-4. **Grunt cadence spot check.** Film 10 s of wave 1 in MAME and web; compare
-   grunt step rhythm (ROM: stepped moves, timer=3 frames per behavior tick,
-   re-home when PRNG[$84]>$F8 or PRNG[$86]>$E4 — Ph12).
+   | Target | Points |
+   |---|---|
+   | grunt | 100 |
+   | enforcer | 150 |
+   | brain | 500 |
+   | prog | 100 |
+   | spheroid | 1000 |
+   | quark | 1000 |
+   | tank | 200 |
+   | spark, cruise missile, tank shell | 25 each |
+   | hulk | 0 |
 
-**Exit criteria:** PRNG test green; scoring table matches RE values; no stray
-pixels outside the arena; grunt cadence visually indistinguishable at 10 s.
+   All match.
+3. **Stray block at the canvas top-left.** Fixed in M4: the Milestone 3 self-test's
+   entities.
+4. **Grunt cadence.** Ported from the ROM and checked in MAME with
+   `tools/grunt_probe.lua` (Phase 21, `fb0d989`).
 
 ---
 

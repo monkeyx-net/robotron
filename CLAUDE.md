@@ -18,7 +18,8 @@ npm run preview      # Preview production build locally
 ```
 
 ### Development Notes
-- No test runner configured yet (tests are manual imports in main.ts)
+- `npm test`: PRNG golden test (`tests/prng-golden.test.mts`) against 1000 ROM outputs captured in MAME
+- Other tests are manual imports in main.ts
 - No linting/formatting tools currently set up
 - Build output goes to `dist/` directory
 

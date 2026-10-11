@@ -8,7 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "deploy": "npm run build && gh-pages -d dist",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "npm run test:prng",
+    "test:prng": "node --experimental-strip-types --no-warnings tests/prng-golden.test.mts",
     "typecheck": "tsc --noEmit"
   },
   "repository": {
