@@ -61,7 +61,8 @@ Version 2.0 represented a ground-up refactoring using modern software engineerin
 
 ### 🎯 Gameplay Features
 
-- **Progressive Difficulty Scaling**: 5 difficulty levels (Easy, Normal, Hard, Nightmare, Adaptive) with dynamic adjustment based on player performance
+- **Arcade Operator Settings**: the ROM's GAME ADJUSTMENT page (F2 or `?` on the title screen, or gamepad Select+Start): extra man every, turns per player, difficulty of play 0-10, high-score name length, factory reset, high score reset
+- **Arcade Enemy Pacing**: grunts speed up as the wave goes on and as you thin them out, exactly as the ROM does; difficulty adjusts enemy timers, never enemy counts
 - **Enhanced Controls**: Unified input system supporting keyboard, gamepad, and touch, with input buffering
 - **Improved Enemy AI**: Spheroids seek corners after spawning, better pathfinding, optimized collision detection
 - **Visual Polish**: Screen shake, particle explosions, user-configurable visual effects, pixel-perfect scaling
@@ -145,7 +146,7 @@ robotron/
 │   │   ├── GameEngine.ts
 │   │   ├── GameStateManager.ts
 │   │   ├── InputManager.ts
-│   │   ├── DifficultyManager.ts
+│   │   ├── WavePacing.ts
 │   │   ├── CollisionSystem.ts
 │   │   ├── RenderSystem.ts
 │   │   ├── Prng.ts            # ROM-accurate PRNG ($D6CD port)
@@ -171,17 +172,15 @@ robotron/
 3. **Save Humans**: Rescue bonus increases with each save
 4. **Corner Strategy**: Use corners to funnel enemies
 5. **Watch for Brains**: They convert humans into hostile Progs
-6. **Difficulty Scaling**: Choose your difficulty level wisely
+6. **Don't Stall**: Grunts get faster the longer a wave lasts, and faster still when you stop scoring
 
 ## 📊 Debug Console
 
 Press F12 to open browser console and access debug commands:
 
 ```javascript
-// Difficulty System
-difficultyDebug.setLevel('nightmare')
-difficultyDebug.getMultipliers()
-difficultyDebug.getDebugInfo()
+// Enemy pacing (grunt step bound/floor, wave params at the current difficulty)
+wavePacing.snapshot()
 
 // Input System
 globalInputManager.inputManager.getMovementVector()
@@ -194,9 +193,6 @@ gameStateDebug.forceTransition('PLAYING')
 window.__game.gameState
 window.__game.player
 window.__game.enemies
-
-// Run automated tests
-difficultyTests.runAll()
 ```
 
 ## 🔄 Version History

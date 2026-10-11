@@ -8,6 +8,7 @@ import { Grunt, Hulk, Spheroid, Enforcer, Brain, Tank, ProgEnemy, Quark } from '
 import { Human, Prog } from './humanClasses';
 import { ArcadeAtlas } from './core/ArcadeAtlas';
 import { prng } from './core/Prng';
+import { WavePacing } from './core/WavePacing';
 import { SoundManager } from './soundManager';
 import { isEntityGone, clampToPlayfield, spriteHalfExtents } from './gameObject';
 
@@ -73,6 +74,8 @@ export function createGrunt(x: number, y: number): Grunt | null {
         return s;
     })();
 
+    // grunts animate one frame per step (see updateEnemies), not on a clock
+    if (gruntSprite instanceof PIXI.AnimatedSprite) gruntSprite.stop();
     const grunt = new Grunt(gruntSprite, x, y, GameConfig.GRUNT_SPEED || 0.6, GameConfig.POINTS.GRUNT);
     enemiesContainer.addChild(grunt.sprite);
     enemies.push(grunt);
@@ -214,6 +217,9 @@ export function updateEnemies(delta: number): void {
     }
 
     const currentPlayer = gameState.currentGameState === 'DEMO_PLAY' ? demoPlayer : player;
+    let liveGrunts = 0;
+    for (const e of enemies) if (e.type === 'grunt' && !isEntityGone(e)) liveGrunts++;
+    const gruntTicks = WavePacing.update(delta, liveGrunts);
     if (!currentPlayer || !currentPlayer.sprite || (currentPlayer.sprite as any)._destroyed) {
         // If no player, enemies might wander or have default behavior, but targeting is off.
         // Most enemies require a player target.
@@ -245,38 +251,28 @@ export function updateEnemies(delta: number): void {
                 grunt.update(delta);
                 continue;
             }
-            // Arcade grunt AI (REVERSE.md Ph12): stepped movement on a 3-frame
-            // timer, one axis at a time (staircase pursuit), homing toward
-            // player position + a per-grunt PRNG scatter offset; the axis is
-            // probabilistically re-homed each tick (X when PRNG > $F8,
-            // Y when PRNG > $E4).
+            // Arcade grunt AI (flat_grunt_move $79CE, REVERSE.md Ph18/Ph21):
+            // the grunt process runs every 4 frames; each grunt counts down
+            // and, on expiry, steps diagonally toward the player (Y ±4 lines,
+            // X ±2 bytes = 4 px) and re-arms with prng_bounded($BE5C). The
+            // bound shrinks as the wave goes on (WavePacing). When aligned
+            // the ROM's compares still step, so grunts shuffle in place.
             const g = grunt as any;
-            if (g.homeOffX === undefined) {
-                g.homeOffX = prng.range(-12, 12);
-                g.homeOffY = prng.range(-12, 12);
-                g.stepTimer = prng.range(0, 2);
-                g.axis = (prng.step() & 0x80) ? 'x' : 'y';
-            }
-            g.stepTimer -= delta;
-            if (g.stepTimer <= 0) {
-                g.stepTimer += 3;
-                const targetX = currentPlayer.sprite.x + g.homeOffX;
-                const targetY = currentPlayer.sprite.y + g.homeOffY;
-                // probabilistic re-homing, mirroring PRNG[$84]>$F8 / PRNG[$86]>$E4
-                const r = prng.step();
-                if (r > 0xF8) { g.axis = 'x'; g.homeOffX = prng.range(-12, 12); }
-                else if (r > 0xE4) { g.axis = 'y'; g.homeOffY = prng.range(-12, 12); }
-                const dxs = targetX - grunt.position.x;
-                const dys = targetY - grunt.position.y;
-                // switch axis when aligned on the current one
-                if (g.axis === 'x' && Math.abs(dxs) < 2) g.axis = 'y';
-                else if (g.axis === 'y' && Math.abs(dys) < 2) g.axis = 'x';
-                const STEP = 2;
-                if (g.axis === 'x') grunt.position.x += Math.sign(dxs) * STEP;
-                else grunt.position.y += Math.sign(dys) * STEP;
+            if (g.stepCountdown === undefined) g.stepCountdown = WavePacing.nextGruntDelay();
+            for (let t = 0; t < gruntTicks; t++) {
+                if (--g.stepCountdown > 0) continue;
+                g.stepCountdown = WavePacing.nextGruntDelay();
+                const dy = Math.round(grunt.position.y - currentPlayer.sprite.y);
+                if (dy >= 2) grunt.position.y -= 4;
+                else if (dy === 0 || dy <= -2) grunt.position.y += 4;
+                const dxBytes = Math.round((grunt.position.x - currentPlayer.sprite.x) / 2);
+                grunt.position.x += dxBytes > 0 ? -4 : 4;
                 clampToPlayfield(grunt.position, grunt.sprite);
                 grunt.sprite.x = grunt.position.x;
                 grunt.sprite.y = grunt.position.y;
+                // the walk cycle advances with each step, not with time
+                const anim = grunt.sprite as PIXI.AnimatedSprite;
+                if (anim.totalFrames) anim.gotoAndStop((anim.currentFrame + 1) % anim.totalFrames);
             }
             grunt.dx = 0; grunt.dy = 0;
 
@@ -295,7 +291,7 @@ export function updateEnemies(delta: number): void {
             }
             hulk.stepTimer -= delta;
             if (hulk.stepTimer <= 0) {
-                hulk.stepTimer += 8;   // hulks step every ~8 frames
+                hulk.stepTimer += WavePacing.params.hulkStepFrames;   // $BE61: 8 frames on wave 2 at difficulty 5, faster later
                 hulk.turnTimer--;
                 if (hulk.turnTimer <= 0) {
                     hulk.turnTimer = prng.range(8, 40);
@@ -367,7 +363,7 @@ export function updateEnemies(delta: number): void {
                 spheroid.spawnEnforcerTimer -= delta;
                 if (spheroid.spawnEnforcerTimer <= 0) {
                     if (createEnforcer) { createEnforcer(spheroid.sprite.x, spheroid.sprite.y); SoundManager.play('enforcerSpawn'); }
-                    spheroid.spawnEnforcerTimer = GameConfig.SPHEROID_SPAWN_ENFORCER_DELAY || 300;
+                    spheroid.spawnEnforcerTimer = (GameConfig.SPHEROID_SPAWN_ENFORCER_DELAY || 300) * WavePacing.scale('spheroidSpawnPeriod');
                 }
             } else {
                 // Before spawning all enforcers, float randomly
@@ -382,7 +378,7 @@ export function updateEnemies(delta: number): void {
                 if (spheroid.spawnEnforcerTimer <= 0) {
                     if (createEnforcer) { createEnforcer(spheroid.sprite.x, spheroid.sprite.y); SoundManager.play('enforcerSpawn'); }
                     spheroid.enforcersSpawned++;
-                    spheroid.spawnEnforcerTimer = GameConfig.SPHEROID_SPAWN_ENFORCER_DELAY || 300;
+                    spheroid.spawnEnforcerTimer = (GameConfig.SPHEROID_SPAWN_ENFORCER_DELAY || 300) * WavePacing.scale('spheroidSpawnPeriod');
                 }
             }
 
@@ -440,7 +436,7 @@ export function updateEnemies(delta: number): void {
                     const sy = currentPlayer.sprite.y + prng.range(-14, 14);
                     Projectiles.createEnforcerProjectile(enforcer.sprite.x, enforcer.sprite.y, sx, sy);
                 }
-                enforcer.shootTimer = GameConfig.ENFORCER_SHOOT_DELAY || 120;
+                enforcer.shootTimer = (GameConfig.ENFORCER_SHOOT_DELAY || 120) * WavePacing.scale('enforcerShotChance');
             }
         } else if (enemy.type === 'brain') {
             const brain = enemy as Brain;
@@ -477,8 +473,10 @@ export function updateEnemies(delta: number): void {
 
             const angleToTarget = Math.atan2(targetY - brain.sprite.y, targetX - brain.sprite.x);
             // Update logical position first
-            brain.position.x += Math.cos(angleToTarget) * (GameConfig.BRAIN_SPEED || 0.6) * delta;
-            brain.position.y += Math.sin(angleToTarget) * (GameConfig.BRAIN_SPEED || 0.6) * delta;
+            // $BE63 is frames per brain step: a larger value means a slower brain
+            const brainSpeed = (GameConfig.BRAIN_SPEED || 0.6) / WavePacing.scale('brainStepFrames');
+            brain.position.x += Math.cos(angleToTarget) * brainSpeed * delta;
+            brain.position.y += Math.sin(angleToTarget) * brainSpeed * delta;
             // Apply boundary constraints to logical position
             clampToPlayfield(brain.position, brain.sprite);
             // Update sprite to match logical position
@@ -507,7 +505,7 @@ export function updateEnemies(delta: number): void {
             tank.shootTimer -= delta;
             if (tank.shootTimer <= 0 && currentPlayer.isAlive) {
                  if (Projectiles.createTankShell) {
-                    Projectiles.createTankShell(tank.sprite.x, tank.sprite.y, currentPlayer.sprite.x, currentPlayer.sprite.y);
+                    Projectiles.createTankShell(tank.sprite.x, tank.sprite.y, currentPlayer.sprite.x, currentPlayer.sprite.y, WavePacing.scale('quarkShotScale'));
                 }
                 tank.shootTimer = GameConfig.TANK_SHOOT_DELAY || 180;
             }

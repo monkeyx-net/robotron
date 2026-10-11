@@ -76,7 +76,6 @@ export class SaveLoadTest {
         const testSettings = {
             soundEnabled: false,
             musicVolume: 0.3,
-            difficulty: 'hard' as const,
             screenShakeEnabled: false
         };
         
@@ -89,7 +88,6 @@ export class SaveLoadTest {
         const settingsMatch = 
             loadedSettings.soundEnabled === false &&
             loadedSettings.musicVolume === 0.3 &&
-            loadedSettings.difficulty === 'hard' &&
             loadedSettings.screenShakeEnabled === false;
         
         this.testResults['settings_load'] = settingsMatch;
@@ -99,8 +97,7 @@ export class SaveLoadTest {
         saveLoadManager.clearAllData();
         const defaultSettings = saveLoadManager.loadSettings();
         const hasDefaults = 
-            defaultSettings.soundEnabled === true &&
-            defaultSettings.difficulty === 'normal';
+            defaultSettings.soundEnabled === true;
         
         this.testResults['settings_defaults'] = hasDefaults;
         console.log(hasDefaults ? '✅ Default settings correct' : '❌ Default settings incorrect');

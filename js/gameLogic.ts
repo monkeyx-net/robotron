@@ -13,6 +13,7 @@ import { Vector2 } from './utils/Vector2';
 import { ArcadeBorder } from './core/ArcadeBorder';
 import { getWaveDef } from './waveTable';
 import { prng } from './core/Prng';
+import { WavePacing } from './core/WavePacing';
 import { TwoPlayer } from './core/TwoPlayer';
 import { isEntityGone } from './gameObject';
 import { ScorePopup } from './core/ScorePopup';
@@ -127,6 +128,7 @@ export function playerHit() {
     SoundManager.play('playerDeath');
     gameState.lives--;
     player.isAlive = false;
+    WavePacing.onPlayerDeath(Math.max(0, gameState.lives - 1));
     gameState.currentHumanRescueBonus = GameConfig.INITIAL_HUMAN_RESCUE_BONUS;
     gameState.humanRescueBonusDecayTimer = 0;
     if(UI.updateBonusDisplay) UI.updateBonusDisplay();
@@ -276,6 +278,7 @@ export function startNextWave() {
 
     // Arcade-authentic wave composition (ROM-captured, see js/waveTable.ts).
     const def = getWaveDef(gameState.wave);
+    WavePacing.beginWave(gameState.wave, Math.max(0, gameState.lives - 1));
     const numGrunts = def.grunts, numHulks = def.hulks, numSpheroids = def.spheroids;
     const numBrains = def.brains, numQuarks = def.quarks;
     const numHumansToSpawn = def.humans, numElectrodes = def.electrodes;
@@ -346,6 +349,14 @@ export function checkWaveCompletion() {
                 if (gameState.currentGameState === 'WAVE_TRANSITION') gameState.currentGameState = 'PLAYING';
             });
     }
+}
+
+/** Award points: score display, extra-man check, and the ROM's score_update counter ($F0) for grunt pacing. */
+function addScore(points: number): void {
+    gameState.score += points;
+    if (UI && UI.updateScoreDisplay) UI.updateScoreDisplay();
+    checkForExtraLife();
+    WavePacing.noteScore();
 }
 
 export function checkForExtraLife() {
@@ -447,11 +458,10 @@ export function checkCollisions() {
                     SoundManager.play(soundToPlayKey);
                     if (enemy.sprite && !(enemy.sprite as any)._destroyed) (enemy.sprite as any).destroy();
                     enemies.splice(j, 1);
+                    if (enemy.type === 'grunt') WavePacing.onGruntKilled();
 
                     if (gameState.currentGameState === 'PLAYING' && (!p.isDemoProjectile)) {
-                        gameState.score += enemy.points || 0;
-                        if(UI.updateScoreDisplay) UI.updateScoreDisplay();
-                        checkForExtraLife();
+                        addScore(enemy.points || 0);
                     }
                 }
                 break;
@@ -473,9 +483,7 @@ export function checkCollisions() {
                     humansAndProgs.splice(k, 1);
 
                     if (gameState.currentGameState === 'PLAYING' && (!p.isDemoProjectile)) {
-                        gameState.score += entity.points || 0;
-                       if(UI.updateScoreDisplay) UI.updateScoreDisplay();
-                        checkForExtraLife();
+                        addScore(entity.points || 0);
                     }
                     break;
                 }
@@ -546,12 +554,11 @@ export function checkCollisions() {
                     SoundManager.play('gruntPop');
                     (en.sprite as any).destroy();
                     enemies.splice(ei, 1);
+                    WavePacing.onGruntKilled();
                     (ob.sprite as any).destroy();
                     obstacles.splice(oi, 1);
                     if (gameState.currentGameState === 'PLAYING') {
-                        gameState.score += GameConfig.POINTS.GRUNT;
-                        if (UI.updateScoreDisplay) UI.updateScoreDisplay();
-                        checkForExtraLife();
+                        addScore(GameConfig.POINTS.GRUNT);
                     }
                     break;
                 }
@@ -611,9 +618,7 @@ export function checkCollisions() {
                     ScorePopup.show(humanEntity.sprite.x, humanEntity.sprite.y, gameState.currentHumanRescueBonus);
 
                     if (gameState.currentGameState === 'PLAYING') {
-                        gameState.score += gameState.currentHumanRescueBonus;
-                        if(UI.updateScoreDisplay) UI.updateScoreDisplay();
-                        checkForExtraLife();
+                        addScore(gameState.currentHumanRescueBonus);
                         SoundManager.play('humanRescue');
                         if (gameState.currentHumanRescueBonus < GameConfig.MAX_HUMAN_RESCUE_BONUS) {
                             gameState.currentHumanRescueBonus += GameConfig.HUMAN_RESCUE_BONUS_INCREMENT;

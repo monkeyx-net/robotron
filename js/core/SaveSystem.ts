@@ -22,7 +22,6 @@ export interface GameSettings {
     soundVolume: number;
     musicVolume: number;
     keyBindings: KeyBindings;
-    difficulty: 'easy' | 'normal' | 'hard';
     screenShakeEnabled: boolean;
     particleEffectsEnabled: boolean;
 }
@@ -155,7 +154,6 @@ export class SaveSystem {
                 shootRight: 'ArrowRight',
                 pause: 'KeyP'
             },
-            difficulty: 'normal',
             screenShakeEnabled: false, // Disabled by default to reduce jarring effects
             particleEffectsEnabled: true
         };

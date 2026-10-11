@@ -1,6 +1,6 @@
 # Operator Settings Plan (arcade "GAME ADJUSTMENT" menu)
 
-Status: **steps 1–3 done 2026-10-10 (uncommitted); step 4 next.** Branch: `release-3.0` (last commit `9c879a3`).
+Status: **steps 1–3 committed (`62d5a8f`); step 4 done 2026-10-11 (uncommitted); step 5 optional.** Branch: `release-3.0`.
 
 Goal: add the original ROM's operator adjustments that matter to gameplay,
 and skip those that only make sense on physical cabinet hardware.
@@ -85,12 +85,34 @@ physical high-score-reset switch; SET ATTRACT MODE MESSAGE and SET HIGHEST SCORE
    ADVANCE (Enter / Esc / F2 / gamepad Start) saves and exits. Keyboard and gamepad
    both work, with edge-triggered pad polling as in `HighScoreEntry.ts`. New game
    state, e.g. `'OPERATOR_MENU'`.
-4. **Difficulty**, using the step 1 findings. Feed `getWaveParams(wave, Operator.get().difficulty,
-   lives)` into the entity code, replacing hard-coded timers, and retire DifficultyManager
-   (decision 2). Trace before wiring: the port's grunts step every 3 frames, but the ROM's
-   $BE68 grunts re-arm with prng_bounded($BE5C) (20 on wave 1 at d=5). Also check how $BE5C
-   changes during a wave (the $BE5D restore on death suggests grunts speed up over time).
-   The FANCY ATTRACT MODE item is left out of the menu until step 5 gives it an effect.
+4. **DONE 2026-10-11 — difficulty and enemy pacing** (`js/core/WavePacing.ts`).
+   - Pre-work (MAME, robotron-re `tools/grunt_probe.lua`, REVERSE.md Phase 21) found that the
+     real grunt is the flat-ROM `$79CE` routine, not the Ph12 object the port had copied:
+     - The process runs every 4 frames; each grunt steps after 1..$BE5C passes (uniform).
+     - Steps are diagonal: 4 px in X and 4 lines in Y.
+     - Each grunt death multiplies the bound by 0.875, floored at $BE5D.
+     - A ramp tick after 270 frames, then every 225, lowers floor/bound by 1/2 if the player
+       scored since the last tick, else 2/4.
+     - A death restores the floor.
+     - A mercy table eases waves 1–4 after losing men.
+   - Wired:
+     - Grunts follow the ROM model exactly, with the walk frame advancing per step.
+     - The hulk step timer is $BE61 per wave.
+     - Enforcer shot delay, spheroid spawn delay, brain speed and tank-shell speed take the
+       ratio value(difficulty)/value(5). At difficulty 5 those keep their current tuning.
+     - `addScore()` in gameLogic feeds the ramp's "scored" flag.
+   - Retired DifficultyManager (+ copy, test, test page) and `GameSettings.difficulty`.
+     CLAUDE.md and the README were updated.
+   - Verified in the browser:
+     - Wave 1: 20/9 at difficulty 5 and 15/7 at difficulty 10.
+     - Steps are 4 px diagonal at multiples of 4 frames.
+     - Kills ×0.875; the ramp ticks at 270/225 frames; mercy 30/15 after a wave 1 death.
+     - Waves 2–5 play with no console errors.
+   - Follow-ups:
+     - Trace the remaining params to replace the ratios with ROM-exact use (per-wave
+       progression too): $BE5E/$BE62/$BE64/$BE66 spheroid/child, $BE5F/$BE60 enforcer fire,
+       $BE63 brain step size, $BE65/$BE67 quark.
+     - Reconcile `waveTable.ts` counts with the ROM count tables (see REVERSE.md).
 5. **Optional:** FANCY ATTRACT MODE toggle; a statistics page (extra men earned, play
    time, men played — non-coin bookkeeping); a controller test screen (the web version
    of the switch test).

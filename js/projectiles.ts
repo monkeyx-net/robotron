@@ -73,7 +73,8 @@ export function createBrainProjectile(x: number, y: number, targetX: number, tar
     return newProjectile;
 }
 
-export function createTankShell(x: number, y: number, targetX: number, targetY: number): Projectile {
+/** `speedScale`: operator-difficulty ratio for the ROM's quark/tank fire velocity ($BE65). */
+export function createTankShell(x: number, y: number, targetX: number, targetY: number, speedScale: number = 1): Projectile {
     if (!GameConfig || !PIXI || !enemyProjectilesContainer || !enemyProjectiles || !SoundManager) {
         console.warn("Projectiles.createTankShell: Missing dependencies.");
         const dummySprite = new PIXI.Graphics();
@@ -87,7 +88,7 @@ export function createTankShell(x: number, y: number, targetX: number, targetY: 
     const angle = Math.atan2(targetY - y, targetX - x);
     enemyProjectilesContainer.addChild(shellSprite);
     
-    const newProjectile = new Projectile(shellSprite, 'tank_shell', Math.cos(angle) * GameConfig.TANK_SHELL_SPEED, Math.sin(angle) * GameConfig.TANK_SHELL_SPEED, GameConfig.TANK_SHELL_BOUNCES);
+    const newProjectile = new Projectile(shellSprite, 'tank_shell', Math.cos(angle) * GameConfig.TANK_SHELL_SPEED * speedScale, Math.sin(angle) * GameConfig.TANK_SHELL_SPEED * speedScale, GameConfig.TANK_SHELL_BOUNCES);
     enemyProjectiles.push(newProjectile);
     SoundManager.play('tankFire');
     return newProjectile;

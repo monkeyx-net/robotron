@@ -152,7 +152,9 @@ gameEvents.subscribe('player:hit', (data) => {
 - `js/core/GameEngine.ts` - Main game loop and engine
 - `js/core/GameStateManager.ts` - State machine implementation
 - `js/core/InputManager.ts` - Unified input system (keyboard, gamepad, touch)
-- `js/core/DifficultyManager.ts` - Progressive difficulty scaling with adaptive AI
+- `js/core/OperatorSettings.ts` / `OperatorMenu.ts` - Arcade GAME ADJUSTMENT settings (F2 / `?` / pad Select+Start on the title screens)
+- `js/core/WaveParams.ts` - ROM per-wave timer tables + DIFFICULTY OF PLAY (generated from the ROM; do not hand-edit)
+- `js/core/WavePacing.ts` - Live enemy pacing: ROM grunt cadence/ramp, difficulty ratios for other enemies
 - `js/core/CollisionSystem.ts` - Optimized collision detection
 - `js/core/RenderSystem.ts` - Rendering pipeline with effects
 - `js/core/EventSystem.ts` - Event-driven communication between systems
@@ -230,34 +232,28 @@ if (inputManager.isActionPressed(InputAction.PAUSE)) {
 }
 ```
 
-### Using the Difficulty Manager
+### Difficulty (arcade DIFFICULTY OF PLAY)
+
+The operator setting 0-10 (5 = recommended) lives in `Operator.get().difficulty`.
+As in the ROM it never changes enemy counts; it nudges per-wave timers. Read them
+through `WavePacing`, which `startNextWave()` primes each wave:
 
 ```typescript
-import { difficultyManager, DifficultyLevel } from './core/DifficultyManager';
+import { WavePacing } from './core/WavePacing';
 
-// Set difficulty
-difficultyManager.setDifficultyLevel(DifficultyLevel.HARD);
-
-// Get multipliers for scaling
-const multipliers = difficultyManager.getCurrentMultipliers();
-const spawnRate = baseSpawnRate * multipliers.enemySpawnRateMultiplier;
-const enemySpeed = baseSpeed * multipliers.enemySpeedMultiplier;
-const points = basePoints * multipliers.scoreMultiplier;
-
-// Check performance (for adaptive difficulty)
-const performance = difficultyManager.getPerformanceScore(); // 0-1
-
-// Debug in browser console
-window.difficultyDebug.getDebugInfo();
+WavePacing.params.hulkStepFrames;              // ROM value for this wave + difficulty
+delay *= WavePacing.scale('enforcerShotChance'); // ratio vs difficulty 5 (1.0 at 5)
 ```
+
+See `OPERATOR_SETTINGS_PLAN.md` and robotron-re REVERSE.md Phase 21.
 
 ### Adding a New Enemy Type
 
 1. Create class in `enemiesClasses.ts` extending base enemy
 2. Add sprite loading in asset manager/main.ts
 3. Implement AI behavior (movement, shooting patterns)
-4. Add spawn logic in wave management (use difficulty multipliers)
-5. Configure collision detection and scoring (apply score multipliers)
+4. Add spawn logic in wave management (`js/waveTable.ts`); take timers from `WavePacing`
+5. Configure collision detection and scoring (award points via `addScore` in gameLogic)
 
 ### Adding Visual Effects
 
@@ -271,7 +267,7 @@ Use `VisualEffects.ts` system:
 `SaveLoadManager.ts` provides localStorage persistence:
 - Game state serialization
 - High scores tracking
-- Settings persistence (including difficulty preference)
+- Settings persistence (operator settings are separate: `OperatorSettings.ts`)
 - Version migration support
 
 ## Technical Constraints
