@@ -1,6 +1,6 @@
 # Operator Settings Plan (arcade "GAME ADJUSTMENT" menu)
 
-Status: **steps 1–3 committed (`62d5a8f`); step 4 done 2026-10-11 (uncommitted); step 5 optional.** Branch: `release-3.0`.
+Status: **steps 1–3 committed (`62d5a8f`); step 4 committed (`fb0d989`); step 4b (remaining enemy params) done 2026-10-11 (uncommitted); step 5 optional.** Branch: `release-3.0`.
 
 Goal: add the original ROM's operator adjustments that matter to gameplay,
 and skip those that only make sense on physical cabinet hardware.
@@ -108,11 +108,34 @@ physical high-score-reset switch; SET ATTRACT MODE MESSAGE and SET HIGHEST SCORE
      - Steps are 4 px diagonal at multiples of 4 frames.
      - Kills ×0.875; the ramp ticks at 270/225 frames; mercy 30/15 after a wave 1 death.
      - Waves 2–5 play with no console errors.
-   - Follow-ups:
-     - Trace the remaining params to replace the ratios with ROM-exact use (per-wave
-       progression too): $BE5E/$BE62/$BE64/$BE66 spheroid/child, $BE5F/$BE60 enforcer fire,
-       $BE63 brain step size, $BE65/$BE67 quark.
-     - Reconcile `waveTable.ts` counts with the ROM count tables (see REVERSE.md).
+   - **4b DONE (2026-10-11): the remaining params, ROM-exact.** Traced every reader of
+     $BE5E–$BE67 and checked each in MAME (robotron-re `tools/enemy_probe.lua`, REVERSE.md
+     Phase 21 "The other enemy timers").
+     - The old Ph17/18 labels were shifted: $5168 is the spheroid, $8B36 the quark, $8CAC
+       the tank; $BE70 = quarks, $BE71 = live tanks. WaveParams fields are renamed to
+       match (`childCountBound`, `enforcerShotTimer`, `spheroidDropTimer`,
+       `brainMissileTimer`, `tankShotTimer`, `tankShellSpeed`, `quarkDropTimer`,
+       `quarkSpeed`); `WavePacing.scale()` is gone.
+     - Wired in `enemies.ts`, timers drawn with `WavePacing.prngLe()` ($D6B6):
+       - Spheroids drop ceil(prng_le($BE5E)/2) enforcers on the $BE60 timers (held at 8
+         live), then fly off a side edge unscored.
+       - Enforcers shoot every prng_le($BE5F)×3 frames after a 40-frame materialize (20-spark cap).
+       - Brains step every $BE63 frames (2 px x when >2 bytes off, 1 px y) and fire a
+         missile every prng_le($BE62) steps (8 cap).
+       - Quarks drift at prng_le($BE67)/32 px/frame, drop tanks on the $BE66 timers
+         (20-tank cap), then fly off the top/bottom unscored.
+       - Tanks materialize 48 frames, step 1 px per 2 frames toward the player (97/256) or a
+         random point, and fire every $BE64 passes; shells reach the aim point in
+         8192/$BE65 frames (21-shell cap).
+     - `waveTable.ts`: quark waves now have 10/12 quarks ($BE70); `tankCap` removed.
+     - Verified in the browser (lives pinned): wave 2 params equal the ROM model at
+       difficulty 5; spheroid dropped 4 enforcers 70–104 frames apart and left; wave 5
+       brains step every 8 frames; wave 7 has 10 quarks dropping 3–5 tanks each, tanks hold
+       at 20 and fire every 64 frames; no console errors; `tsc` and `npm run build` pass.
+     - Not ported: the tank's bank-shot aiming ($8ED4), spheroid random acceleration
+       ($125F), materialize animations for spheroids/quarks.
+   - Follow-up: reconcile `waveTable.ts` grunt/electrode/hulk/human counts with the ROM
+     count tables (see REVERSE.md); generate the table from the ROM like WaveParams.
 5. **Optional:** FANCY ATTRACT MODE toggle; a statistics page (extra men earned, play
    time, men played — non-coin bookkeeping); a controller test screen (the web version
    of the switch test).

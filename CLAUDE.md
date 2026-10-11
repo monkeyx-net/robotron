@@ -154,7 +154,7 @@ gameEvents.subscribe('player:hit', (data) => {
 - `js/core/InputManager.ts` - Unified input system (keyboard, gamepad, touch)
 - `js/core/OperatorSettings.ts` / `OperatorMenu.ts` - Arcade GAME ADJUSTMENT settings (F2 / `?` / pad Select+Start on the title screens)
 - `js/core/WaveParams.ts` - ROM per-wave timer tables + DIFFICULTY OF PLAY (generated from the ROM; do not hand-edit)
-- `js/core/WavePacing.ts` - Live enemy pacing: ROM grunt cadence/ramp, difficulty ratios for other enemies
+- `js/core/WavePacing.ts` - Live enemy pacing: ROM grunt cadence/ramp, mercy table, prng_le timers for the other enemies (wired in `enemies.ts`)
 - `js/core/CollisionSystem.ts` - Optimized collision detection
 - `js/core/RenderSystem.ts` - Rendering pipeline with effects
 - `js/core/EventSystem.ts` - Event-driven communication between systems
@@ -241,8 +241,8 @@ through `WavePacing`, which `startNextWave()` primes each wave:
 ```typescript
 import { WavePacing } from './core/WavePacing';
 
-WavePacing.params.hulkStepFrames;              // ROM value for this wave + difficulty
-delay *= WavePacing.scale('enforcerShotChance'); // ratio vs difficulty 5 (1.0 at 5)
+WavePacing.params.hulkStepFrames;                         // ROM value for this wave + difficulty
+WavePacing.prngLe(WavePacing.params.enforcerShotTimer) * 3; // timers are drawn the ROM's way ($D6B6)
 ```
 
 See `OPERATOR_SETTINGS_PLAN.md` and robotron-re REVERSE.md Phase 21.

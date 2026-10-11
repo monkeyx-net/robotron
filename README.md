@@ -62,7 +62,7 @@ Version 2.0 represented a ground-up refactoring using modern software engineerin
 ### 🎯 Gameplay Features
 
 - **Arcade Operator Settings**: the ROM's GAME ADJUSTMENT page (F2 or `?` on the title screen, or gamepad Select+Start): extra man every, turns per player, difficulty of play 0-10, high-score name length, factory reset, high score reset
-- **Arcade Enemy Pacing**: grunts speed up as the wave goes on and as you thin them out, exactly as the ROM does; difficulty adjusts enemy timers, never enemy counts
+- **Arcade Enemy Pacing**: every enemy timer comes from the ROM's per-wave tables: grunts speed up as the wave goes on and as you thin them out; spheroids and quarks drop their enforcers and tanks on the arcade's schedule and then leave; difficulty adjusts enemy timers, never enemy counts
 - **Enhanced Controls**: Unified input system supporting keyboard, gamepad, and touch, with input buffering
 - **Improved Enemy AI**: Spheroids seek corners after spawning, better pathfinding, optimized collision detection
 - **Visual Polish**: Screen shake, particle explosions, user-configurable visual effects, pixel-perfect scaling

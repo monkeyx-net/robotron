@@ -282,8 +282,7 @@ export function startNextWave() {
     const numGrunts = def.grunts, numHulks = def.hulks, numSpheroids = def.spheroids;
     const numBrains = def.brains, numQuarks = def.quarks;
     const numHumansToSpawn = def.humans, numElectrodes = def.electrodes;
-    (gameState as any).tankCap = def.tankCap;
-    // Tanks are not wave-spawned in the arcade: quarks produce them (up to tankCap).
+    // Tanks are not wave-spawned in the arcade: quarks drop them.
     const numTanks = 0;
 
     for (let i = 0; i < numElectrodes; i++) {

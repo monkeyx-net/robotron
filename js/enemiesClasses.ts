@@ -74,11 +74,16 @@ export class Hulk extends Enemy {
 export class Spheroid extends Enemy {
     pulseTimer: number;
     pulseRate: number;
-    spawnEnforcerTimer: number;
-    enforcersSpawned: number;
-    maxEnforcersToSpawn: number;
+    /** enforcers still to drop: ceil(prng_le($BE5E) / 2) */
+    dropsLeft: number;
+    /** frames until the next drop-timer expiry */
+    dropTimer: number;
+    /** past the first wait and dropping */
+    dropping = false;
+    /** all dropped: flying off a side edge */
+    leaving = false;
 
-    constructor(sprite: PIXI.Sprite | PIXI.Graphics, x: number, y: number, speed: number, points: number, spawnDelay: number, maxSpawns: number) {
+    constructor(sprite: PIXI.Sprite | PIXI.Graphics, x: number, y: number, speed: number, points: number, drops: number, firstDrop: number) {
         super(sprite, 'spheroid', 2, points, speed);
         this.sprite.x = x;
         this.sprite.y = y;
@@ -89,9 +94,8 @@ export class Spheroid extends Enemy {
         this.previousPosition.y = y;
         this.pulseTimer = 0;
         this.pulseRate = 0.05;
-        this.spawnEnforcerTimer = spawnDelay;
-        this.enforcersSpawned = 0;
-        this.maxEnforcersToSpawn = maxSpawns;
+        this.dropsLeft = drops;
+        this.dropTimer = firstDrop;
     }
 }
 
@@ -116,8 +120,12 @@ export class Brain extends Enemy {
     reprogramTarget: any; // Will be a Human object
     reprogramTimer: number;
     reprogramProgress: number;
+    /** frames until the next step ($BE63 apart) */
+    stepTimer = 0;
+    /** steps until the next cruise missile: prng_le($BE62) */
+    missileSteps: number;
 
-    constructor(sprite: PIXI.Container, x: number, y: number, speed: number, points: number, shootDelay: number, reprogramDuration: number) {
+    constructor(sprite: PIXI.Container, x: number, y: number, speed: number, points: number, missileSteps: number, reprogramDuration: number) {
         super(sprite, 'brain', 3, points, speed);
         this.sprite.x = x;
         this.sprite.y = y;
@@ -126,7 +134,8 @@ export class Brain extends Enemy {
         this.position.y = y;
         this.previousPosition.x = x;
         this.previousPosition.y = y;
-        this.shootTimer = shootDelay / 2 + Math.random() * shootDelay / 2;
+        this.shootTimer = 0;
+        this.missileSteps = missileSteps;
         this.reprogramTarget = null;
         this.reprogramTimer = reprogramDuration;
         this.reprogramProgress = 0;
@@ -134,10 +143,18 @@ export class Brain extends Enemy {
 }
 
 export class Tank extends Enemy {
+    /** 2-frame passes until the next shell ($BE64) */
     shootTimer: number;
     target: any; // Will be a Player object
+    /** frames of materializing left; then a pass every 2 frames */
+    materialize = 48;
+    passTimer = 0;
+    /** passes until it picks a new heading */
+    retarget = 0;
+    stepX = 0;
+    stepY = 0;
 
-    constructor(sprite: PIXI.Sprite | PIXI.Graphics, x: number, y: number, speed: number, points: number, shootDelay: number) {
+    constructor(sprite: PIXI.Sprite | PIXI.Graphics, x: number, y: number, speed: number, points: number, shotPasses: number) {
         super(sprite, 'tank', 4, points, speed);
         this.sprite.x = x;
         this.sprite.y = y;
@@ -146,17 +163,23 @@ export class Tank extends Enemy {
         this.position.y = y;
         this.previousPosition.x = x;
         this.previousPosition.y = y;
-        this.shootTimer = shootDelay / 2 + Math.random() * shootDelay / 2;
+        this.shootTimer = shotPasses;
         this.target = null;
     }
 }
 
 export class Quark extends Enemy {
-    spawnSubQuarkTimer: number;
-    subQuarksSpawned: number;
-    maxSubQuarksToSpawn: number;
+    /** tanks still to drop: ceil(prng_le($BE5E) / 2) */
+    dropsLeft: number;
+    /** frames until the next drop-timer expiry */
+    dropTimer: number;
+    dropping = false;
+    /** all dropped: flying off the top or bottom */
+    leaving = false;
+    /** frames until the velocity is re-rolled */
+    moveTimer = 0;
 
-    constructor(sprite: PIXI.Sprite | PIXI.Graphics, x: number, y: number, speed: number, points: number, spawnDelay: number, maxSpawns: number) {
+    constructor(sprite: PIXI.Sprite | PIXI.Graphics, x: number, y: number, speed: number, points: number, drops: number, firstDrop: number) {
         super(sprite, 'quark', 2, points, speed);
         this.sprite.x = x;
         this.sprite.y = y;
@@ -165,9 +188,8 @@ export class Quark extends Enemy {
         this.position.y = y;
         this.previousPosition.x = x;
         this.previousPosition.y = y;
-        this.spawnSubQuarkTimer = spawnDelay;
-        this.subQuarksSpawned = 0;
-        this.maxSubQuarksToSpawn = maxSpawns;
+        this.dropsLeft = drops;
+        this.dropTimer = firstDrop;
     }
 }
 

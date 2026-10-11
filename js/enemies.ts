@@ -1,6 +1,6 @@
 import * as PIXI from 'pixi.js';
 import { GameConfig } from './config';
-import { enemiesContainer, enemies, player, demoPlayer, gruntTexture, humansAndProgs } from './main';
+import { enemiesContainer, enemies, player, demoPlayer, gruntTexture, humansAndProgs, enemyProjectiles } from './main';
 import { gameState } from './gameState';
 import { Projectiles } from './projectiles';
 import { Humans } from './humans';
@@ -11,6 +11,51 @@ import { prng } from './core/Prng';
 import { WavePacing } from './core/WavePacing';
 import { SoundManager } from './soundManager';
 import { isEntityGone, clampToPlayfield, spriteHalfExtents } from './gameObject';
+
+// Process cadences of the ROM enemy routines (robotron-re REVERSE.md Ph21,
+// measured in MAME with tools/enemy_probe.lua). The per-wave counts come
+// from WavePacing.params ($BE5E-$BE67).
+const SPHEROID_CYCLE_FRAMES = 10;       // pre-drop countdown: one tick per 5-pass animation cycle
+const SPHEROID_DROP_CYCLE_FRAMES = 16;  // drop-mode countdown: one tick per 8-pass cycle
+const SPHEROID_EXIT_SPEED = 2;          // x velocity $0100 = 1 byte (2 px) per frame
+const ENFORCER_MATERIALIZE_FRAMES = 40;
+const ENFORCER_PASS_FRAMES = 3;
+const QUARK_CYCLE_FRAMES = 15;          // pre-drop countdown: one tick per 5-pass cycle
+const QUARK_PASS_FRAMES = 3;
+const QUARK_EXIT_SPEED = 2;             // y velocity $0200 = 2 lines per frame
+const TANK_PASS_FRAMES = 2;             // DP $EF
+// live caps checked before each spawn
+const MAX_ENFORCERS = 8, MAX_SPARKS = 20, MAX_MISSILES = 8, MAX_TANKS = 20, MAX_SHELLS = 21;
+
+function countProjectiles(type: string): number {
+    let n = 0;
+    for (const p of enemyProjectiles) if (p.type === type && !isEntityGone(p)) n++;
+    return n;
+}
+
+/** True once a leaving spheroid/quark has crossed the playfield edge. */
+function pastPlayfieldEdge(e: Spheroid | Quark): boolean {
+    const pf = GameConfig.PLAYFIELD;
+    const { hw, hh } = spriteHalfExtents(e.sprite);
+    return e.position.x < pf.LEFT + hw || e.position.x > pf.RIGHT - hw
+        || e.position.y < pf.TOP + hh || e.position.y > pf.BOTTOM - hh;
+}
+
+/** Bounce off the playfield edges using the sprite's half extents. */
+function bounceInPlayfield(e: Spheroid | Quark): void {
+    const pf = GameConfig.PLAYFIELD;
+    const { hw, hh } = spriteHalfExtents(e.sprite);
+    if (e.position.x < pf.LEFT + hw || e.position.x > pf.RIGHT - hw) {
+        e.dx *= -1;
+        e.position.x = Math.max(pf.LEFT + hw, Math.min(pf.RIGHT - hw, e.position.x));
+        e.sprite.x = e.position.x;
+    }
+    if (e.position.y < pf.TOP + hh || e.position.y > pf.BOTTOM - hh) {
+        e.dy *= -1;
+        e.position.y = Math.max(pf.TOP + hh, Math.min(pf.BOTTOM - hh, e.position.y));
+        e.sprite.y = e.position.y;
+    }
+}
 
 /**
  * Animated sprite from a ROM-extracted atlas family; null when the atlas
@@ -108,7 +153,9 @@ export function createSpheroid(x: number, y: number): Spheroid | null {
         return g;
     })();
 
-    const spheroid = new Spheroid(spheroidSprite, x, y, GameConfig.SPHEROID_SPEED || 0.7, GameConfig.POINTS.SPHEROID, GameConfig.SPHEROID_SPAWN_ENFORCER_DELAY || 300, 1);
+    // $5168: ceil(prng_le($BE5E)/2) enforcers; first drop after prng_le($BE60) 10-frame cycles
+    const spheroid = new Spheroid(spheroidSprite, x, y, GameConfig.SPHEROID_SPEED || 0.7, GameConfig.POINTS.SPHEROID,
+        WavePacing.childCount(), WavePacing.prngLe(WavePacing.params.spheroidDropTimer) * SPHEROID_CYCLE_FRAMES);
     enemiesContainer.addChild(spheroid.sprite);
     enemies.push(spheroid);
     return spheroid;
@@ -128,6 +175,8 @@ export function createEnforcer(x: number, y: number): Enforcer | null {
     })();
 
     const enforcer = new Enforcer(enforcerSprite, x, y, GameConfig.ENFORCER_SPEED || 0.8, GameConfig.POINTS.ENFORCER, GameConfig.ENFORCER_SHOOT_DELAY || 120);
+    // $536D: first shot after the 40-frame materialize plus prng_le($BE5F) 3-frame passes
+    enforcer.shootTimer = ENFORCER_MATERIALIZE_FRAMES + WavePacing.prngLe(WavePacing.params.enforcerShotTimer) * ENFORCER_PASS_FRAMES;
     enemiesContainer.addChild(enforcer.sprite);
     enemies.push(enforcer);
     return enforcer;
@@ -146,7 +195,9 @@ export function createBrain(x: number, y: number): Brain | null {
     })();
     if (!brainSprite) return null;
 
-    const brain = new Brain(brainSprite as PIXI.Container, x, y, GameConfig.BRAIN_SPEED || 0.6, GameConfig.POINTS.BRAIN, GameConfig.BRAIN_SHOOT_DELAY || 150, GameConfig.BRAIN_REPROGRAM_DURATION || 120);
+    // $5B46: first cruise missile after prng_le($BE62) steps
+    const brain = new Brain(brainSprite as PIXI.Container, x, y, GameConfig.BRAIN_SPEED || 0.6, GameConfig.POINTS.BRAIN,
+        WavePacing.prngLe(WavePacing.params.brainMissileTimer), GameConfig.BRAIN_REPROGRAM_DURATION || 120);
     enemiesContainer.addChild(brain.sprite);
     enemies.push(brain);
     return brain;
@@ -163,7 +214,8 @@ export function createTank(x: number, y: number): Tank | null {
         return g;
     })();
 
-    const tank = new Tank(tankSprite, x, y, GameConfig.TANK_SPEED || 0.4, GameConfig.POINTS.TANK, GameConfig.TANK_SHOOT_DELAY || 180);
+    // $8CE7: first shell $BE64 passes after materializing
+    const tank = new Tank(tankSprite, x, y, GameConfig.TANK_SPEED || 0.4, GameConfig.POINTS.TANK, WavePacing.params.tankShotTimer);
     enemiesContainer.addChild(tank.sprite);
     enemies.push(tank);
     return tank;
@@ -202,7 +254,9 @@ export function createQuark(x: number, y: number): Quark | null {
         return g;
     })();
 
-    const quark = new Quark(quarkSprite, x, y, GameConfig.QUARK_SPEED || 1.2, GameConfig.POINTS.QUARK, GameConfig.QUARK_SPAWN_SUB_QUARK_DELAY || 180, GameConfig.MAX_SUB_QUARKS_PER_QUARK || 3);
+    // $8B5E: ceil(prng_le($BE5E)/2) tanks; first drop after prng_le($BE66) 15-frame cycles
+    const quark = new Quark(quarkSprite, x, y, GameConfig.QUARK_SPEED || 1.2, GameConfig.POINTS.QUARK,
+        WavePacing.childCount(), WavePacing.prngLe(WavePacing.params.quarkDropTimer) * QUARK_CYCLE_FRAMES);
     enemiesContainer.addChild(quark.sprite);
     enemies.push(quark);
     return quark;
@@ -217,8 +271,14 @@ export function updateEnemies(delta: number): void {
     }
 
     const currentPlayer = gameState.currentGameState === 'DEMO_PLAY' ? demoPlayer : player;
-    let liveGrunts = 0;
-    for (const e of enemies) if (e.type === 'grunt' && !isEntityGone(e)) liveGrunts++;
+    let liveGrunts = 0, liveEnforcers = 0, liveTanks = 0;
+    for (const e of enemies) {
+        if (isEntityGone(e)) continue;
+        if (e.type === 'grunt') liveGrunts++;
+        else if (e.type === 'enforcer') liveEnforcers++;
+        else if (e.type === 'tank') liveTanks++;
+    }
+    const wp = WavePacing.params;
     const gruntTicks = WavePacing.update(delta, liveGrunts);
     if (!currentPlayer || !currentPlayer.sprite || (currentPlayer.sprite as any)._destroyed) {
         // If no player, enemies might wander or have default behavior, but targeting is off.
@@ -330,74 +390,45 @@ export function updateEnemies(delta: number): void {
                 hulk.sprite.x = nx; hulk.sprite.y = ny;
             }
         } else if (enemy.type === 'spheroid') {
+            // Arcade spheroid ($5168): floats for prng_le($BE60) 10-frame
+            // cycles, then drops an enforcer every prng_le($BE60/4) 16-frame
+            // cycles (held while 8 are alive) until its ceil(prng_le($BE5E)/2)
+            // are out, then flies off a side edge and is gone, unscored.
             const spheroid = enemy as Spheroid;
 
-            // Spheroid AI: Float randomly, then move toward corners after spawning enforcers
-            if (spheroid.enforcersSpawned >= spheroid.maxEnforcersToSpawn) {
-                // After spawning, move toward nearest corner and continue spawning
-                const pfc = GameConfig.PLAYFIELD;
-                const corners = [
-                    { x: pfc.LEFT + 10, y: pfc.TOP + 10 },
-                    { x: pfc.RIGHT - 10, y: pfc.TOP + 10 },
-                    { x: pfc.LEFT + 10, y: pfc.BOTTOM - 10 },
-                    { x: pfc.RIGHT - 10, y: pfc.BOTTOM - 10 }
-                ];
-
-                // Find nearest corner
-                let nearestCorner = corners[0];
-                let minDist = Infinity;
-                corners.forEach(corner => {
-                    const dist = Math.hypot(corner.x - spheroid.sprite.x, corner.y - spheroid.sprite.y);
-                    if (dist < minDist) {
-                        minDist = dist;
-                        nearestCorner = corner;
-                    }
-                });
-
-                // Move toward corner
-                const angle = Math.atan2(nearestCorner.y - spheroid.sprite.y, nearestCorner.x - spheroid.sprite.x);
-                spheroid.dx = Math.cos(angle) * spheroid.speed * 0.5; // Slower when moving to corner
-                spheroid.dy = Math.sin(angle) * spheroid.speed * 0.5;
-
-                // Continue spawning enforcers from corner
-                spheroid.spawnEnforcerTimer -= delta;
-                if (spheroid.spawnEnforcerTimer <= 0) {
-                    if (createEnforcer) { createEnforcer(spheroid.sprite.x, spheroid.sprite.y); SoundManager.play('enforcerSpawn'); }
-                    spheroid.spawnEnforcerTimer = (GameConfig.SPHEROID_SPAWN_ENFORCER_DELAY || 300) * WavePacing.scale('spheroidSpawnPeriod');
-                }
-            } else {
-                // Before spawning all enforcers, float randomly
+            if (!spheroid.leaving) {
                 if (!spheroid.dx || !spheroid.dy || Math.random() < 0.01) {
                     const randomAngle = Math.random() * Math.PI * 2;
                     spheroid.dx = Math.cos(randomAngle) * spheroid.speed;
                     spheroid.dy = Math.sin(randomAngle) * spheroid.speed;
                 }
-
-                // Spawn enforcers
-                spheroid.spawnEnforcerTimer -= delta;
-                if (spheroid.spawnEnforcerTimer <= 0) {
-                    if (createEnforcer) { createEnforcer(spheroid.sprite.x, spheroid.sprite.y); SoundManager.play('enforcerSpawn'); }
-                    spheroid.enforcersSpawned++;
-                    spheroid.spawnEnforcerTimer = (GameConfig.SPHEROID_SPAWN_ENFORCER_DELAY || 300) * WavePacing.scale('spheroidSpawnPeriod');
+                spheroid.dropTimer -= delta;
+                if (spheroid.dropTimer <= 0) {
+                    if (!spheroid.dropping) {
+                        spheroid.dropping = true;
+                    } else if (liveEnforcers < MAX_ENFORCERS) {
+                        createEnforcer(spheroid.sprite.x, spheroid.sprite.y);
+                        SoundManager.play('enforcerSpawn');
+                        liveEnforcers++;
+                        if (--spheroid.dropsLeft <= 0) {
+                            spheroid.leaving = true;
+                            spheroid.dx = prng.step() & 0x80 ? -SPHEROID_EXIT_SPEED : SPHEROID_EXIT_SPEED;
+                            spheroid.dy = 0;
+                        }
+                    }
+                    spheroid.dropTimer = WavePacing.prngLe(wp.spheroidDropTimer >> 2) * SPHEROID_DROP_CYCLE_FRAMES;
                 }
             }
 
             spheroid.update(delta);
-
-            // Boundary bounce using logical position (sprite edge, not center)
-            {
-                const pf = GameConfig.PLAYFIELD;
-                const { hw, hh } = spriteHalfExtents(spheroid.sprite);
-                if (spheroid.position.x < pf.LEFT + hw || spheroid.position.x > pf.RIGHT - hw) {
-                    spheroid.dx *= -1;
-                    spheroid.position.x = Math.max(pf.LEFT + hw, Math.min(pf.RIGHT - hw, spheroid.position.x));
-                    spheroid.sprite.x = spheroid.position.x;
+            if (spheroid.leaving) {
+                if (pastPlayfieldEdge(spheroid)) {
+                    spheroid.sprite.destroy();
+                    enemies.splice(i, 1);
+                    continue;
                 }
-                if (spheroid.position.y < pf.TOP + hh || spheroid.position.y > pf.BOTTOM - hh) {
-                    spheroid.dy *= -1;
-                    spheroid.position.y = Math.max(pf.TOP + hh, Math.min(pf.BOTTOM - hh, spheroid.position.y));
-                    spheroid.sprite.y = spheroid.position.y;
-                }
+            } else {
+                bounceInPlayfield(spheroid);
             }
 
             // Shimmer: the arcade spheroid pulses through the color-cycled
@@ -428,15 +459,16 @@ export function updateEnemies(delta: number): void {
             clampToPlayfield(enforcer.position, enforcer.sprite);
             enforcer.sprite.x = enforcer.position.x;
             enforcer.sprite.y = enforcer.position.y;
+            // $5404: a spark every prng_le($BE5F) 3-frame passes, up to 20 live
             enforcer.shootTimer -= delta;
-            if (enforcer.shootTimer <= 0 && currentPlayer.isAlive) {
-                if (Projectiles.createEnforcerProjectile) {
+            if (enforcer.shootTimer <= 0) {
+                enforcer.shootTimer += WavePacing.prngLe(wp.enforcerShotTimer) * ENFORCER_PASS_FRAMES;
+                if (currentPlayer.isAlive && countProjectiles('enforcer_shot') < MAX_SPARKS) {
                     // spark: lead-aim with PRNG spread (enforcer_aim >>3 jitter)
                     const sx = currentPlayer.sprite.x + prng.range(-14, 14);
                     const sy = currentPlayer.sprite.y + prng.range(-14, 14);
                     Projectiles.createEnforcerProjectile(enforcer.sprite.x, enforcer.sprite.y, sx, sy);
                 }
-                enforcer.shootTimer = (GameConfig.ENFORCER_SHOOT_DELAY || 120) * WavePacing.scale('enforcerShotChance');
             }
         } else if (enemy.type === 'brain') {
             const brain = enemy as Brain;
@@ -471,44 +503,65 @@ export function updateEnemies(delta: number): void {
                  targetY = (currentPlayer && currentPlayer.sprite && !(currentPlayer.sprite as any)._destroyed) ? currentPlayer.sprite.y : brain.sprite.y;
             }
 
-            const angleToTarget = Math.atan2(targetY - brain.sprite.y, targetX - brain.sprite.x);
-            // Update logical position first
-            // $BE63 is frames per brain step: a larger value means a slower brain
-            const brainSpeed = (GameConfig.BRAIN_SPEED || 0.6) / WavePacing.scale('brainStepFrames');
-            brain.position.x += Math.cos(angleToTarget) * brainSpeed * delta;
-            brain.position.y += Math.sin(angleToTarget) * brainSpeed * delta;
-            // Apply boundary constraints to logical position
+            // brain_move_ctrl ($5BEE): one step every $BE63 frames. X moves a
+            // byte (2 px) when more than 2 bytes off target; Y moves a line
+            // every step. Each step counts down to a cruise missile, re-armed
+            // with prng_le($BE62); at most 8 fly at once ($6006).
+            brain.stepTimer -= delta;
+            while (brain.stepTimer <= 0) {
+                brain.stepTimer += wp.brainStepFrames;
+                const dxBytes = Math.round((targetX - brain.position.x) / 2);
+                if (Math.abs(dxBytes) > 2) brain.position.x += dxBytes > 0 ? 2 : -2;
+                brain.position.y += targetY >= brain.position.y ? 1 : -1;
+                if (--brain.missileSteps <= 0) {
+                    brain.missileSteps = WavePacing.prngLe(wp.brainMissileTimer);
+                    if (currentPlayer && currentPlayer.isAlive && currentPlayer.sprite && !(currentPlayer.sprite as any)._destroyed
+                        && countProjectiles('brain_shot') < MAX_MISSILES) {
+                        Projectiles.createBrainProjectile(brain.sprite.x, brain.sprite.y, currentPlayer.sprite.x, currentPlayer.sprite.y);
+                    }
+                }
+            }
             clampToPlayfield(brain.position, brain.sprite);
-            // Update sprite to match logical position
             brain.sprite.x = brain.position.x;
             brain.sprite.y = brain.position.y;
-
-            brain.shootTimer -= delta;
-            if (brain.shootTimer <= 0 && currentPlayer && currentPlayer.isAlive && currentPlayer.sprite && !(currentPlayer.sprite as any)._destroyed) {
-                 if (Projectiles.createBrainProjectile) {
-                    Projectiles.createBrainProjectile(brain.sprite.x, brain.sprite.y, currentPlayer.sprite.x, currentPlayer.sprite.y);
-                }
-                brain.shootTimer = GameConfig.BRAIN_SHOOT_DELAY || 150;
-            }
         } else if (enemy.type === 'tank') {
+            // Tank ($8D63/$8D99): materializes for 48 frames, then a pass every
+            // 2 frames. Each pass steps 1 px in x and 1 px in y (none when
+            // within 16 lines of its aim point). Every 1-32 passes it re-aims:
+            // at the player 97/256 of the time, else at a random point. A
+            // shell every $BE64 passes, up to 21 live ($8E46).
             const tank = enemy as Tank;
             if (!currentPlayer || !currentPlayer.sprite || (currentPlayer.sprite as any)._destroyed) continue;
-            const angle = Math.atan2(currentPlayer.sprite.y - tank.sprite.y, currentPlayer.sprite.x - tank.sprite.x);
-            // Update logical position first
-            tank.position.x += Math.cos(angle) * (GameConfig.TANK_SPEED || 0.4) * delta;
-            tank.position.y += Math.sin(angle) * (GameConfig.TANK_SPEED || 0.4) * delta;
-            // Apply boundary constraints to logical position
+            if (tank.materialize > 0) { tank.materialize -= delta; continue; }
+            tank.passTimer -= delta;
+            while (tank.passTimer <= 0) {
+                tank.passTimer += TANK_PASS_FRAMES;
+                if (--tank.retarget <= 0) {
+                    const pf = GameConfig.PLAYFIELD;
+                    const aimPlayer = prng.step() <= 0x60;
+                    const tx = aimPlayer ? currentPlayer.sprite.x : prng.range(pf.LEFT, pf.RIGHT);
+                    const ty = aimPlayer ? currentPlayer.sprite.y : prng.range(pf.TOP, pf.BOTTOM);
+                    tank.stepX = tx >= tank.position.x ? 1 : -1;
+                    tank.stepY = Math.abs(ty - tank.position.y) < 16 ? 0 : (ty >= tank.position.y ? 1 : -1);
+                    tank.retarget = (prng.step() & 31) + 1;
+                }
+                tank.position.x += tank.stepX;
+                tank.position.y += tank.stepY;
+                if (--tank.shootTimer <= 0) {
+                    tank.shootTimer = wp.tankShotTimer;
+                    if (currentPlayer.isAlive && countProjectiles('tank_shell') < MAX_SHELLS) {
+                        // aim point: player + PRNG jitter of -16..15 bytes / lines
+                        const ax = currentPlayer.sprite.x + ((prng.step() & 31) - 16) * 2;
+                        const ay = currentPlayer.sprite.y + (prng.step() & 31) - 16;
+                        Projectiles.createTankShell(tank.position.x, tank.position.y, ax, ay, 8192 / wp.tankShellSpeed);
+                    }
+                }
+            }
+            const before = { x: tank.position.x, y: tank.position.y };
             clampToPlayfield(tank.position, tank.sprite);
-            // Update sprite to match logical position
+            if (tank.position.x !== before.x || tank.position.y !== before.y) tank.retarget = 0;  // hit a wall: re-aim
             tank.sprite.x = tank.position.x;
             tank.sprite.y = tank.position.y;
-            tank.shootTimer -= delta;
-            if (tank.shootTimer <= 0 && currentPlayer.isAlive) {
-                 if (Projectiles.createTankShell) {
-                    Projectiles.createTankShell(tank.sprite.x, tank.sprite.y, currentPlayer.sprite.x, currentPlayer.sprite.y, WavePacing.scale('quarkShotScale'));
-                }
-                tank.shootTimer = GameConfig.TANK_SHOOT_DELAY || 180;
-            }
         } else if (enemy.type === 'prog_enemy') {
             const prog = enemy as ProgEnemy;
              if (!currentPlayer || !currentPlayer.sprite || (currentPlayer.sprite as any)._destroyed) continue;
@@ -522,34 +575,44 @@ export function updateEnemies(delta: number): void {
             prog.sprite.x = prog.position.x;
             prog.sprite.y = prog.position.y;
         } else if (enemy.type === 'quark') {
+            // Quark ($8B36): drifts at prng_le($BE67)/32 px per frame on each
+            // axis, re-rolled every 1-32 3-frame passes. After prng_le($BE66)
+            // 15-frame cycles it drops a tank every prng_le($BE66/2+1) passes
+            // (held at 20 live tanks) until its ceil(prng_le($BE5E)/2) are out,
+            // then flies off the top or bottom and is gone, unscored.
             const quark = enemy as Quark;
-            quark.update(delta);
-            // Boundary bounce using logical position (sprite edge, not center)
-            {
-                const pf = GameConfig.PLAYFIELD;
-                const { hw, hh } = spriteHalfExtents(quark.sprite);
-                if (quark.position.x < pf.LEFT + hw || quark.position.x > pf.RIGHT - hw) {
-                    quark.dx *= -1;
-                    quark.position.x = Math.max(pf.LEFT + hw, Math.min(pf.RIGHT - hw, quark.position.x));
-                    quark.sprite.x = quark.position.x;
+            if (!quark.leaving) {
+                quark.moveTimer -= delta;
+                if (quark.moveTimer <= 0) {
+                    quark.moveTimer = ((prng.step() & 31) + 1) * QUARK_PASS_FRAMES;
+                    quark.dx = WavePacing.prngLe(wp.quarkSpeed) / 32 * (prng.step() & 0x80 ? -1 : 1);
+                    quark.dy = WavePacing.prngLe(wp.quarkSpeed) / 32 * (prng.step() & 0x80 ? -1 : 1);
                 }
-                if (quark.position.y < pf.TOP + hh || quark.position.y > pf.BOTTOM - hh) {
-                    quark.dy *= -1;
-                    quark.position.y = Math.max(pf.TOP + hh, Math.min(pf.BOTTOM - hh, quark.position.y));
-                    quark.sprite.y = quark.position.y;
+                quark.dropTimer -= delta;
+                if (quark.dropTimer <= 0) {
+                    if (!quark.dropping) {
+                        quark.dropping = true;
+                    } else if (liveTanks < MAX_TANKS) {
+                        createTank(quark.sprite.x, quark.sprite.y);
+                        liveTanks++;
+                        if (--quark.dropsLeft <= 0) {
+                            quark.leaving = true;
+                            quark.dx = 0;
+                            quark.dy = prng.step() & 0x80 ? -QUARK_EXIT_SPEED : QUARK_EXIT_SPEED;
+                        }
+                    }
+                    quark.dropTimer = WavePacing.prngLe((wp.quarkDropTimer >> 1) + 1) * QUARK_PASS_FRAMES;
                 }
             }
-            // Arcade behavior: quarks manufacture TANKS (not "sub-quarks"),
-            // throttled by the wave's live-tank cap.
-            quark.spawnSubQuarkTimer -= delta;
-            if (quark.spawnSubQuarkTimer <= 0) {
-                const liveTanks = enemies.filter(e => e.type === 'tank' && !e._destroyed).length;
-                const cap = (gameState as any).tankCap ?? 0;
-                if (liveTanks < cap && createTank) {
-                    createTank(quark.sprite.x, quark.sprite.y);
-                    quark.subQuarksSpawned++;
+            quark.update(delta);
+            if (quark.leaving) {
+                if (pastPlayfieldEdge(quark)) {
+                    quark.sprite.destroy();
+                    enemies.splice(i, 1);
+                    continue;
                 }
-                quark.spawnSubQuarkTimer = GameConfig.QUARK_SPAWN_SUB_QUARK_DELAY || 180;
+            } else {
+                bounceInPlayfield(quark);
             }
         }
     }

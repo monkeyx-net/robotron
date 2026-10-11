@@ -17,15 +17,13 @@
  *  - A player death restores the floor to the wave's value and raises the
  *    bound to at least that ($7130).
  *  - At the start of each man on waves 1-4, a "mercy" table ($2B55) replaces
- *    the grunt and enforcer-shot values when the player is on their last man,
+ *    the grunt, spheroid-drop and enforcer-shot values when the player is on their last man,
  *    or on waves 1-2 once they have lost a man ($6B1D).
  *
- * The other enemies in the port are not ROM-structured, so they take the
- * difficulty as a ratio: scale(key) = value at the operator difficulty /
- * value at the recommended 5, for the current wave. At difficulty 5 the
- * existing tuning is unchanged.
+ * The other enemies read their timers straight from `params`, drawn with
+ * prngLe() the way the ROM does (see enemies.ts and Phase 21).
  */
-import { getWaveParams, DEFAULT_DIFFICULTY, WaveParams } from './WaveParams';
+import { getWaveParams, WaveParams } from './WaveParams';
 import { Operator } from './OperatorSettings';
 import { prng } from './Prng';
 
@@ -33,7 +31,7 @@ import { prng } from './Prng';
 export const GRUNT_TICK_FRAMES = 4;
 const RAMP_FIRST_TICKS = 18, RAMP_TICKS = 15, RAMP_TICK_FRAMES = 15;
 
-/** $2B55: [enforcerShotTimer $BE60, enforcerShotChance $BE5F, bound $BE5C, floor $BE5D] for waves 1-4 */
+/** $2B55: [spheroidDropTimer $BE60, enforcerShotTimer $BE5F, bound $BE5C, floor $BE5D] for waves 1-4 */
 const MERCY: Record<number, [number, number, number, number]> = {
     1: [38, 96, 30, 15],
     2: [38, 96, 25, 12],
@@ -44,7 +42,6 @@ const MERCY: Record<number, [number, number, number, number]> = {
 let wave = 1;
 let waveParams: WaveParams = getWaveParams(1);   // as set at wave init
 let params: WaveParams = waveParams;             // live: wave init + mercy
-let base: WaveParams = waveParams;
 let bound = params.gruntStepBound;
 let floor = params.gruntStepFloor;
 let scoreEvents = 0;      // DP[$F0]: INC in score_update, cleared by each ramp tick
@@ -57,7 +54,7 @@ function applyMercy(reserve: number): void {
     if (!m) return;
     const turns = Operator.get().turnsPerPlayer;
     if (reserve === 0 || (wave <= 2 && reserve < turns - 1)) {
-        params = { ...params, enforcerShotTimer: m[0], enforcerShotChance: m[1] };
+        params = { ...params, spheroidDropTimer: m[0], enforcerShotTimer: m[1] };
         bound = m[2];
         floor = m[3];
     }
@@ -77,7 +74,6 @@ export const WavePacing = {
     beginWave(waveNumber: number, reserve: number): void {
         wave = Math.max(1, waveNumber);
         waveParams = params = getWaveParams(wave, Operator.get().difficulty, reserve);
-        base = getWaveParams(wave, DEFAULT_DIFFICULTY, reserve);
         bound = params.gruntStepBound;
         floor = params.gruntStepFloor;
         applyMercy(reserve);
@@ -132,13 +128,25 @@ export const WavePacing = {
         return ((prng.step() * bound) >> 8) + 1;
     },
 
+    /**
+     * ROM $D6B6 (D036 $D03F): a PRNG byte halved until it is <= a, and at
+     * least 1. Not uniform: small values are likelier. Every other enemy
+     * timer is drawn with this.
+     */
+    prngLe(a: number): number {
+        let r = prng.step();
+        while (r > a) r >>= 1;
+        return r || 1;
+    },
+
+    /** Children per spheroid/quark: ceil(prngLe($BE5E) / 2), so 1..ceil($BE5E/2). */
+    childCount(): number {
+        const n = this.prngLe(params.childCountBound);
+        return (n >> 1) + (n & 1);
+    },
+
     /** Current wave parameters (operator difficulty and mercy applied). */
     get params(): Readonly<WaveParams> { return params; },
-
-    /** params[key] relative to the recommended difficulty on this wave. */
-    scale(key: keyof WaveParams): number {
-        return base[key] ? params[key] / base[key] : 1;
-    },
 
     /** For debugging / tests. */
     snapshot() {

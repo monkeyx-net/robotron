@@ -73,8 +73,13 @@ export function createBrainProjectile(x: number, y: number, targetX: number, tar
     return newProjectile;
 }
 
-/** `speedScale`: operator-difficulty ratio for the ROM's quark/tank fire velocity ($BE65). */
-export function createTankShell(x: number, y: number, targetX: number, targetY: number, speedScale: number = 1): Projectile {
+/**
+ * Tank shell aimed at (targetX, targetY). With `framesToTarget` the shell
+ * reaches the aim point in that many frames whatever the range, as in the
+ * ROM (velocity = offset x $BE65 / 8192 per frame, $8E98); without it,
+ * a fixed TANK_SHELL_SPEED.
+ */
+export function createTankShell(x: number, y: number, targetX: number, targetY: number, framesToTarget?: number): Projectile {
     if (!GameConfig || !PIXI || !enemyProjectilesContainer || !enemyProjectiles || !SoundManager) {
         console.warn("Projectiles.createTankShell: Missing dependencies.");
         const dummySprite = new PIXI.Graphics();
@@ -85,10 +90,19 @@ export function createTankShell(x: number, y: number, targetX: number, targetY: 
     shellSprite.drawCircle(0,0,4);
     shellSprite.endFill();
     shellSprite.x = x; shellSprite.y = y;
-    const angle = Math.atan2(targetY - y, targetX - x);
+    let vx: number, vy: number;
+    if (framesToTarget) {
+        vx = (targetX - x) / framesToTarget;
+        vy = (targetY - y) / framesToTarget;
+        if (!vx && !vy) vy = 1;   // aim point on top of the tank: don't hang in place
+    } else {
+        const angle = Math.atan2(targetY - y, targetX - x);
+        vx = Math.cos(angle) * GameConfig.TANK_SHELL_SPEED;
+        vy = Math.sin(angle) * GameConfig.TANK_SHELL_SPEED;
+    }
     enemyProjectilesContainer.addChild(shellSprite);
-    
-    const newProjectile = new Projectile(shellSprite, 'tank_shell', Math.cos(angle) * GameConfig.TANK_SHELL_SPEED * speedScale, Math.sin(angle) * GameConfig.TANK_SHELL_SPEED * speedScale, GameConfig.TANK_SHELL_BOUNCES);
+
+    const newProjectile = new Projectile(shellSprite, 'tank_shell', vx, vy, GameConfig.TANK_SHELL_BOUNCES);
     enemyProjectiles.push(newProjectile);
     SoundManager.play('tankFire');
     return newProjectile;
