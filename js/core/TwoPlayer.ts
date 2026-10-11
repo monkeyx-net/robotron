@@ -2,6 +2,7 @@ import * as PIXI from 'pixi.js';
 import { GameConfig } from '../config';
 import { gameState } from '../gameState';
 import { BitmapFont } from './BitmapFont';
+import { Operator } from './OperatorSettings';
 
 /**
  * Arcade 2-player alternating mode. Each player has independent score,
@@ -50,10 +51,10 @@ export const TwoPlayer = {
         current = 0;
         const fresh = (): PlayerSlot => ({
             score: 0,
-            lives: GameConfig.INITIAL_LIVES,
+            lives: Operator.get().turnsPerPlayer,
             wave: 1,
             rescueBonus: GameConfig.INITIAL_HUMAN_RESCUE_BONUS,
-            nextExtraLifeScore: GameConfig.EXTRA_LIFE_SCORE_INTERVAL,
+            nextExtraLifeScore: Operator.get().extraManEvery,
         });
         slots = playerCount === 2 ? [fresh(), fresh()] : [fresh()];
     },

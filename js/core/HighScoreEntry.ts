@@ -3,9 +3,11 @@ import { GameConfig } from '../config';
 import { gameState } from '../gameState';
 import { BitmapFont } from './BitmapFont';
 import { SoundManager } from '../soundManager';
+import { Operator } from './OperatorSettings';
 
 /**
- * Arcade-style 3-initial high-score entry, rendered in-canvas with the ROM
+ * Arcade-style initials entry (3 letters; the operator LETTERS setting for a
+ * new #1 score), rendered in-canvas with the ROM
  * alt font. Shown from the game-over path when the score makes the top-10
  * table (persisted in localStorage).
  *
@@ -37,6 +39,13 @@ export function qualifies(score: number): boolean {
     if (score <= 0) return false;
     const t = loadTable();
     return t.length < TABLE_MAX || score > t[t.length - 1].score;
+}
+
+/** Would `score` take the #1 spot? The arcade's operator LETTERS FOR
+ *  HIGHEST SCORE NAME setting applies only to that entry. */
+function isNewTopScore(score: number): boolean {
+    const t = loadTable();
+    return t.length === 0 || score > t[0].score;
 }
 
 export function insertScore(initials: string, score: number): void {
@@ -94,9 +103,10 @@ export function show(stage: PIXI.Container, score: number, onDone: () => void): 
 
     addLine('GREAT SCORE', 50, 0xFF4444);
     addLine(String(score), 70, 0xFFFF44);
-    addLine('ENTER YOUR INITIALS', 95, 0x44FFFF, 'main');
+    const letters = isNewTopScore(score) ? Operator.get().highScoreLetters : 3;
+    addLine(letters > 3 ? 'ENTER YOUR NAME' : 'ENTER YOUR INITIALS', 95, 0x44FFFF, 'main');
 
-    const initials = [0, 0, 0];   // indices into LETTERS
+    const initials = new Array(letters).fill(0);   // indices into LETTERS
     let slot = 0;
     const slotsRow = new PIXI.Container();
     slotsRow.y = 120;
@@ -104,11 +114,11 @@ export function show(stage: PIXI.Container, score: number, onDone: () => void): 
 
     // Fixed slot positions so variable glyph widths never shift the
     // 2nd/3rd initials or the cursor.
-    const SLOT_W = 14;
-    const slotsX = cx - (SLOT_W * 3 - 6) / 2;
+    const SLOT_W = letters > 16 ? 12 : 14;
+    const slotsX = cx - (SLOT_W * letters - 6) / 2;
     const redraw = () => {
         slotsRow.removeChildren().forEach(c => c.destroy());
-        for (let i = 0; i < 3; i++) {
+        for (let i = 0; i < letters; i++) {
             const ch = LETTERS[initials[i]];
             const t = BitmapFont.createText(ch, { font: 'alt', tint: 0xFFFF44 });
             t.x = slotsX + i * SLOT_W + (8 - BitmapFont.measure(ch, { font: 'alt' })) / 2;
@@ -128,8 +138,8 @@ export function show(stage: PIXI.Container, score: number, onDone: () => void): 
     // Returns true when the entry finished (screen is torn down).
     const confirm = (): boolean => {
         slot++;
-        if (slot >= 3) {
-            insertScore(initials.map(i => LETTERS[i]).join(''), score);
+        if (slot >= letters) {
+            insertScore(initials.map(i => LETTERS[i]).join('').trimEnd(), score);
             hide();
             onDone();
             return true;

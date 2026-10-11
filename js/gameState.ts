@@ -7,7 +7,7 @@ export interface GameState {
     nextExtraLifeScore: number;
     highScore: number;
     playerInvulnerableTime: number;
-    currentGameState: 'TITLE_SCREEN' | 'HIGH_SCORE_DISPLAY_SCREEN' | 'DEMO_PLAY' | 'PLAYING' | 'PAUSED' | 'WAVE_TRANSITION' | 'GAME_OVER' | 'HIGH_SCORE_ENTRY';
+    currentGameState: 'TITLE_SCREEN' | 'HIGH_SCORE_DISPLAY_SCREEN' | 'DEMO_PLAY' | 'PLAYING' | 'PAUSED' | 'WAVE_TRANSITION' | 'GAME_OVER' | 'HIGH_SCORE_ENTRY' | 'OPERATOR_MENU';
     /** max simultaneous quark-spawned tanks for the current wave */
     tankCap?: number;
 }

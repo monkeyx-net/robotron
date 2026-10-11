@@ -23,6 +23,7 @@ import { UI } from './ui';
 // Removed old InputManager - using unified input manager instead
 import { gameState } from './gameState';
 import { TwoPlayer } from './core/TwoPlayer';
+import { OperatorMenu } from './core/OperatorMenu';
 import { gameEvents } from './core/EventSystem';
 import { saveLoadManager } from './core/SaveLoadManager';
 import './core/SaveLoadTest'; // Import for manual testing
@@ -290,6 +291,11 @@ const initializeGame = async () => {
         
         // Set up fallback game start logic using the input manager events
         window.addEventListener('keydown', (e) => {
+            if (OperatorMenu.isMenuKey(e) && !e.repeat && isAttractState()) {
+                e.preventDefault();
+                openOperatorMenu();
+                return;
+            }
             if (e.code === 'Digit2' &&
                 (gameState.currentGameState === 'TITLE_SCREEN' ||
                  gameState.currentGameState === 'HIGH_SCORE_DISPLAY_SCREEN' ||
@@ -551,9 +557,19 @@ function setupGameEngine() {
                         try {
                             const startPressed = inputManager.isActionPressed(InputAction.START);
                             const selectPressed = inputManager.isActionPressed(InputAction.SELECT);
-                            
-                            if (startPressed || selectPressed) {
-                                console.log('Input detected in attract mode:', { startPressed, selectPressed });
+
+                            // Gamepad Select is the operator-menu modifier
+                            // (Select+Start): a lone Select starts the game
+                            // on release instead of press.
+                            if (OperatorMenu.padChordHeld()) {
+                                padSelectPending = false;
+                                openOperatorMenu();
+                            } else if (OperatorMenu.padSelectHeld()) {
+                                padSelectPending = true;
+                            } else if (padSelectPending) {
+                                padSelectPending = false;
+                                startGameFromTitle();
+                            } else if (startPressed || selectPressed) {
                                 startGameFromTitle();
                             }
                         } catch (inputError) {
@@ -828,6 +844,21 @@ function initializeAudioOnceKey(event: KeyboardEvent) { // Separate keydown for 
 document.addEventListener('click', initializeAudioOnce);
 document.addEventListener('keydown', initializeAudioOnceKey);
 
+
+// --- Operator menu (arcade GAME ADJUSTMENT) ---
+let padSelectPending = false;
+
+function isAttractState(): boolean {
+    const s = gameState.currentGameState;
+    return s === 'TITLE_SCREEN' || s === 'HIGH_SCORE_DISPLAY_SCREEN' || s === 'DEMO_PLAY';
+}
+
+function openOperatorMenu() {
+    if (OperatorMenu.isOpen() || !isAttractState() || !app?.stage) return;
+    Attract.showTitleScreen();   // tears down demo play / the heroes table
+    UI.hideTitleScreen();
+    OperatorMenu.open(app.stage, () => Attract.showTitleScreen());
+}
 
 // --- Game Start Logic ---
 function startGameFromTitle(playerCount: number = 1) {

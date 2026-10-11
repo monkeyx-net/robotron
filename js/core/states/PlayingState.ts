@@ -17,6 +17,7 @@ import { checkCollisions, checkForExtraLife, checkWaveCompletion, updateBonusDec
 import { collisionIntegration } from '../CollisionIntegration';
 import { gameEvents } from '../EventSystem';
 import { GameConfig } from '../../config';
+import { Operator } from '../OperatorSettings';
 
 export class PlayingState extends BaseGameState {
     private player: Player | null = null;
@@ -300,14 +301,12 @@ export class PlayingState extends BaseGameState {
 
         // Reset game variables to match original game configuration
         gameState.score = 0;
-        gameState.lives = GameConfig.INITIAL_LIVES; // Use config value (30 in original game)
+        gameState.lives = Operator.get().turnsPerPlayer;
         gameState.wave = 1;
         gameState.currentHumanRescueBonus = GameConfig.INITIAL_HUMAN_RESCUE_BONUS;
         gameState.humanRescueBonusDecayTimer = 0;
-        gameState.nextExtraLifeScore = GameConfig.EXTRA_LIFE_SCORE_INTERVAL;
+        gameState.nextExtraLifeScore = Operator.get().extraManEvery;
         gameState.playerInvulnerableTime = 0;
-
-        console.log(`Starting new game with ${gameState.lives} lives (from GameConfig.INITIAL_LIVES)`);
 
         // Start first wave
         startNextWave();

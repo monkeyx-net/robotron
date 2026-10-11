@@ -17,6 +17,7 @@ import { TwoPlayer } from './core/TwoPlayer';
 import { isEntityGone } from './gameObject';
 import { ScorePopup } from './core/ScorePopup';
 import { WaveTransition } from './core/WaveTransition';
+import { Operator } from './core/OperatorSettings';
 
 // --- High Score ---
 export function loadHighScore() {
@@ -27,8 +28,7 @@ export function loadHighScore() {
     } else {
         gameState.highScore = 0;
     }
-    // Ensure nextExtraLifeScore is set if it depends on highScore or a default
-    gameState.nextExtraLifeScore = GameConfig.EXTRA_LIFE_SCORE_INTERVAL || 25000;
+    gameState.nextExtraLifeScore = Operator.get().extraManEvery;
 }
 
 export function saveHighScore() {
@@ -40,11 +40,12 @@ export function resetGameVariables() {
     if (!GameConfig) { console.warn("resetGameVariables: GameConfig not found."); return; }
 
     gameState.score = 0;
-    gameState.lives = GameConfig.INITIAL_LIVES;
+    // operator TURNS PER PLAYER / EXTRA MAN EVERY (factory: 3 men, 25000)
+    gameState.lives = Operator.get().turnsPerPlayer;
     gameState.wave = 0;
     gameState.currentHumanRescueBonus = GameConfig.INITIAL_HUMAN_RESCUE_BONUS;
     gameState.humanRescueBonusDecayTimer = 0;
-    gameState.nextExtraLifeScore = GameConfig.EXTRA_LIFE_SCORE_INTERVAL;
+    gameState.nextExtraLifeScore = Operator.get().extraManEvery;
     gameState.playerInvulnerableTime = 0;
 
     clearEntities(true); // Clear all entities on screen including humans for game reset
@@ -349,9 +350,11 @@ export function checkWaveCompletion() {
 
 export function checkForExtraLife() {
     if (gameState.currentGameState !== 'PLAYING' || !GameConfig || !SoundManager) return;
+    const every = Operator.get().extraManEvery;
+    if (every <= 0) return;   // operator setting: NO EXTRA MEN
     if (gameState.score >= gameState.nextExtraLifeScore) {
         gameState.lives++;
-        gameState.nextExtraLifeScore += GameConfig.EXTRA_LIFE_SCORE_INTERVAL;
+        gameState.nextExtraLifeScore += every;
         console.log(`Extra life awarded! Lives: ${gameState.lives}. Next at: ${gameState.nextExtraLifeScore}`);
         SoundManager.play('extraLife');
         if (UI && UI.updateUI) UI.updateUI();

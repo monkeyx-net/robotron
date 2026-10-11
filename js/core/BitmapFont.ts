@@ -21,6 +21,7 @@ interface LoadedFont {
 }
 
 const fonts = new Map<string, LoadedFont>();
+const DASH_W = 3;
 
 async function loadFont(name: 'font_main' | 'font_alt'): Promise<void> {
     if (fonts.has(name)) return;
@@ -78,6 +79,16 @@ export const BitmapFont = {
         let x = 0;
         for (const raw of text.toUpperCase()) {
             const tex = glyphTexture(font, raw);
+            if (!tex && raw === '-') {
+                // the ROM charset ('0'-'^') has no hyphen: synthesize one
+                const dash = new PIXI.Graphics()
+                    .rect(0, Math.floor(font.meta.lineHeight / 2), DASH_W, 1)
+                    .fill(opts.tint ?? 0xFFFFFF);
+                dash.x = x;
+                container.addChild(dash);
+                x += DASH_W + tracking;
+                continue;
+            }
             if (!tex) { x += spaceW + tracking; continue; }
             const spr = new PIXI.Sprite(tex);
             spr.x = x;
@@ -104,7 +115,7 @@ export const BitmapFont = {
         let x = 0;
         for (const raw of text.toUpperCase()) {
             const g = font.meta.glyphs[raw];
-            x += (g ? g.w : spaceW) + tracking;
+            x += (g ? g.w : raw === '-' ? DASH_W : spaceW) + tracking;
         }
         return Math.max(0, x - tracking);
     },
