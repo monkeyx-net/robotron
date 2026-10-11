@@ -74,6 +74,70 @@ function atlasAnim(family: string, speed = 0.15, maxFrames?: number): PIXI.Anima
 
 
 // Helper function to create animated sprites (used by Brain)
+/** An atlas family held on one frame; the AI picks frames with showFrame. */
+function atlasStill(family: string, frame: number): PIXI.AnimatedSprite | null {
+    const spr = atlasAnim(family);
+    if (spr) spr.gotoAndStop(frame);
+    return spr;
+}
+
+/** Show atlas frame `n` of an AnimatedSprite (no-op for drawn fallbacks, which have fewer). */
+function showFrame(sprite: PIXI.Container, n: number): void {
+    if (sprite instanceof PIXI.AnimatedSprite && n < sprite.totalFrames) sprite.gotoAndStop(n);
+}
+
+// Hulk direction tables ($01CC/$01D9/$01E6/$01F3): [record, dx px, dy lines].
+// Up reuses the down-facing frames. Records index $0CF9; the atlas keeps
+// frames in source-address order, which puts records 3-5 after 6-8.
+type HulkDir = 'left' | 'right' | 'down' | 'up';
+const HULK_WALK: Record<HulkDir, [number, number, number][]> = {
+    left:  [[0, -3, 0], [1, -4, 0], [0, -3, 0], [2, -4, 0]],
+    right: [[3, 3, 0], [4, 4, 0], [3, 3, 0], [5, 4, 0]],
+    down:  [[6, 0, 2], [7, 0, 2], [6, 0, 2], [8, 0, 2]],
+    up:    [[6, 0, -2], [7, 0, -2], [6, 0, -2], [8, 0, -2]],
+};
+const HULK_ATLAS = [0, 1, 2, 6, 7, 8, 3, 4, 5];
+
+/**
+ * $41B3: each hulk gets one target for life: the player when rand > $C0,
+ * else the next human round-robin ($4237). A dead target means the player.
+ */
+let hulkHumanCursor = 0;
+function pickHulkTarget(): Human | null {
+    if (prng.step() > 0xC0) return null;
+    const humans = humansAndProgs.filter((h: Human | Prog) => h instanceof Human && !h.isRescued && !isEntityGone(h)) as Human[];
+    if (!humans.length) return null;
+    return humans[hulkHumanCursor++ % humans.length];
+}
+
+/**
+ * $4106: walk (rand & $1F) + 1 steps on the other axis from the current one,
+ * toward the target plus a random -16..15 (bytes across, lines down).
+ */
+function hulkRehome(hulk: any, currentPlayer: any): void {
+    hulk.walkSteps = (prng.step() & 0x1F) + 1;
+    const t = hulk.target && !isEntityGone(hulk.target) && !hulk.target.isRescued ? hulk.target.sprite
+        : currentPlayer && currentPlayer.sprite && !currentPlayer.sprite.destroyed ? currentPlayer.sprite : hulk.sprite;
+    const jitter = (prng.step() & 0x1F) - 16;
+    const horizontal = hulk.walkTable === 'left' || hulk.walkTable === 'right';
+    hulk.walkTable = horizontal
+        ? (t.y + jitter > hulk.position.y ? 'down' : 'up')
+        : (t.x + 2 * jitter > hulk.position.x ? 'right' : 'left');
+    hulk.walkIdx = 0;
+    showFrame(hulk.sprite, HULK_ATLAS[HULK_WALK[hulk.walkTable as HulkDir][0][0]]);   // $4164
+}
+
+// Brain frames ($1CA2/$1CAA/$1CB2/$1CBA, records at $2141).
+const BRAIN_WALK = { left: [0, 1, 0, 2], right: [3, 4, 3, 5], down: [6, 7, 6, 8], up: [9, 10, 9, 11] };
+
+/** $5C58: next frame of the brain's walk; a new direction restarts the cycle. */
+function brainFacing(brain: any, sx: number, sy: number): void {
+    const seq = sx > 0 ? BRAIN_WALK.right : sx < 0 ? BRAIN_WALK.left : sy >= 0 ? BRAIN_WALK.down : BRAIN_WALK.up;
+    if (seq !== brain.walkSeq) { brain.walkSeq = seq; brain.walkPos = 0; }
+    else brain.walkPos = (brain.walkPos + 1) % seq.length;
+    showFrame(brain.sprite, seq[brain.walkPos]);
+}
+
 function createAnimatedSprite(frames: ((g: PIXI.Graphics) => void)[], animationSpeed = 0.1) {
     if (!PIXI) { console.warn("Enemies.createAnimatedSprite: Missing PIXI."); return null; }
     const container = new PIXI.Container();
@@ -131,7 +195,7 @@ export function createHulk(x: number, y: number): Hulk | null {
     if (!PIXI || !enemiesContainer || !enemies || !GameConfig) {
         console.warn("Enemies.createHulk: Missing dependencies."); return null;
     }
-    const hulkSprite = atlasAnim('hulk', 0.08) ?? (() => {
+    const hulkSprite = atlasStill('hulk', HULK_ATLAS[0]) ?? (() => {
         const g = new PIXI.Graphics();
         g.beginFill(0x00FF00); g.drawRect(-8, -10, 16, 20); g.endFill();
         return g;
@@ -186,7 +250,7 @@ export function createBrain(x: number, y: number): Brain | null {
     if (!PIXI || !enemiesContainer || !enemies || !GameConfig) {
         console.warn("Enemies.createBrain: Missing dependencies."); return null;
     }
-    const brainSprite = atlasAnim('brain', 0.1) ?? (() => {
+    const brainSprite = atlasStill('brain', 6) ?? (() => {
         const brainFrames = [
             (g: PIXI.Graphics) => { g.beginFill(0xFF69B4).drawCircle(0, -3, 5).drawRect(-4, 0, 8, 4).endFill().lineStyle(1, 0xFF88FF).moveTo(-4, -5).lineTo(-2, -7).moveTo(4, -5).lineTo(2, -7); },
             (g: PIXI.Graphics) => { g.beginFill(0xFF69B4).drawCircle(0, -3, 5).drawRect(-4, 0, 8, 4).endFill().lineStyle(1, 0xFF88FF).moveTo(-3, -6).lineTo(-3, -8).moveTo(3, -6).lineTo(3, -8); }
@@ -337,57 +401,38 @@ export function updateEnemies(delta: number): void {
             grunt.dx = 0; grunt.dy = 0;
 
         } else if (enemy.type === 'hulk') {
-            // Arcade hulk AI (REVERSE.md Ph19): slow stepped walk in straight
-            // lines (4 directions), turning on a PRNG timer toward a human
-            // target (or the player when none), fully random on wall hits.
+            // Hulk walk (ROM $4030/$4106; robotron-re REVERSE.md "Hulk walk").
+            // Every $BE61 frames it takes the next [frame, dx, dy] of its
+            // direction table: sideways 3/4 px a step, up/down 2 lines.
+            // After (rand & $1F) + 1 steps, or when the next step would leave
+            // the playfield, it rehomes on the other axis toward its target.
             // Indestructible; killing humans on contact is handled in
             // gameLogic collision checks.
             const hulk = enemy as any;
-            if (hulk.dirX === undefined) {
-                hulk.dirX = prng.chance(0.5) ? (prng.chance(0.5) ? 1 : -1) : 0;
-                hulk.dirY = hulk.dirX === 0 ? (prng.chance(0.5) ? 1 : -1) : 0;
+            if (hulk.walkTable === undefined) {
+                hulk.walkTable = null;
+                hulk.walkIdx = 0;
                 hulk.stepTimer = 0;
-                hulk.turnTimer = prng.range(8, 40);
+                hulk.target = pickHulkTarget();
+                hulkRehome(hulk, currentPlayer);
             }
             hulk.stepTimer -= delta;
-            if (hulk.stepTimer <= 0) {
+            while (hulk.stepTimer <= 0) {
                 hulk.stepTimer += WavePacing.params.hulkStepFrames;   // $BE61: 8 frames on wave 2 at difficulty 5, faster later
-                hulk.turnTimer--;
-                if (hulk.turnTimer <= 0) {
-                    hulk.turnTimer = prng.range(8, 40);
-                    // re-home: pick a target (random live human, else player)
-                    let tx: number | null = null, ty: number | null = null;
-                    const humansAlive = humansAndProgs.filter((h: Human | Prog) => h instanceof Human && !(h as any).isRescued && h.sprite && !h._destroyed);
-                    if (humansAlive.length > 0 && prng.step() <= 0xC0) {
-                        const t = humansAlive[prng.bounded(humansAlive.length)];
-                        tx = t.sprite.x; ty = t.sprite.y;
-                    } else if (currentPlayer && currentPlayer.sprite && !(currentPlayer.sprite as any)._destroyed) {
-                        tx = currentPlayer.sprite.x; ty = currentPlayer.sprite.y;
-                    }
-                    if (tx !== null && ty !== null) {
-                        const jx = tx + prng.range(-16, 15) - hulk.position.x;
-                        const jy = ty + prng.range(-16, 15) - hulk.position.y;
-                        // walk along one axis at a time, like the direction tables
-                        if (Math.abs(jx) > Math.abs(jy)) { hulk.dirX = Math.sign(jx); hulk.dirY = 0; }
-                        else { hulk.dirX = 0; hulk.dirY = Math.sign(jy); }
-                    }
-                }
-                const STEP = 2;
-                let nx = hulk.position.x + hulk.dirX * STEP;
-                let ny = hulk.position.y + hulk.dirY * STEP;
+                const table = HULK_WALK[hulk.walkTable as HulkDir];
+                const [rec, dx, dy] = table[hulk.walkIdx];
+                hulk.walkIdx = (hulk.walkIdx + 1) % table.length;
+                showFrame(hulk.sprite, HULK_ATLAS[rec]);
+                const nx = hulk.position.x + dx, ny = hulk.position.y + dy;
                 const pfh = GameConfig.PLAYFIELD;
                 const { hw: hhw, hh: hhh } = spriteHalfExtents(hulk.sprite);
                 if (nx < pfh.LEFT + hhw || nx > pfh.RIGHT - hhw || ny < pfh.TOP + hhh || ny > pfh.BOTTOM - hhh) {
-                    // wall: pick a fresh random direction (hulk_rehome_random)
-                    const d = prng.bounded(4);
-                    hulk.dirX = d === 0 ? 1 : d === 1 ? -1 : 0;
-                    hulk.dirY = d === 2 ? 1 : d === 3 ? -1 : 0;
-                    hulk.turnTimer = prng.range(8, 40);
-                    nx = Math.max(pfh.LEFT + hhw, Math.min(pfh.RIGHT - hhw, hulk.position.x));
-                    ny = Math.max(pfh.TOP + hhh, Math.min(pfh.BOTTOM - hhh, hulk.position.y));
+                    hulkRehome(hulk, currentPlayer);
+                    continue;
                 }
                 hulk.position.x = nx; hulk.position.y = ny;
                 hulk.sprite.x = nx; hulk.sprite.y = ny;
+                if (--hulk.walkSteps <= 0) hulkRehome(hulk, currentPlayer);
             }
         } else if (enemy.type === 'spheroid') {
             // Arcade spheroid ($5168): floats for prng_le($BE60) 10-frame
@@ -505,14 +550,18 @@ export function updateEnemies(delta: number): void {
 
             // brain_move_ctrl ($5BEE): one step every $BE63 frames. X moves a
             // byte (2 px) when more than 2 bytes off target; Y moves a line
-            // every step. Each step counts down to a cruise missile, re-armed
+            // every step. It faces sideways whenever it moves sideways, else
+            // up or down, one frame of the 0,1,0,2 cycle per step. Each step counts down to a cruise missile, re-armed
             // with prng_le($BE62); at most 8 fly at once ($6006).
             brain.stepTimer -= delta;
             while (brain.stepTimer <= 0) {
                 brain.stepTimer += wp.brainStepFrames;
                 const dxBytes = Math.round((targetX - brain.position.x) / 2);
-                if (Math.abs(dxBytes) > 2) brain.position.x += dxBytes > 0 ? 2 : -2;
-                brain.position.y += targetY >= brain.position.y ? 1 : -1;
+                const sx = Math.abs(dxBytes) > 2 ? Math.sign(dxBytes) : 0;
+                const sy = targetY >= brain.position.y ? 1 : -1;
+                brain.position.x += 2 * sx;
+                brain.position.y += sy;
+                brainFacing(brain, sx, sy);
                 if (--brain.missileSteps <= 0) {
                     brain.missileSteps = WavePacing.prngLe(wp.brainMissileTimer);
                     if (currentPlayer && currentPlayer.isAlive && currentPlayer.sprite && !(currentPlayer.sprite as any)._destroyed

@@ -14,6 +14,14 @@ export class Human extends GameObject {
     reprogramTimer: number;
     flashTimer: number;
     createdAt: number;
+    /** walk frames, ROM order: left 0-2, right 3-5, down 6-8, up 9-11 */
+    frames: PIXI.Texture[] = [];
+    /** ROM walk ($425F): current [frame, dx, dy] table, position in it, steps left */
+    walkTable = 0;
+    walkIdx = 0;
+    walkSteps = 0;
+    /** frames until the next step */
+    stepTimer = 0;
 
     constructor(sprite: PIXI.Sprite, x: number, y: number, humanType: string, speed: number) {
         super(sprite, 'human');

@@ -44,29 +44,44 @@ pixels outside the arena; grunt cadence visually indistinguishable at 10 s.
 
 ---
 
-## M2 — Animation fidelity (4-direction facing)
+## M2 — Animation fidelity (4-direction facing) — DONE 2026-10-11
 
-*The single most visible remaining gap. The atlas keeps the ROM's frame order (left 0–2,
-right 3–5, down 6–8, up 9–11). The player and humans always use the left-facing walk
-(frames 0–2); hulks and brains cycle through every frame whichever way they move. Progs
-already pick their direction's frames (`humans.ts`).*
+Everything that walks now faces the way it moves, using the ROM's own direction
+tables (robotron-re REVERSE.md Phase 21, "Sprite facing"). The atlas keeps the ROM's
+frame order (left 0–2, right 3–5, down 6–8, up 9–11; hulks are reordered, see below).
 
 1. ~~**Grunt 4-direction walk.**~~ Not needed: grunts have only 3 frames (one
    facing), stepped once per move as in the ROM. $5EAB, once thought to be the grunt
    walker, is the prog's update routine.
-2. **Human family 4-direction walk.** mommy/daddy/mikey each have 12 frames
-   (3 walk × 4 dirs). Same selection rule.
-3. **Player 4-direction walk + fire-direction poses.** ROM has a fire-direction
-   sprite walker ($6FFC–$7030, sprite records $35EB+) that overrides the walk pose
-   while firing: face the shoot vector, not the move vector. Implement pose
-   priority: firing > walking > idle.
-4. **Enforcer atlas sprite.** Replace the placeholder with the atlas family
-   ($52C6–$53B6) if the pinned atlas frames are usable; otherwise leave procedural
-   and note why (atlas must not be rebuilt).
-5. **Brain 4-direction animation** (ROM tables L/R/U/D — Ph15) if atlas frames allow.
+2. **Humans** ($425F/$4312, which Ph19 had mislabelled as hulk code):
+   - One step every 8 frames from one of 8 [frame, dx, dy] tables: 4 sides and 4
+     diagonals, which use the side frames. Steps are 2/1 px across and 1 line down or up.
+   - They rehome after (rand & $7F)+1 steps, or on hitting an electrode or the wall.
+   - This replaces the random-target wander (`humans.ts`).
+3. **Player** ($6FFC–$7030):
+   - Faces the *move* stick. Diagonals face sideways, and the pose steps every other
+     frame while moving.
+   - The fire stick never changes the pose. The old note here, "face the shoot vector",
+     was wrong: Ph11 had misread the walker as fire-driven.
+   - The game starts on frame 6 (standing, facing down).
+4. **Enforcer atlas sprite.** Already done: enforcers use the atlas `enforcer` family.
+5. **Brains** ($5C58): sideways frames when stepping sideways, else up or down; one frame
+   per step.
+6. **Hulks** ($4030/$4106):
+   - Left/right tables step 3/4 px and up/down tables step 2 lines; up reuses the down
+     frames.
+   - They rehome on the other axis toward a target fixed at spawn: the player if rand >
+     $C0, else a human round-robin, and the player once that human dies.
+   - The atlas index is [0,1,2,6,7,8,3,4,5][record].
 
-**Exit criteria:** side-by-side against MAME snap frames: entity facing matches
-movement/fire direction for player, humans, hulks and brains on waves 1–5.
+**Verified:**
+- **MAME** (robotron-re `tools/facing_probe.lua`, wave 2, real stick inputs):
+  - Player frames match the move stick in all four directions. Firing right while
+    standing, left + fire up, and up + fire left all keep the move-stick pose.
+  - Human and hulk frames match their direction of travel, and their step sizes match
+    the tables.
+- **Browser:** the same sequences for the player, humans, hulks and brains, with no
+  errors.
 
 ---
 

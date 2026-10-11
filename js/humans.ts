@@ -10,26 +10,13 @@ import { ColorCycles } from './core/ColorCycles';
 import { WavePacing } from './core/WavePacing';
 import { prng } from './core/Prng';
 
-// Simple collision detection function for humans vs obstacles
-function checkObstacleCollision(x: number, y: number, radius: number = 12): boolean {
+// Would a human box (half-extents hw x hh) centred at (x, y) overlap an electrode?
+function checkObstacleCollision(x: number, y: number, hw: number, hh: number): boolean {
     if (!obstacles || obstacles.length === 0) return false;
-
     for (const obstacle of obstacles) {
         if (!obstacle || obstacle._destroyed || !obstacle.sprite) continue;
-
-        // Simple rectangular collision detection
-        const obstacleLeft = obstacle.sprite.x - obstacle.sprite.width / 2;
-        const obstacleRight = obstacle.sprite.x + obstacle.sprite.width / 2;
-        const obstacleTop = obstacle.sprite.y - obstacle.sprite.height / 2;
-        const obstacleBottom = obstacle.sprite.y + obstacle.sprite.height / 2;
-
-        // Check if human (with radius) would collide with obstacle
-        if (x + radius > obstacleLeft &&
-            x - radius < obstacleRight &&
-            y + radius > obstacleTop &&
-            y - radius < obstacleBottom) {
-            return true;
-        }
+        const ow = obstacle.sprite.width / 2, oh = obstacle.sprite.height / 2;
+        if (Math.abs(x - obstacle.sprite.x) < hw + ow && Math.abs(y - obstacle.sprite.y) < hh + oh) return true;
     }
     return false;
 }
@@ -112,10 +99,7 @@ export function createHuman(x: number, y: number, humanType: string | null = nul
         const atlasWalk = ArcadeAtlas.frames(family);
         let humanSprite: PIXI.Sprite;
         if (atlasWalk.length) {
-            const anim = new PIXI.AnimatedSprite(atlasWalk.slice(0, 3));
-            anim.animationSpeed = 0.08;
-            anim.play();
-            humanSprite = anim;
+            humanSprite = new PIXI.Sprite(atlasWalk[6]);
         } else if (humanTexture) {
             humanSprite = new PIXI.Sprite(humanTexture);
         } else {
@@ -159,28 +143,10 @@ export function createHuman(x: number, y: number, humanType: string | null = nul
         });
 
         const human = new Human(humanSprite, x, y, humanType, GameConfig.HUMAN_SPEED);
-
-        // Set initial random target so humans start moving in different directions
-        const initialAngle = Math.random() * Math.PI * 2;
-        const initialDistance = 20 + Math.random() * 40;
-        human.targetX = x + Math.cos(initialAngle) * initialDistance;
-        human.targetY = y + Math.sin(initialAngle) * initialDistance;
-
-        // Ensure initial targets are within the arena (yellow border inset)
-        const pf = GameConfig.PLAYFIELD;
-        const inset = 4;
-        human.targetX = Math.max(pf.LEFT + inset, Math.min(pf.RIGHT - inset, human.targetX));
-        human.targetY = Math.max(pf.TOP + inset, Math.min(pf.BOTTOM - inset, human.targetY));
-
-        // Ensure human starts with a short timer so it begins moving quickly
-        human.wanderTimer = Math.random() * 30 + 10; // 10-40 frames (very short initial delay)
-
-        console.log('[Humans.createHuman] Human movement setup:', {
-            initialPos: { x: x, y: y },
-            target: { x: human.targetX.toFixed(1), y: human.targetY.toFixed(1) },
-            wanderTimer: human.wanderTimer.toFixed(1),
-            speed: human.speed
-        });
+        if (atlasWalk.length === 12) human.frames = atlasWalk;
+        // ROM spawn ($42FD): first step after (rand & 7) + 1 frames, random heading
+        human.stepTimer = (prng.step() & 7) + 1;
+        humanRehome(human);
 
         console.log('[Humans.createHuman] About to add to humansAndProgs array. Current length:', humansAndProgs.length);
         humansAndProgs.push(human);
@@ -205,6 +171,51 @@ export function createHuman(x: number, y: number, humanType: string | null = nul
         }
         return null;
     }
+}
+
+// Human walk (ROM $425F/$4312; robotron-re REVERSE.md Phase 21 "Human walk").
+// Every 8 frames a human takes the next [frame, dx, dy] entry of one of 8
+// tables (4 sides, 4 diagonals), so it walks with its own facing: left 0,1,0,2,
+// right 3,4,3,5, down 6,7,6,8, up 9,10,9,11; diagonals use a side's frames.
+// x steps alternate 2 and 1 px. After (rand & $7F) + 1 steps, or when the
+// next step would hit an electrode or the wall, it picks a new table at random.
+const HUMAN_STEP_FRAMES = 8;
+const HUMAN_WALK: [number, number, number][][] = [
+    [[0, -2, 0], [1, -1, 0], [0, -2, 0], [2, -1, 0]],     // left
+    [[3, 2, 0], [4, 1, 0], [3, 2, 0], [5, 1, 0]],         // right
+    [[6, 0, 1], [7, 0, 1], [6, 0, 1], [8, 0, 1]],         // down
+    [[9, 0, -1], [10, 0, -1], [9, 0, -1], [11, 0, -1]],   // up
+    [[0, -2, -1], [2, -1, -1], [0, -2, -1], [2, -1, -1]], // up-left
+    [[3, 2, -1], [4, 1, -1], [3, 2, -1], [5, 1, -1]],     // up-right
+    [[3, 2, 1], [4, 1, 1], [3, 2, 1], [5, 1, 1]],         // down-right
+    [[0, -2, 1], [1, -1, 1], [0, -2, 1], [2, -1, 1]],     // down-left
+];
+
+function humanRehome(h: Human): void {
+    h.walkSteps = (prng.step() & 0x7F) + 1;
+    h.walkTable = prng.step() & 7;
+    h.walkIdx = 0;
+    showHumanFrame(h, HUMAN_WALK[h.walkTable][0][0]);
+}
+
+function showHumanFrame(h: Human, frame: number): void {
+    if (h.frames.length === 12) (h.sprite as PIXI.Sprite).texture = h.frames[frame];
+}
+
+/** One ROM step ($425F). */
+function humanStep(h: Human): void {
+    const table = HUMAN_WALK[h.walkTable];
+    const [frame, dx, dy] = table[h.walkIdx];
+    h.walkIdx = (h.walkIdx + 1) % table.length;
+    showHumanFrame(h, frame);
+    const nx = h.sprite.x + dx, ny = h.sprite.y + dy;
+    const pf = GameConfig.PLAYFIELD;
+    const { hw, hh } = spriteHalfExtents(h.sprite);
+    const blocked = nx < pf.LEFT + hw || nx > pf.RIGHT - hw || ny < pf.TOP + hh || ny > pf.BOTTOM - hh
+        || checkObstacleCollision(nx, ny, hw, hh);
+    if (blocked) { humanRehome(h); return; }
+    h.sprite.x = nx; h.sprite.y = ny;
+    if (--h.walkSteps === 0) humanRehome(h);
 }
 
 // Progs (ROM $5E19/$5EAB; robotron-re REVERSE.md Phase 21 "Progs"): the
@@ -325,79 +336,10 @@ export function updateHumansAndProgs(delta: number) {
                 return;
             }
 
-            entity.wanderTimer -= delta;
-
-            // Set new target when wander timer expires
-            if (entity.wanderTimer <= 0) {
-                // Always pick a new random direction - no pausing
-                const angle = Math.random() * Math.PI * 2;
-                const distance = 30 + Math.random() * 50; // Moderate wander distances
-                let newTargetX = entity.sprite.x + Math.cos(angle) * distance;
-                let newTargetY = entity.sprite.y + Math.sin(angle) * distance;
-
-                // Keep targets within the arena (yellow border inset)
-                const pf = GameConfig.PLAYFIELD;
-                const inset = 4;
-                newTargetX = Math.max(pf.LEFT + inset, Math.min(pf.RIGHT - inset, newTargetX));
-                newTargetY = Math.max(pf.TOP + inset, Math.min(pf.BOTTOM - inset, newTargetY));
-
-                entity.targetX = newTargetX;
-                entity.targetY = newTargetY;
-                entity.wanderTimer = Math.random() * 180 + 120; // Shorter intervals (2-5 seconds)
-            }
-
-            // Move toward target at slow pace
-            const dx = entity.targetX - entity.sprite.x;
-            const dy = entity.targetY - entity.sprite.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-
-            if (distance > 1) {
-                // Slow movement speed as per requirements
-                const moveSpeed = entity.speed * delta;
-                const moveX = (dx / distance) * moveSpeed;
-                const moveY = (dy / distance) * moveSpeed;
-
-                // Calculate new position
-                let newX = entity.sprite.x + moveX;
-                let newY = entity.sprite.y + moveY;
-
-                // Check for obstacle collision before moving
-                if (checkObstacleCollision(newX, newY, 12)) {
-                    // Hit an obstacle - pick a new target after a pause
-                    entity.wanderTimer = Math.random() * 60 + 30; // Short pause before new direction
-                    return; // Don't move this frame
-                }
-
-                // Simple boundary collision against the arena border
-                // (sprite edge, not center — the sprite must not overlap it)
-                const pf = GameConfig.PLAYFIELD;
-                const { hw, hh } = spriteHalfExtents(entity.sprite);
-                if (newX < pf.LEFT + hw || newX > pf.RIGHT - hw) {
-                    newX = Math.max(pf.LEFT + hw, Math.min(pf.RIGHT - hw, newX));
-                    entity.wanderTimer = 0; // Pick new direction
-                }
-                if (newY < pf.TOP + hh || newY > pf.BOTTOM - hh) {
-                    newY = Math.max(pf.TOP + hh, Math.min(pf.BOTTOM - hh, newY));
-                    entity.wanderTimer = 0; // Pick new direction
-                }
-
-                entity.sprite.x = newX;
-                entity.sprite.y = newY;
-            } else {
-                // Reached target, pick a new one immediately to keep moving
-                entity.wanderTimer = 0;
-            }
-
-            // Debug logging (remove after testing)
-            if (Math.random() < 0.01) { // Only log occasionally to avoid spam
-                console.log('[Humans] Human moving:', {
-                    currentPos: { x: entity.sprite.x.toFixed(1), y: entity.sprite.y.toFixed(1) },
-                    target: { x: entity.targetX.toFixed(1), y: entity.targetY.toFixed(1) },
-                    distance: distance.toFixed(1),
-                    speed: entity.speed,
-                    delta: delta.toFixed(3),
-                    wanderTimer: entity.wanderTimer.toFixed(1)
-                });
+            entity.stepTimer -= delta;
+            while (entity.stepTimer <= 0) {
+                entity.stepTimer += HUMAN_STEP_FRAMES;
+                humanStep(entity);
             }
         } else if (entity instanceof Prog) {
             entity.passTimer -= delta;

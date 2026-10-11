@@ -182,6 +182,13 @@ export class PlayerShootingComponent {
     }
 }
 
+// ROM walk ($6FFC-$7030): the player faces the MOVE stick, never the fire
+// stick. Sideways (diagonals included) wins over up/down. While moving, the
+// pose steps through its direction's 0,1,0,2 cycle every 2 frames, starting
+// at once on a new direction; standing still keeps the last pose. The game
+// starts on frame 6, standing and facing down ($3603).
+const PLAYER_WALK = { left: [0, 1, 0, 2], right: [3, 4, 3, 5], down: [6, 7, 6, 8], up: [9, 10, 9, 11] };
+
 /**
  * Enhanced Player class with component-based architecture
  */
@@ -195,6 +202,27 @@ export class Player extends GameObject {
 
     // Add velocity tracking for legacy compatibility
     private velocity: Vector2 = new Vector2(0, 0);
+
+    /** walk frames, ROM order: left 0-2, right 3-5, down 6-8, up 9-11 */
+    frames: PIXI.Texture[] = [];
+    private walkSeq: number[] | null = null;
+    private walkPos = 0;
+    private walkTick = 0;
+    private walkClock = 0;
+
+    /** One frame of the ROM walker. */
+    private walkFrame(): void {
+        const sx = Math.sign(this.dx), sy = Math.sign(this.dy);
+        const seq = sx < 0 ? PLAYER_WALK.left : sx > 0 ? PLAYER_WALK.right
+            : sy > 0 ? PLAYER_WALK.down : sy < 0 ? PLAYER_WALK.up : null;
+        if (!seq || this.frames.length !== 12) return;
+        if (seq !== this.walkSeq) { this.walkSeq = seq; this.walkPos = 0; this.walkTick = 0; }
+        if (this.walkTick === 0) {
+            (this.sprite as PIXI.Sprite).texture = this.frames[seq[this.walkPos]];
+            this.walkPos = (this.walkPos + 1) % seq.length;
+        }
+        this.walkTick ^= 1;
+    }
 
     // Legacy properties for backward compatibility
     get dx(): number { return this.velocity.x; }
@@ -287,6 +315,8 @@ export class Player extends GameObject {
 
         // Keep the whole sprite inside the arena border, not just its center.
         clampToPlayfield(this.sprite, this.sprite);
+        this.walkClock += delta;
+        while (this.walkClock >= 1) { this.walkClock -= 1; this.walkFrame(); }
 
         if (gameState.playerInvulnerableTime > 0) {
             const invulnerablePhase = (gameState.playerInvulnerableTime / 1000) * Math.PI * 2 * 2;
@@ -329,17 +359,13 @@ export function createPlayer(): Player {
         player.destroy(); // Use the destroy method from GameObject
     }
 
-    // ROM-extracted player frames (walk/fire-direction poses); falls back
-    // to the legacy player.png when the atlas is unavailable.
-    // 12 frames = 3-frame walk x 4 directions in ROM order (left, right,
-    // down, up); only the left-facing walk (frames 0-2) is used for now.
+    // ROM-extracted player frames; falls back to the legacy player.png when
+    // the atlas is unavailable. 12 frames = 3-frame walk x 4 directions in
+    // ROM order (left, right, down, up); Player.walkFrame picks them.
     const atlasFrames = ArcadeAtlas.frames('player');
     let playerSprite: PIXI.Sprite;
     if (atlasFrames.length) {
-        const anim = new PIXI.AnimatedSprite(atlasFrames.slice(0, 3));
-        anim.animationSpeed = 0.12;
-        anim.play();
-        playerSprite = anim;
+        playerSprite = new PIXI.Sprite(atlasFrames[6]);
     } else {
         playerSprite = new PIXI.Sprite(playerTexture);
     }
@@ -348,7 +374,9 @@ export function createPlayer(): Player {
     playerSprite.y = GameConfig.GAME_HEIGHT / 2;
     playerContainer.addChild(playerSprite);
 
-    return new Player(playerSprite);
+    const p = new Player(playerSprite);
+    if (atlasFrames.length === 12) p.frames = atlasFrames;
+    return p;
 }
 
 export const PlayerModule = {
