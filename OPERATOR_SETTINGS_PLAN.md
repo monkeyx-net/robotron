@@ -1,6 +1,6 @@
 # Operator Settings Plan (arcade "GAME ADJUSTMENT" menu)
 
-Status: **steps 1–3 committed (`62d5a8f`); step 4 committed (`fb0d989`); step 4b (remaining enemy params) committed (`96a110d`); wave counts committed (`cb4a626`); electrodes + spawn positions done 2026-10-11 (uncommitted); step 5 optional.** Branch: `release-3.0`.
+Status: **steps 1–3 committed (`62d5a8f`); step 4 committed (`fb0d989`); step 4b (remaining enemy params) committed (`96a110d`); wave counts committed (`cb4a626`); electrodes + spawn positions committed (`1d43a7c`); colour cycles + progs done 2026-10-11 (uncommitted); step 5 optional.** Branch: `release-3.0`.
 
 Goal: add the original ROM's operator adjustments that matter to gameplay,
 and skip those that only make sense on physical cabinet hardware.
@@ -144,17 +144,30 @@ physical high-score-reset switch; SET ATTRACT MODE MESSAGE and SET HIGHEST SCORE
    - **Electrodes and spawn positions (2026-10-11).**
      - Electrodes: wave-init picks one of 9 shapes ($3B05 descriptors) from a 10-wave table
        at $2A4B. `js/core/ElectrodeShapes.ts` is generated from the ROM by robotron-re
-       `tools/gen_electrodes_ts.py`; colours were measured in MAME (`tools/electrode_probe.lua`;
-       the ROM bitmaps fit every unobscured electrode exactly). The alpha flicker is gone
-       (the ROM's are steady).
+       `tools/gen_electrodes_ts.py`; the ROM bitmaps fit every unobscured electrode exactly.
+       Each wave draws them in a colour-cycling palette entry (table row 1: F, E, B, D, E, F,
+       -, B, D, A), animated by `js/core/ColorCycles.ts`. (The first version used one static
+       colour per wave: both MAME runs had sampled the same frame offset. Dense sampling
+       and a per-frame palette log showed the cycles.)
      - Spawns (`js/core/SpawnPlacement.ts`): random top-left per $7199; grunts/hulks stay
        out of the per-wave box at $3920, electrodes out of it shrunk 4 lines/3 bytes, grunts
        also avoid overlapping anything placed; humans anywhere; brains in edge bands;
        spheroids at x $09/$87; quarks at rows $1A/$DC. All 188 MAME electrode positions
        respect the shrunk box. Browser: 3000 draws per wave never broke a rule.
      - Not ported: the electrode shrink frames when destroyed; the ROM's exact spawn order.
-   - Seen, not fixed: `Humans.convertToProg` draws progs as 16×16 magenta placeholder
-     squares (enemies.ts `createProg` has proper mikey frames).
+   - **Progs (2026-10-11).** The ROM prog ($5E19/$5EAB, earlier mislabelled a grunt)
+     walks with the captured human's own frames drawn as a solid silhouette in palette
+     entry A, leaving its last 6 positions behind in entry E. Every 3 frames it steps 4 px
+     along one axis toward the player plus a random offset; it re-homes on walls, with a
+     27/256 chance each pass, and re-rolls the offset with 7/256. `Humans.convertToProg`
+     now builds that (silhouettes via `ArcadeAtlas.silhouette`) instead of a 16×16 magenta
+     square. The prog no longer waits 2000 frames (~33 s) before moving, which MAME
+     confirms: it is walking within 60 frames of the capture. Shot or reset progs take
+     their trails with them.
+     Verified in MAME (prog captures on wave 5) and in the browser (silhouette 8×14, 12
+     frames, 6-copy trail, 4 px axis steps, A/E colours cycling, no errors).
+   - Seen, not fixed: README's "down-facing only" is wrong; humans use frames 0-2, which
+     face left (atlas order is left, right, down, up as in the ROM).
 5. **Optional:** FANCY ATTRACT MODE toggle; a statistics page (extra men earned, play
    time, men played — non-coin bookkeeping); a controller test screen (the web version
    of the switch test).

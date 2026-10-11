@@ -16,6 +16,7 @@ interface AtlasMeta { palette: number[][]; frames: Record<string, AtlasFrame>; }
 let baseTexture: PIXI.TextureSource | null = null;
 let meta: AtlasMeta | null = null;
 const textureCache = new Map<string, PIXI.Texture>();
+const silhouetteCache = new Map<PIXI.Texture, PIXI.Texture>();
 
 export const ArcadeAtlas = {
     async load(): Promise<void> {
@@ -45,6 +46,29 @@ export const ArcadeAtlas = {
         });
         textureCache.set(name, tex);
         return tex;
+    },
+
+    /**
+     * A frame as a solid white silhouette (every opaque pixel white), for
+     * sprites the ROM draws in one colour, such as progs. Tint it to colour it.
+     */
+    silhouette(tex: PIXI.Texture): PIXI.Texture {
+        const cached = silhouetteCache.get(tex);
+        if (cached) return cached;
+        const { x, y, width: w, height: h } = tex.frame;
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(tex.source.resource as CanvasImageSource, x, y, w, h, 0, 0, w, h);
+        const img = ctx.getImageData(0, 0, w, h);
+        for (let i = 0; i < img.data.length; i += 4) {
+            if (img.data[i + 3]) img.data[i] = img.data[i + 1] = img.data[i + 2] = img.data[i + 3] = 255;
+        }
+        ctx.putImageData(img, 0, 0);
+        const sil = PIXI.Texture.from(canvas);
+        sil.source.scaleMode = 'nearest';
+        silhouetteCache.set(tex, sil);
+        return sil;
     },
 
     /** All textures of a family in ROM (= animation) order. */

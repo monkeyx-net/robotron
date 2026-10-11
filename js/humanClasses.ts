@@ -43,15 +43,35 @@ export class Human extends GameObject {
     }
 }
 
+/**
+ * A reprogrammed human (ROM $5E19/$5EAB). It walks with the captured human's
+ * own frames drawn as a solid silhouette in cycling palette entry A, and
+ * leaves a trail of its last 6 positions in entry E (humans.ts).
+ */
 export class Prog extends GameObject {
     health: number;
     points: number;
     flashTimer: number;
     isEvil: boolean;
     reprogramTimer: number;
+    /** silhouette walk frames, ROM order: left 0-2, right 3-5, down 6-8, up 9-11 */
+    frames: PIXI.Texture[] = [];
+    /** first frame of the current direction, and its x/y step (px) per pass */
+    dirBase = 0;
+    stepX = 0;
+    stepY = 0;
+    /** position in the 0,1,0,2 walk cycle */
+    walk = 0;
+    /** frames until the next 3-frame pass */
+    passTimer = 0;
+    /** target offset from the player (px), re-rolled now and then */
+    offsetX = 0;
+    offsetY = 0;
+    /** afterimages, oldest first */
+    trail: PIXI.Sprite[] = [];
 
-    constructor(sprite: PIXI.Graphics, x: number, y: number, points: number) {
-        super(sprite, 'prog');
+    constructor(sprite: PIXI.Sprite | PIXI.Graphics, x: number, y: number, points: number) {
+        super(sprite as PIXI.Graphics, 'prog');
         this.sprite.x = x;
         this.sprite.y = y;
         // IMPORTANT: Update position tracking after setting sprite position
@@ -64,6 +84,17 @@ export class Prog extends GameObject {
         this.flashTimer = 0;
         this.isEvil = false;
         this.reprogramTimer = 0;
+    }
+
+    /** Remove the afterimages (the body sprite is destroyed by its owner). */
+    clearTrail(): void {
+        for (const t of this.trail) if (!t.destroyed) t.destroy();
+        this.trail.length = 0;
+    }
+
+    destroy(): void {
+        this.clearTrail();
+        super.destroy();
     }
 
     update(_delta: number): void {

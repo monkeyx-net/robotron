@@ -75,7 +75,7 @@ export function clearEntities(clearHumans: boolean = false, keepPlayer: boolean 
     }
     // Humans and Progs - only clear if explicitly requested (for game reset)
     if (clearHumans && humansAndProgs) {
-        humansAndProgs.forEach(h => { if (h.sprite && !h._destroyed) h.sprite.destroy(); });
+        humansAndProgs.forEach(h => { if (!h._destroyed) h.destroy(); });   // Prog.destroy clears its trail
         humansAndProgs.length = 0;
     }
     // Obstacles
@@ -501,7 +501,7 @@ export function checkCollisions() {
 
                     Effects.createExplosion(entity.sprite.x, entity.sprite.y, 0xFF55FF);
                     SoundManager.play('progDestroy');
-                    if (entity.sprite && !(entity.sprite as any)._destroyed) (entity.sprite as any).destroy();
+                    (entity as any).destroy();   // Prog.destroy also clears its trail
                     humansAndProgs.splice(k, 1);
 
                     if (gameState.currentGameState === 'PLAYING' && (!p.isDemoProjectile)) {

@@ -6,6 +6,9 @@ import { SoundManager } from './soundManager';
 import { Human, Prog } from './humanClasses';
 import { ArcadeAtlas } from './core/ArcadeAtlas';
 import { isEntityGone, clampToPlayfield, spriteHalfExtents } from './gameObject';
+import { ColorCycles } from './core/ColorCycles';
+import { WavePacing } from './core/WavePacing';
+import { prng } from './core/Prng';
 
 // Simple collision detection function for humans vs obstacles
 function checkObstacleCollision(x: number, y: number, radius: number = 12): boolean {
@@ -204,38 +207,92 @@ export function createHuman(x: number, y: number, humanType: string | null = nul
     }
 }
 
+// Progs (ROM $5E19/$5EAB; robotron-re REVERSE.md Phase 21 "Progs"): the
+// captured human's walk frames as a solid silhouette in cycling palette entry
+// A, trailing its last 6 positions in entry E. Every 3 frames it steps 4 px
+// along one axis toward the player plus a random offset, re-homing on walls
+// and now and then at random.
+const PROG_PASS_FRAMES = 3;
+const PROG_STEP = 4;
+const PROG_TRAIL = 6;
+const PROG_WALK = [0, 1, 0, 2];
+
+/** $5E55: offsets from the player: -28..28 bytes across, -16..18 lines down. */
+function progOffsets(p: Prog): void {
+    p.offsetX = 2 * (32 - 4 * WavePacing.prngLe(0x0F));
+    p.offsetY = 20 - 2 * WavePacing.prngLe(0x12);
+}
+
+/** $5E71/$5E8D: head along x or y (coin flip) toward the player + offset. */
+function progHome(p: Prog): void {
+    if (!player || isEntityGone(player)) return;
+    if (prng.step() & 0x80) {
+        const up = player.sprite.y + p.offsetY <= p.sprite.y;
+        p.dirBase = up ? 9 : 6; p.stepX = 0; p.stepY = up ? -PROG_STEP : PROG_STEP;
+    } else {
+        const left = player.sprite.x + p.offsetX <= p.sprite.x;
+        p.dirBase = left ? 0 : 3; p.stepX = left ? -PROG_STEP : PROG_STEP; p.stepY = 0;
+    }
+}
+
+/** One 3-frame pass of $5EAB. */
+function progPass(p: Prog): void {
+    p.walk = (p.walk + 1) % PROG_WALK.length;
+    const tex = p.frames[p.dirBase + PROG_WALK[p.walk]];
+    const nx = p.sprite.x + p.stepX, ny = p.sprite.y + p.stepY;
+    const pf = GameConfig.PLAYFIELD;
+    const { hw, hh } = spriteHalfExtents(p.sprite);
+    if (nx < pf.LEFT + hw || nx > pf.RIGHT - hw || ny < pf.TOP + hh || ny > pf.BOTTOM - hh) {
+        progHome(p);   // walked into a wall
+        return;
+    }
+    // leave an afterimage where it stood
+    if (p.sprite instanceof PIXI.Sprite) {
+        const ghost = new PIXI.Sprite(p.sprite.texture);
+        ghost.anchor.set(0.5);
+        ghost.x = p.sprite.x; ghost.y = p.sprite.y;
+        humansContainer.addChildAt(ghost, Math.max(0, humansContainer.getChildIndex(p.sprite)));
+        p.trail.push(ghost);
+        if (p.trail.length > PROG_TRAIL) p.trail.shift()!.destroy();
+        if (tex) p.sprite.texture = tex;
+    }
+    p.sprite.x = p.position.x = nx;
+    p.sprite.y = p.position.y = ny;
+    if (prng.step() > 0xF8) progOffsets(p);
+    if (prng.step() > 0xE4) progHome(p);
+}
+
 export function convertToProg(humanEntity: Human) {
     if (!humanEntity || humanEntity.type === 'prog' || humanEntity._destroyed) return;
 
-    console.log('[Humans.convertToProg] Converting human to prog');
+    const family = humanEntity.humanType === 'MAN' ? 'daddy' : humanEntity.humanType === 'CHILD' ? 'mikey' : 'mommy';
+    const frames = ArcadeAtlas.frames(family).map(t => ArcadeAtlas.silhouette(t));
+    const x = humanEntity.sprite.x, y = humanEntity.sprite.y;
+    let body: PIXI.Sprite | PIXI.Graphics;
+    if (frames.length === 12) {
+        body = new PIXI.Sprite(frames[0]);
+        (body as PIXI.Sprite).anchor.set(0.5);
+    } else {
+        body = new PIXI.Graphics().rect(-4, -7, 8, 14).fill(0xFFFFFF);
+    }
+    body.x = x;
+    body.y = y;
+    body.tint = ColorCycles.color(0xA) ?? 0xFFFFFF;
 
-    const progSprite = new PIXI.Graphics();
-    progSprite.lineStyle(1, 0x4B0082);
-    progSprite.beginFill(0xFF00FF);
-    progSprite.drawRect(-8, -8, 16, 16);
-    progSprite.endFill();
+    humanEntity.destroy();
 
-    progSprite.x = humanEntity.sprite.x;
-    progSprite.y = humanEntity.sprite.y;
-
-    humanEntity.destroy(); // Destroy the old human sprite
-
-    const prog = new Prog(progSprite, progSprite.x, progSprite.y, (GameConfig && GameConfig.POINTS) ? GameConfig.POINTS.PROG : 100);
+    const prog = new Prog(body, x, y, (GameConfig && GameConfig.POINTS) ? GameConfig.POINTS.PROG : 100);
+    prog.frames = frames.length === 12 ? frames : [];
+    prog.isEvil = true;   // the ROM's prog hunts the player at once
+    prog.walk = PROG_WALK.length - 1;
+    progOffsets(prog);
+    progHome(prog);
     humansContainer.addChild(prog.sprite);
 
-    // Find and replace the human in the array with the new prog object
     const index = humansAndProgs.indexOf(humanEntity);
-    if (index !== -1) {
-        humansAndProgs[index] = prog;
-    }
+    if (index !== -1) humansAndProgs[index] = prog;
 
-    prog.reprogramTimer = 2000;
-
-    if (SoundManager && SoundManager.play) {
-        SoundManager.play('humanToProg');
-    }
-
-    console.log('[Humans.convertToProg] Human converted to prog, will become evil in 2 seconds');
+    if (SoundManager && SoundManager.play) SoundManager.play('humanToProg');
 }
 
 export function updateHumansAndProgs(delta: number) {
@@ -243,6 +300,7 @@ export function updateHumansAndProgs(delta: number) {
         return;
     }
 
+    for (const e of humansAndProgs) if (e instanceof Prog && isEntityGone(e)) e.clearTrail();
     const initialHumansCount = humansAndProgs.length;
     const filteredHumansAndProgs = humansAndProgs.filter(entity => !isEntityGone(entity));
     humansAndProgs.length = 0; // Clear the original array
@@ -342,36 +400,15 @@ export function updateHumansAndProgs(delta: number) {
                 });
             }
         } else if (entity instanceof Prog) {
-            if (entity.reprogramTimer > 0) {
-                entity.reprogramTimer -= delta;
-                if (entity.reprogramTimer <= 0) {
-                    entity.isEvil = true;
-                    if (entity.sprite instanceof PIXI.Graphics) {
-                        entity.sprite.clear();
-                        entity.sprite.beginFill(0xFF0000);
-                        entity.sprite.drawRect(-8, -8, 16, 16);
-                        entity.sprite.endFill();
-                    }
-
-                    if (SoundManager && SoundManager.play) {
-                        SoundManager.play('progActivate');
-                    }
-                }
+            entity.passTimer -= delta;
+            while (entity.passTimer <= 0) {
+                entity.passTimer += PROG_PASS_FRAMES;
+                progPass(entity);
             }
-
-            if (entity.isEvil && player && player.sprite && !(player.sprite as any)._destroyed) {
-                const angle = Math.atan2(
-                    player.sprite.y - entity.sprite.y,
-                    player.sprite.x - entity.sprite.x
-                );
-                const progSpeed = (GameConfig.PROG_SPEED || 1.3) * delta;
-                entity.sprite.x += Math.cos(angle) * progSpeed;
-                entity.sprite.y += Math.sin(angle) * progSpeed;
-            }
-
-            entity.flashTimer += 0.15 * delta;
-            const flashIntensity = 0.4 + Math.sin(entity.flashTimer) * 0.4;
-            entity.sprite.alpha = Math.max(0.2, flashIntensity);
+            // body in palette entry A, trail in E (all copies share E's colour)
+            entity.sprite.tint = ColorCycles.color(0xA) ?? 0xFFFFFF;
+            const trailColor = ColorCycles.color(0xE) ?? 0xFF00FF;
+            for (const t of entity.trail) t.tint = trailColor;
         }
 
         clampToPlayfield(entity.sprite, entity.sprite);
