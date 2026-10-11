@@ -298,7 +298,7 @@ const initializeGame = async () => {
             }
             if (e.code === 'Digit2' &&
                 (gameState.currentGameState === 'TITLE_SCREEN' ||
-                 gameState.currentGameState === 'HIGH_SCORE_DISPLAY_SCREEN' ||
+                 gameState.currentGameState === 'HIGH_SCORE_DISPLAY_SCREEN' || gameState.currentGameState === 'STORY_SCREEN' ||
                  gameState.currentGameState === 'DEMO_PLAY')) {
                 startGameFromTitle(2);
             }
@@ -306,7 +306,7 @@ const initializeGame = async () => {
         gameEvents.on('input:start', (event) => {
             if (event.data.pressed && 
                 (gameState.currentGameState === 'TITLE_SCREEN' || 
-                 gameState.currentGameState === 'HIGH_SCORE_DISPLAY_SCREEN' || 
+                 gameState.currentGameState === 'HIGH_SCORE_DISPLAY_SCREEN' || gameState.currentGameState === 'STORY_SCREEN' || 
                  gameState.currentGameState === 'DEMO_PLAY')) {
                 console.log('Fallback game start triggered via input manager');
                 startGameFromTitle();
@@ -539,7 +539,7 @@ function setupGameEngine() {
         (deltaTime: number) => {
             try {
                 if (gameState.currentGameState === 'TITLE_SCREEN' || 
-                    gameState.currentGameState === 'HIGH_SCORE_DISPLAY_SCREEN' || 
+                    gameState.currentGameState === 'HIGH_SCORE_DISPLAY_SCREEN' || gameState.currentGameState === 'STORY_SCREEN' || 
                     gameState.currentGameState === 'DEMO_PLAY') {
                     
                     // Update attract mode safely
@@ -850,7 +850,7 @@ let padSelectPending = false;
 
 function isAttractState(): boolean {
     const s = gameState.currentGameState;
-    return s === 'TITLE_SCREEN' || s === 'HIGH_SCORE_DISPLAY_SCREEN' || s === 'DEMO_PLAY';
+    return s === 'TITLE_SCREEN' || s === 'STORY_SCREEN' || s === 'HIGH_SCORE_DISPLAY_SCREEN' || s === 'DEMO_PLAY';
 }
 
 function openOperatorMenu() {
@@ -864,7 +864,7 @@ function openOperatorMenu() {
 function startGameFromTitle(playerCount: number = 1) {
     console.log('startGameFromTitle called, current state:', gameState.currentGameState);
     
-    if (gameState.currentGameState !== 'TITLE_SCREEN' && gameState.currentGameState !== 'HIGH_SCORE_DISPLAY_SCREEN' && gameState.currentGameState !== 'DEMO_PLAY') return;
+    if (gameState.currentGameState !== 'TITLE_SCREEN' && gameState.currentGameState !== 'STORY_SCREEN' && gameState.currentGameState !== 'HIGH_SCORE_DISPLAY_SCREEN' && gameState.currentGameState !== 'DEMO_PLAY') return;
 
     gameState.currentGameState = 'PLAYING';
     // Arcade: pressing start plays the game-start sound (cmd $28). Played

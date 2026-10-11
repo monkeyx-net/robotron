@@ -1,5 +1,6 @@
+import { AttractStory } from './core/AttractStory';
 import { GameConfig } from './config';
-import { demoPlayContainer, demoPlayer, setDemoPlayer, enemies } from './main';
+import { demoPlayContainer, demoPlayer, setDemoPlayer, enemies, app } from './main';
 import { Enemy } from './enemiesClasses';
 import { UI } from './ui';
 import { loadHighScore, clearEntities, checkCollisions } from './gameLogic';
@@ -112,6 +113,17 @@ function showHighScoreDisplayScreen(frames?: number) {
     if (UI.resizeGame) UI.resizeGame();
 }
 
+/** The story pages (core/AttractStory.ts), then the heroes table. */
+function showStoryScreen() {
+    if (!UI || !app) return;
+    gameState.currentGameState = 'STORY_SCREEN';
+    if (UI.hideTitleScreen) UI.hideTitleScreen();
+    if (UI.hideHighScoreDisplayScreen) UI.hideHighScoreDisplayScreen();
+    hideDemoPlayScreenLogic();
+    clearEntities();
+    AttractStory.play(app.stage, () => showHighScoreDisplayScreen(), () => gameState.currentGameState === 'STORY_SCREEN');
+}
+
 function showDemoPlayScreen() {
     if (!UI || !Player || !Enemies || !Humans || !GameConfig || !demoPlayContainer) {
         console.warn("Attract.showDemoPlayScreen: Missing dependencies."); return;
@@ -173,7 +185,7 @@ function updateAttractMode(delta: number) {
 
         attractModeTimer -= delta;
         if (attractModeTimer <= 0) {
-            showHighScoreDisplayScreen();
+            showStoryScreen();
         }
     } else if (gameState.currentGameState === 'HIGH_SCORE_DISPLAY_SCREEN') {
         attractModeTimer -= delta;
@@ -206,6 +218,7 @@ function updateAttractMode(delta: number) {
 
 export const Attract = {
     showTitleScreen,
+    showStoryScreen,
     showHighScoreDisplayScreen,
     showDemoPlayScreen,
     updateAttractMode

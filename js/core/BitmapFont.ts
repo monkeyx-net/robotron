@@ -22,13 +22,32 @@ interface LoadedFont {
 
 const fonts = new Map<string, LoadedFont>();
 const DASH_W = 3;
-// ')' is outside the extracted '0'-'^' range; the heroes table's rank separator,
-// copied from a MAME snapshot (6 rows in the alt font; the main font drops one)
-const PAREN: Record<string, string[]> = {
-    font_alt: ['#..', '.#.', '..#', '..#', '.#.', '#..'],
-    font_main: ['#..', '.#.', '..#', '.#.', '#..'],
+// Punctuation outside the extracted '0'-'^' range, drawn as pixel patterns.
+// The alt ')' is copied from the heroes table in a MAME snapshot; the rest
+// follow the same style. Each advances by its width plus a blank column,
+// like the ROM glyph cells.
+const SYNTH: Record<string, Record<string, string[]>> = {
+    font_alt: {
+        ')': ['#..', '.#.', '..#', '..#', '.#.', '#..'],
+        '(': ['..#', '.#.', '#..', '#..', '.#.', '..#'],
+        '.': ['.', '.', '.', '.', '.', '#'],
+        ',': ['.', '.', '.', '.', '#', '#'],
+        "'": ['#', '#', '.', '.', '.', '.'],
+        '!': ['#', '#', '#', '#', '.', '#'],
+    },
+    font_main: {
+        ')': ['#.', '.#', '.#', '.#', '#.'],
+        '(': ['.#', '#.', '#.', '#.', '.#'],
+        '.': ['.', '.', '.', '.', '#'],
+        ',': ['.', '.', '.', '#', '#'],
+        "'": ['#', '#', '.', '.', '.'],
+        '!': ['#', '#', '#', '.', '#'],
+    },
 };
-const PAREN_W = 3;
+const synthWidth = (font: string, ch: string): number | null => {
+    const g = SYNTH[font]?.[ch];
+    return g ? g[0].length + 1 : null;
+};
 
 async function loadFont(name: 'font_main' | 'font_alt'): Promise<void> {
     if (fonts.has(name)) return;
@@ -96,15 +115,17 @@ export const BitmapFont = {
                 x += DASH_W + tracking;
                 continue;
             }
-            if (!tex && raw === ')') {
+            const synth = !tex ? SYNTH[fontName]?.[raw] : undefined;
+            if (synth) {
                 const g = new PIXI.Graphics();
-                (PAREN[fontName] ?? PAREN.font_main).forEach((row, yy) => {
+                synth.forEach((row, yy) => {
                     for (let xx = 0; xx < row.length; xx++) if (row[xx] === '#') g.rect(xx, yy, 1, 1);
                 });
-                g.fill(opts.tint ?? 0xFFFFFF);
+                g.fill(0xFFFFFF);
+                if (opts.tint !== undefined) g.tint = opts.tint;
                 g.x = x;
                 container.addChild(g);
-                x += PAREN_W + tracking;
+                x += synth[0].length + 1 + tracking;
                 continue;
             }
             if (!tex) { x += spaceW + tracking; continue; }
@@ -133,7 +154,7 @@ export const BitmapFont = {
         let x = 0;
         for (const raw of text.toUpperCase()) {
             const g = font.meta.glyphs[raw];
-            x += (g ? g.w : raw === '-' ? DASH_W : raw === ')' ? PAREN_W : spaceW) + tracking;
+            x += (g ? g.w : raw === '-' ? DASH_W : synthWidth(`font_${opts.font ?? 'main'}`, raw) ?? spaceW) + tracking;
         }
         return Math.max(0, x - tracking);
     },

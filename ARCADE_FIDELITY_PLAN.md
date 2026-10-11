@@ -179,7 +179,7 @@ origin (a small square in the top-left corner on every screen).
 
 ---
 
-## M5 — Systems polish (stretch)
+## M5 — Systems polish (stretch) — DONE 2026-10-11 (item 4 an intentional deviation)
 
 1. **Sound priority values.** Done 2026-10-11. Every `play_music_track` call in the flat
    ROM was read for its track's priority byte (REVERSE.md Phase 21, "Sound priorities"),
@@ -187,11 +187,24 @@ origin (a small square in the top-left corner on every screen).
    prog birth $D8, spheroid $D1, most kills and fire $D0, missile/tank fire and shell
    bounce $C8. The old "quark $77, spheroid $70" figures were invented. Sounds not called
    from the flat ROM keep their order above them, and the player's own shot stays lowest.
-2. **Attract cutscenes.** Alt-font story screens between attract phases.
+2. **Attract story — customized** (`core/AttractStory.ts`).
+   - The arcade's attract cycle (MAME, ~6,690 frames) runs: heroes table, logo build,
+     title, two typed story pages, then scripted character vignettes (REVERSE.md Phase 21,
+     "Attract cycle").
+   - The port keeps that presentation but tells its own story, a deliberate deviation.
+     Five bordered pages under the "ROBOTRON: 2084" header are typed in the ROM font,
+     2 frames a letter, each held 4 s once typed.
+   - They tell how this port came to be: a game remembered from 1982, the 48 KB 6809 ROM
+     read back byte by byte in MAME, every wave and timer recovered, and the game reborn
+     for the web by a human and an AI working together. The last page is "SAVE THE LAST
+     HUMAN FAMILY!" in cycling entry A.
+   - Cycle: title → story (~43 s) → heroes → demo. START works on every screen.
+   - BitmapFont now synthesizes . , ' ! ( ) in both fonts.
 3. ~~**Waves 13+ policy.**~~ Done (`cb4a626`): all 40 waves come from the ROM's count
    tables, and waves past 40 repeat 21–40 as the ROM does.
-4. **Demo-play input.** ROM attract uses scripted demo input (DP[$52]); replace the
-   current AI demo player with something closer to the ROM's feel if observable.
+4. **Demo-play input** — kept as an intentional deviation. The arcade has no free-play
+   demo: DP[$52] drives the hero in the scripted vignettes, which the customized story
+   replaces. The port keeps its AI demo game after the heroes table.
 
 **Exit criteria:** each item verified against MAME where observable; explicitly
 documented as intentional deviation where not.

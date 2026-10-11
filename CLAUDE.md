@@ -160,6 +160,7 @@ gameEvents.subscribe('player:hit', (data) => {
 - `js/core/SpawnPlacement.ts` - ROM wave-start spawn positions (safe-zone boxes, edge bands)
 - `js/core/ColorCycles.ts` - the ROM's colour-cycling palette entries A/B/D/E/F (electrodes, progs, HUD)
 - `js/core/DeathBeat.ts` - the ROM's player-death flash and fade (playerHit, game over)
+- `js/core/AttractStory.ts` - attract-mode story pages about the reverse-engineering and rebuild (title → story → heroes → demo)
 - `js/core/ArcadeHud.ts` - in-canvas HUD for both players, laid out from MAME
 - `js/core/WavePacing.ts` - Live enemy pacing: ROM grunt cadence/ramp, mercy table, prng_le timers for the other enemies (wired in `enemies.ts`)
 - `js/core/CollisionSystem.ts` - Optimized collision detection
