@@ -211,7 +211,11 @@ documented as intentional deviation where not.
 
 ---
 
-## M6 — Release 3.0
+## M6 — Release (shipped as 3.1.0)
+
+*`v3.0` was already tagged on `main` (2026-07-12, `9032018`) before M1–M5 were done, so this
+work ships as **v3.1.0** (a minor version: new features, no breaking changes), without
+moving the published tag.*
 
 1. Update README.md + CLAUDE.md with Release 3.0 notes (atlas pipeline, arcade
    systems, verification results). Fold this plan's outcomes into the docs.

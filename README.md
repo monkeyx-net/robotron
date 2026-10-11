@@ -20,6 +20,23 @@ Robotron: 2084 is a multi-directional shooter arcade game developed by Eugene Ja
 - **Multiple enemy types**: Grunts, Hulks, Spheroids, Enforcers, Brains, Tanks, and Quarks
 - **Classic arcade feel**: Authentic retro graphics and sound effects, reverse-engineered from the original ROM
 
+## ✨ Release 3.1 — Arcade Fidelity, Part 2
+
+Version 3.1 finishes the gap-closure plan ([`ARCADE_FIDELITY_PLAN.md`](ARCADE_FIDELITY_PLAN.md), M1–M5). Every system was traced in the ROM, then checked against the arcade running in MAME with Lua probes that log its RAM frame by frame.
+
+- **Bit-exact PRNG**: a golden test (`npm test`) found the 3.0 generator diverged from the ROM on its first call; it now matches 1000 of 1000 outputs captured in MAME
+- **Operator GAME ADJUSTMENT menu** (F2 / `?` / Select+Start on the title screens): extra man, men per game, DIFFICULTY OF PLAY, high-score letters, with the ROM's own per-wave timer tables
+- **ROM pacing for every enemy**: grunt cadence and in-wave speed-up, and spheroid, enforcer, brain, quark and tank timers, all from the ROM's wave parameters
+- **ROM wave table**: all 40 waves of enemies, electrodes and family members (mommies, daddies, mikeys) generated from the ROM's count tables and checked in MAME; waves past 40 cycle 21–40 as in the arcade
+- **ROM electrodes and spawn positions**: the nine electrode shapes (starburst, lattice, squares, triangles, bars, diamonds, rings, spirals, "2084" plates) pixel for pixel on the ROM's 10-wave cycle, in the arcade's colour-cycling palette entries, shrinking away over 11 frames when destroyed; enemies spawn outside the ROM's per-wave safe zone around the player, brains near the edges, spheroids at the sides and quarks top and bottom
+- **ROM progs**: a reprogrammed human walks as a solid colour-cycling silhouette of itself with a trail of afterimages, stepping toward you one axis at a time
+- **ROM walk animations**: the player, humans, hulks and brains face the way they move, with the ROM's own step sizes and direction tables; the player faces the move stick, never the fire stick
+- **ROM enforcers and sparks**: enforcers materialize, then ease in toward you and fire curving sparks that fizzle out and slide along the walls; sparks, cruise missiles and tank shells can be shot for 25 points
+- **ROM cruise missiles**: brains fire the arcade's colour-cycling missile with its trail, zig-zagging after you in 8 directions and bouncing off the walls
+- **ROM death and game over**: the playfield freezes while you flash and fade, then the survivors are re-laid and beam back in; the last death ends on GAME OVER over the frozen field, then initials and the heroes table, with the arcade HUD for both players
+- **Attract story**: the attract cycle tells, in the arcade's typed ROM-font style, how this port was made: a game remembered from 1982, its ROM read back byte by byte in MAME, and its rebirth for the web by a human and an AI together
+- **ROM sound priorities and scoring**: every sound's priority byte and every point value read from the ROM and checked in the browser
+
 ## ✨ Release 3.0 — Arcade Fidelity
 
 Version 3.0 is a ground-up accuracy pass built directly against the original Williams 6809 ROM, using a custom disassembler/tracer and MAME-captured reference footage (`robotron-re`, 180 verified gameplay snapshots) to close the gap between this port and the arcade original.
@@ -27,16 +44,8 @@ Version 3.0 is a ground-up accuracy pass built directly against the original Wil
 ### 🔬 ROM-Accurate Assets & Systems
 
 - **ROM sprite atlas & bitmap fonts**: extracted directly from the ROM's graphics ROM banks and blitter source data, then hand-verified frame-by-frame against MAME captures (not redrawn or approximated)
-- **Ported PRNG**: the ROM's actual pseudo-random number generator (`$D6CD`), so enemy homing jitter, spawn positions, and re-homing decisions follow the same statistical behavior as the arcade
-- **ROM wave table**: all 40 waves of enemies, electrodes and family members (mommies, daddies, mikeys) generated from the ROM's count tables and checked in MAME; waves past 40 cycle 21–40 as in the arcade
-- **ROM electrodes and spawn positions**: the nine electrode shapes (starburst, lattice, squares, triangles, bars, diamonds, rings, spirals, "2084" plates) pixel for pixel on the ROM's 10-wave cycle, in the arcade's colour-cycling palette entries, shrinking away over 11 frames when destroyed; enemies spawn outside the ROM's per-wave safe zone around the player, brains near the edges, spheroids at the sides and quarks top and bottom
-- **ROM progs**: a reprogrammed human walks as a solid colour-cycling silhouette of itself with a trail of afterimages, stepping toward you one axis at a time
-- **Attract story**: the attract cycle tells, in the arcade's typed ROM-font style, how this port was made: a game remembered from 1982, its ROM read back byte by byte in MAME, and its rebirth for the web by a human and an AI together
-- **ROM death and game over**: the playfield freezes while you flash and fade, then the survivors are re-laid and beam back in; the last death ends on GAME OVER over the frozen field, then initials and the heroes table, with the arcade HUD for both players
-- **ROM enforcers and sparks**: enforcers materialize, then ease in toward you and fire curving sparks that fizzle out and slide along the walls; sparks, cruise missiles and tank shells can be shot for 25 points
-- **ROM cruise missiles**: brains fire the arcade's colour-cycling missile with its trail, zig-zagging after you in 8 directions and bouncing off the walls
-- **ROM walk animations**: the player, humans, hulks and brains face the way they move, with the ROM's own step sizes and direction tables; the player faces the move stick, never the fire stick
-- **Arcade-authentic AI**: stepped grunt/hulk movement, drifting PRNG-jittered enforcers, cruise-missile brain projectiles with sinusoidal wiggle, hulks that seek humans via the ROM's pointer-table scan — all traced from disassembly, not reimplemented from memory of the game
+- **Ported PRNG**: the ROM's pseudo-random number generator (`$D6CD`) — made bit-exact in 3.1
+- **Arcade-authentic AI**: stepped grunt/hulk movement and hulks that seek humans via the ROM's pointer-table scan — traced from disassembly, not reimplemented from memory of the game
 
 ### 🎯 Faithful Game Feel
 
@@ -51,7 +60,7 @@ Version 3.0 is a ground-up accuracy pass built directly against the original Wil
 - **Zero TypeScript errors**: `tsc --noEmit` is clean (down from 154 legacy errors) and the typecheck gate is back in `npm run build`, so regressions fail the build instead of silently shipping
 - Verified end-to-end via Playwright against the production build — movement, shooting, scoring, wave progression, and playfield boundaries are all exercised, not just eyeballed
 
-See [`ARCADE_FIDELITY_PLAN.md`](ARCADE_FIDELITY_PLAN.md) for the full gap-closure roadmap (PRNG golden tests, 4-direction sprite facing, shootable projectiles, arcade attract-mode flow, and more).
+See [`ARCADE_FIDELITY_PLAN.md`](ARCADE_FIDELITY_PLAN.md) for the gap-closure roadmap that 3.1 completed.
 
 <details>
 <summary><strong>✨ Release 2.0 Features</strong> (previous release — click to expand)</summary>
@@ -204,7 +213,14 @@ window.__game.enemies
 
 ## 🔄 Version History
 
-### Version 3.0 (Current) — Arcade Fidelity
+### Version 3.1 (Current) — Arcade Fidelity, Part 2
+- Bit-exact ROM PRNG with a MAME golden test (`npm test`)
+- Operator GAME ADJUSTMENT menu and ROM per-wave enemy timers
+- ROM wave table, electrodes, spawn positions, progs, walk animations, enforcers, sparks and cruise missiles
+- Arcade player death, game over, HUD, sound priorities and scoring
+- Attract story about the reverse-engineering and rebuild
+
+### Version 3.0 — Arcade Fidelity
 - ROM-accurate sprite atlas and bitmap fonts, extracted and hand-verified against MAME
 - Ported ROM PRNG, ROM wave table, ROM-traced enemy AI behaviors
 - Arcade scoring, 3-initial high-score entry, 2-player alternating play

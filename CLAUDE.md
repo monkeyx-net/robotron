@@ -190,7 +190,24 @@ See `GEMINI.md`, `PHASE3_COMPLETION.md`, and `.kiro/specs/robotron-refactoring/`
 
 ## Release History & Versions
 
-### Release 2.0 (Current) - January 2026
+### Release 3.1 (Current) - October 2026
+**Status**: Arcade fidelity, part 2 — ARCADE_FIDELITY_PLAN M1–M5 complete
+
+- Bit-exact ROM PRNG with a MAME golden test (`npm test`)
+- Operator GAME ADJUSTMENT menu; enemy pacing from the ROM's per-wave timer tables
+- ROM wave table (40 waves), electrodes, spawn positions, progs, walk animations, enforcers, sparks, cruise missiles
+- Arcade player death, game over flow, two-player HUD, sound priorities, scoring
+- Attract story pages about the reverse-engineering and rebuild
+- Reverse-engineering notes and MAME probes live in the sibling `robotron-re` repo (REVERSE.md Phase 21)
+
+**Git Tags**: `v3.1.0` on main
+
+### Release 3.0 - July 2026
+**Status**: Arcade fidelity — ROM sprite atlas, ROM fonts, ROM-traced AI
+
+**Git Tags**: `v3.0` on main
+
+### Release 2.0 - January 2026
 **Status**: Production - Complete Phase 3 Refactoring
 
 Complete architectural overhaul with modern design patterns:
