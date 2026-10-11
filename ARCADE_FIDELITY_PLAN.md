@@ -46,11 +46,14 @@ pixels outside the arena; grunt cadence visually indistinguishable at 10 s.
 
 ## M2 — Animation fidelity (4-direction facing)
 
-*The single most visible remaining gap: everything currently walks facing down.*
+*The single most visible remaining gap. The atlas keeps the ROM's frame order (left 0–2,
+right 3–5, down 6–8, up 9–11). The player and humans always use the left-facing walk
+(frames 0–2); hulks and brains cycle through every frame whichever way they move. Progs
+already pick their direction's frames (`humans.ts`).*
 
-1. **Grunt 4-direction walk.** Atlas has 3 frames × 4 directions; code uses
-   `slice(0,3)`. Select row by dominant movement axis; advance frame per step
-   (ROM: sprite index += 3 mod 9 per move tick — Ph12 $5EAB).
+1. ~~**Grunt 4-direction walk.**~~ Not needed: grunts have only 3 frames (one
+   facing), stepped once per move as in the ROM. $5EAB, once thought to be the grunt
+   walker, is the prog's update routine.
 2. **Human family 4-direction walk.** mommy/daddy/mikey each have 12 frames
    (3 walk × 4 dirs). Same selection rule.
 3. **Player 4-direction walk + fire-direction poses.** ROM has a fire-direction
@@ -63,7 +66,7 @@ pixels outside the arena; grunt cadence visually indistinguishable at 10 s.
 5. **Brain 4-direction animation** (ROM tables L/R/U/D — Ph15) if atlas frames allow.
 
 **Exit criteria:** side-by-side against MAME snap frames: entity facing matches
-movement/fire direction for player, grunts, humans, brains on waves 1–5.
+movement/fire direction for player, humans, hulks and brains on waves 1–5.
 
 ---
 

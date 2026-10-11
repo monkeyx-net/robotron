@@ -331,8 +331,8 @@ export function createPlayer(): Player {
 
     // ROM-extracted player frames (walk/fire-direction poses); falls back
     // to the legacy player.png when the atlas is unavailable.
-    // 12 frames = 3-frame walk x 4 directions; use the down-facing walk
-    // cycle (frames 0-2) as the base animation.
+    // 12 frames = 3-frame walk x 4 directions in ROM order (left, right,
+    // down, up); only the left-facing walk (frames 0-2) is used for now.
     const atlasFrames = ArcadeAtlas.frames('player');
     let playerSprite: PIXI.Sprite;
     if (atlasFrames.length) {

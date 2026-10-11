@@ -1,6 +1,6 @@
 # Operator Settings Plan (arcade "GAME ADJUSTMENT" menu)
 
-Status: **steps 1–3 committed (`62d5a8f`); step 4 committed (`fb0d989`); step 4b (remaining enemy params) committed (`96a110d`); wave counts committed (`cb4a626`); electrodes + spawn positions committed (`1d43a7c`); colour cycles + progs committed (`526735f`); electrode shrink done 2026-10-11 (uncommitted); step 5 optional.** Branch: `release-3.0`.
+Status: **steps 1–3 committed (`62d5a8f`); step 4 committed (`fb0d989`); step 4b (remaining enemy params) committed (`96a110d`); wave counts committed (`cb4a626`); electrodes + spawn positions committed (`1d43a7c`); colour cycles + progs committed (`526735f`); electrode shrink committed (`e3983ac`); README facing fix 2026-10-11 (uncommitted); step 5 optional.** Branch: `release-3.0`.
 
 Goal: add the original ROM's operator adjustments that matter to gameplay,
 and skip those that only make sense on physical cabinet hardware.
@@ -174,8 +174,9 @@ physical high-score-reset switch; SET ATTRACT MODE MESSAGE and SET HIGHEST SCORE
      their trails with them.
      Verified in MAME (prog captures on wave 5) and in the browser (silhouette 8×14, 12
      frames, 6-copy trail, 4 px axis steps, A/E colours cycling, no errors).
-   - Seen, not fixed: README's "down-facing only" is wrong; humans use frames 0-2, which
-     face left (atlas order is left, right, down, up as in the ROM).
+   - Fixed in the README and ARCADE_FIDELITY_PLAN.md: the "down-facing only" claim was
+     wrong. The player and humans use frames 0-2, which face left (atlas order is left,
+     right, down, up as in the ROM); hulks and brains cycle all their frames.
 5. **Optional:** FANCY ATTRACT MODE toggle; a statistics page (extra men earned, play
    time, men played — non-coin bookkeeping); a controller test screen (the web version
    of the switch test).

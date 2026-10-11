@@ -253,7 +253,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 Full detail in [`ARCADE_FIDELITY_PLAN.md`](ARCADE_FIDELITY_PLAN.md). Highlights:
 
 - [ ] PRNG golden test + MAME scoring-ledger spot checks
-- [ ] 4-direction sprite facing for player, grunts, humans (currently down-facing only)
+- [ ] 4-direction sprite facing for the player and humans (they always use the left-facing walk, ROM frames 0–2), plus hulks and brains (they cycle through all their frames whichever way they move); progs already face their direction, and grunts have no facing
 - [ ] Shootable enforcer sparks & tank shells for their ROM point values
 - [ ] Arcade-accurate game-over → high-score → attract flow (retire the DOM "Play Again?" button)
 - [ ] 2P dual-score HUD
