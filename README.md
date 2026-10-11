@@ -31,6 +31,7 @@ Version 3.0 is a ground-up accuracy pass built directly against the original Wil
 - **ROM wave table**: all 40 waves of enemies, electrodes and family members (mommies, daddies, mikeys) generated from the ROM's count tables and checked in MAME; waves past 40 cycle 21–40 as in the arcade
 - **ROM electrodes and spawn positions**: the nine electrode shapes (starburst, lattice, squares, triangles, bars, diamonds, rings, spirals, "2084" plates) pixel for pixel on the ROM's 10-wave cycle, in the arcade's colour-cycling palette entries, shrinking away over 11 frames when destroyed; enemies spawn outside the ROM's per-wave safe zone around the player, brains near the edges, spheroids at the sides and quarks top and bottom
 - **ROM progs**: a reprogrammed human walks as a solid colour-cycling silhouette of itself with a trail of afterimages, stepping toward you one axis at a time
+- **ROM death and game over**: the playfield freezes while you flash and fade, then the survivors are re-laid and beam back in; the last death ends on GAME OVER over the frozen field, then initials and the heroes table, with the arcade HUD for both players
 - **ROM enforcers and sparks**: enforcers materialize, then ease in toward you and fire curving sparks that fizzle out and slide along the walls; sparks, cruise missiles and tank shells can be shot for 25 points
 - **ROM cruise missiles**: brains fire the arcade's colour-cycling missile with its trail, zig-zagging after you in 8 directions and bouncing off the walls
 - **ROM walk animations**: the player, humans, hulks and brains face the way they move, with the ROM's own step sizes and direction tables; the player faces the move stick, never the fire stick
@@ -258,8 +259,9 @@ Full detail in [`ARCADE_FIDELITY_PLAN.md`](ARCADE_FIDELITY_PLAN.md). Highlights:
 - [ ] PRNG golden test + MAME scoring-ledger spot checks
 - [x] 4-direction sprite facing from the ROM's walk tables: the player (move stick only), humans, hulks, brains and progs face the way they move; grunts have no facing
 - [x] Shootable enforcer sparks, cruise missiles & tank shells for their ROM point values (25 each)
-- [ ] Arcade-accurate game-over → high-score → attract flow (retire the DOM "Play Again?" button)
-- [ ] 2P dual-score HUD
+- [x] Arcade-accurate game-over → high-score → attract flow (the DOM "Play Again?" button is gone)
+- [x] 2P dual-score HUD, laid out and coloured from MAME
+- [ ] Arcade heroes table layout (two columns, ALL TIME HEROES)
 - [ ] Performance optimization with object pooling
 - [ ] Online leaderboards, replay system
 

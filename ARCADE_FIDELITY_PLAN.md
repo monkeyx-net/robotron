@@ -123,27 +123,50 @@ sound is $4B1E.
 
 ---
 
-## M4 — Presentation & game flow
+## M4 — Presentation & game flow — DONE 2026-10-11 (heroes layout left)
 
-1. **Arcade game-over flow.** Replace the DOM "PLAY AGAIN?" button with the ROM
-   sequence ($B9AF — Ph14): game over → high-score entry (if qualifying) → heroes
-   table → attract cycle. Enter/start inserts a new game from any attract screen.
-   (Initials-screen field clear already done.)
-2. **Wave-complete flash.** ROM flashes the player sprite during the wave-complete
-   countdown before clearing non-priority objects ($9E60–$9EA9 — Ph14). Add the
-   flash-then-transition beat.
-3. **Player-death beat.** ROM: death music track + free objects + wave respawn
-   ($70EF). Verify our death sequence matches (timing + entity re-scatter).
-4. **Heroes table separator.** Use '>' as the ROM does (parens are not in the ROM
-   charset; currently '.').
-5. **2P dual-score HUD.** Position both scores per the ROM video rows ($150E/$550E
-   row $0E — Ph7); P2 score visible during 2P games.
-6. **Richer per-wave electrode shapes.** Extend the procedural electrode variants
-   to match per-wave shapes observed in the MAME snapshots.
+Checked against MAME snapshots (robotron-re `tools/gameover_probe.lua`; REVERSE.md Phase
+21, "Player death, game over and the HUD"):
 
-**Exit criteria:** a full credit (insert → play → die → initials → heroes → attract)
-matches the arcade sequence with no DOM chrome; screenshots match MAME reference
-frames for HUD layout and wave transitions.
+1. **Game over.**
+   - The DOM "PLAY AGAIN?" box is gone.
+   - The last man flashes and fades on the frozen playfield. GAME OVER then shows at the
+     ROM position and colour for 120 frames, then initials entry if the score qualifies,
+     then the heroes table for 580 frames, then the attract cycle.
+   - START begins a new game from any attract screen, as before.
+   - Not ported: the rectangle wipe before the heroes table when the score doesn't qualify.
+2. **Wave-complete flash.** Not needed. The ROM routine this item cited ($9E60) is the
+   player death; the wave-clear sequence (`WaveTransition.ts`, already timed in MAME)
+   has no player flash.
+3. **Player death** (`core/DeathBeat.ts`):
+   - No explosion. The playfield freezes.
+   - The man is a solid silhouette in entry 9, then flashes entries 0/1/3/7 every 6 frames,
+     10 times, then fades through $FF…$09 at 4 frames a step.
+   - At frame 104 the man is taken. The wave is re-laid from what survives: grunts,
+     electrodes, family, hulks, brains, spheroids and quarks get fresh ROM spawn positions
+     and beam in. Enforcers, tanks, progs and shots are gone.
+4. **Heroes separator.**
+   - The ROM uses ')' (MAME), not '>': the ROM's '>' glyph is an up-arrow. BitmapFont now
+     synthesizes ')'.
+   - Left: the arcade table is in the tall font, in two columns (1–5, 6–10), plus ALL TIME
+     HEROES; the port shows one column.
+5. **HUD, both players** (`core/ArcadeHud.ts`):
+   - Scores in the tall font, ending at x 82 / 210. The current player's score cycles in
+     palette entry A, and the waiting player's is red; a zero score shows as "00".
+   - The ROM life icon from x 86 / 214.
+   - The bottom "P1-wave WAVE P2-wave" line in entry A.
+   - Glyphs are drawn with no extra gap, as in MAME.
+6. ~~**Richer per-wave electrode shapes.**~~ Done in `1d43a7c` (ROM bitmaps for every wave).
+
+**Also fixed:** the Milestone 3 self-test left its test entities visible at the stage
+origin (a small square in the top-left corner on every screen).
+
+**Verified in the browser:**
+- **Death:** freeze, re-lay with new positions, play resumes after 170 frames (MAME: 184).
+- **Game over:** GAME OVER at frame 122 at (118, 121), initials at 238, heroes at 242
+  (MAME: 240), demo 580 frames later.
+- **HUD:** P1 and P2 positions match the MAME measurements.
+- No errors.
 
 ---
 

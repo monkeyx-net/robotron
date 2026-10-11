@@ -60,6 +60,12 @@ export const TwoPlayer = {
     },
 
     isTwoPlayer(): boolean { return playerCount === 2; },
+
+    /** The waiting player's saved score/lives/wave in a 2-player game, else null. */
+    otherPlayer(): Readonly<PlayerSlot> | null {
+        if (playerCount !== 2) return null;
+        return slots[1 - current] ?? null;
+    },
     currentPlayer(): number { return current; },
     /** Scores for HUD display: [p1, p2?]. */
     scores(): number[] {

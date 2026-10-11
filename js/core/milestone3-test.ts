@@ -26,6 +26,8 @@ export class Milestone3Test {
     constructor(app: PIXI.Application) {
         this.app = app;
         this.testContainer = new PIXI.Container();
+        // the tests only check the entities exist; never draw them over the game
+        this.testContainer.visible = false;
         this.app.stage.addChild(this.testContainer);
     }
     

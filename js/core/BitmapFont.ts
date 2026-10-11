@@ -22,6 +22,13 @@ interface LoadedFont {
 
 const fonts = new Map<string, LoadedFont>();
 const DASH_W = 3;
+// ')' is outside the extracted '0'-'^' range; the heroes table's rank separator,
+// copied from a MAME snapshot (6 rows in the alt font; the main font drops one)
+const PAREN: Record<string, string[]> = {
+    font_alt: ['#..', '.#.', '..#', '..#', '.#.', '#..'],
+    font_main: ['#..', '.#.', '..#', '.#.', '#..'],
+};
+const PAREN_W = 3;
 
 async function loadFont(name: 'font_main' | 'font_alt'): Promise<void> {
     if (fonts.has(name)) return;
@@ -89,6 +96,17 @@ export const BitmapFont = {
                 x += DASH_W + tracking;
                 continue;
             }
+            if (!tex && raw === ')') {
+                const g = new PIXI.Graphics();
+                (PAREN[fontName] ?? PAREN.font_main).forEach((row, yy) => {
+                    for (let xx = 0; xx < row.length; xx++) if (row[xx] === '#') g.rect(xx, yy, 1, 1);
+                });
+                g.fill(opts.tint ?? 0xFFFFFF);
+                g.x = x;
+                container.addChild(g);
+                x += PAREN_W + tracking;
+                continue;
+            }
             if (!tex) { x += spaceW + tracking; continue; }
             const spr = new PIXI.Sprite(tex);
             spr.x = x;
@@ -115,7 +133,7 @@ export const BitmapFont = {
         let x = 0;
         for (const raw of text.toUpperCase()) {
             const g = font.meta.glyphs[raw];
-            x += (g ? g.w : raw === '-' ? DASH_W : spaceW) + tracking;
+            x += (g ? g.w : raw === '-' ? DASH_W : raw === ')' ? PAREN_W : spaceW) + tracking;
         }
         return Math.max(0, x - tracking);
     },

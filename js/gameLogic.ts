@@ -20,6 +20,7 @@ import { electrodeLook } from './core/ElectrodeShapes';
 import { ScorePopup } from './core/ScorePopup';
 import { WaveTransition } from './core/WaveTransition';
 import { Operator } from './core/OperatorSettings';
+import { DeathBeat } from './core/DeathBeat';
 
 // --- High Score ---
 export function loadHighScore() {
@@ -126,61 +127,78 @@ export function playerHit() {
         }
     });
 
-    Effects.createExplosion(player.sprite.x, player.sprite.y);
+    // ROM death ($70EF): no explosion. Everything freezes while the man
+    // flashes and fades (core/DeathBeat.ts); then the man is taken and the
+    // wave is re-laid from what is left and beamed back in.
     SoundManager.play('playerDeath');
     gameState.lives--;
     player.isAlive = false;
+    player.dx = 0; player.dy = 0;
     WavePacing.onPlayerDeath(Math.max(0, gameState.lives - 1));
     gameState.currentHumanRescueBonus = GameConfig.INITIAL_HUMAN_RESCUE_BONUS;
     gameState.humanRescueBonusDecayTimer = 0;
     if(UI.updateBonusDisplay) UI.updateBonusDisplay();
 
-
-    const respawnHere = () => {
-        gameState.playerInvulnerableTime = GameConfig.RESPAWN_INVULNERABILITY_TIME;
-        if (player && player.sprite) player.sprite.visible = false;
-        setTimeout(() => {
-            if (gameState.currentGameState === 'GAME_OVER') return;
-            if (player && !isEntityGone(player) && GameConfig) {
-                player.sprite.x = GameConfig.GAME_WIDTH / 2;
-                player.sprite.y = GameConfig.GAME_HEIGHT / 2;
-                player.dx = 0;
-                player.dy = 0;
-                player.sprite.visible = true;
-            }
-            if (player) player.isAlive = true;
-        }, 500);
-    };
-
     const outcome = TwoPlayer.onDeath();
     if (outcome === 'game_over') {
         gameState.currentGameState = 'GAME_OVER';
-        if (UI && UI.showGameOverScreen) UI.showGameOverScreen();
-    } else if (outcome === 'swap') {
-        // 2P alternating: hand control to the other player; their wave
-        // restarts fresh after the PLAYER N interstitial (arcade behavior).
-        if (player.sprite) player.sprite.visible = false;
-        TwoPlayer.showInterstitial(app.stage).then(() => {
-            if (gameState.currentGameState === 'GAME_OVER') return;
-            // If the wave ended during the interstitial, the wave-transition
-            // timer starts the next wave — but the player must still be
-            // restored, or they stay invisible and unhittable (ghost).
-            if (gameState.currentGameState === 'PLAYING') startNextWave();
-            if (player && !isEntityGone(player)) {
-                player.sprite.x = GameConfig.GAME_WIDTH / 2;
-                player.sprite.y = GameConfig.GAME_HEIGHT / 2;
-                player.dx = 0;
-                player.dy = 0;
-                player.sprite.visible = true;
-                player.isAlive = true;
-            }
-            gameState.playerInvulnerableTime = GameConfig.RESPAWN_INVULNERABILITY_TIME;
-            if (UI && UI.updateUI) UI.updateUI();
-        });
-    } else {
-        respawnHere();
+        if (UI && UI.showGameOverScreen) UI.showGameOverScreen();   // plays the death beat itself
+        if (UI && UI.updateUI) UI.updateUI();
+        return;
     }
+    gameState.currentGameState = 'WAVE_TRANSITION';   // freezes the playfield
+    const deadPlayer = player;
+    DeathBeat.play(player.sprite as PIXI.Sprite, () => {
+        if (outcome === 'swap') swapAfterDeath();
+        else relayWave();
+    }, () => gameState.currentGameState === 'WAVE_TRANSITION' && player === deadPlayer);
     if (UI && UI.updateUI) UI.updateUI();
+}
+
+/** 2P alternating: hand control to the other player after the PLAYER N interstitial. */
+function swapAfterDeath(): void {
+    if (!player || isEntityGone(player)) return;
+    gameState.currentGameState = 'PLAYING';
+    player.sprite.visible = false;
+    TwoPlayer.showInterstitial(app.stage).then(() => {
+        if (gameState.currentGameState === 'GAME_OVER') return;
+        // If the wave ended during the interstitial, the wave-transition
+        // timer starts the next wave — but the player must still be
+        // restored, or they stay invisible and unhittable (ghost).
+        if (gameState.currentGameState === 'PLAYING') startNextWave();
+        if (player && !isEntityGone(player)) {
+            player.sprite.x = GameConfig.GAME_WIDTH / 2;
+            player.sprite.y = GameConfig.GAME_HEIGHT / 2;
+            player.dx = 0;
+            player.dy = 0;
+            player.sprite.visible = true;
+            player.isAlive = true;
+        }
+        gameState.playerInvulnerableTime = GameConfig.RESPAWN_INVULNERABILITY_TIME;
+        if (UI && UI.updateUI) UI.updateUI();
+    });
+}
+
+/**
+ * After a death the ROM re-lays the wave from its live counts ($7101/$9E76
+ * wave_spawn with $BE68-$BE70): the surviving grunts, electrodes, family,
+ * hulks, brains, spheroids and quarks get fresh spawn positions and beam in
+ * again; enforcers, tanks, progs and all shots are gone.
+ */
+function relayWave(): void {
+    const alive = (t: string) => enemies.filter(e => !isEntityGone(e) && e.type === t).length;
+    const humans = (t: string) => humansAndProgs.filter((h: any) => !isEntityGone(h) && h.type === 'human' && !h.isRescued && h.humanType === t).length;
+    const counts: WaveCounts = {
+        grunts: alive('grunt'), hulks: alive('hulk'), spheroids: alive('spheroid'), brains: alive('brain'),
+        quarks: alive('quark'), electrodes: obstacles.filter(o => !isEntityGone(o) && o.type === 'electrode').length,
+        mommies: humans('WOMAN'), daddies: humans('MAN'), mikeys: humans('CHILD'),
+    };
+    clearEntities(true, true);
+    layWave(counts);
+    if (player && !isEntityGone(player)) player.sprite.visible = false;
+    WaveTransition.materialize(() => {
+        if (gameState.currentGameState === 'WAVE_TRANSITION') gameState.currentGameState = 'PLAYING';
+    });
 }
 
 export function isColliding(spriteA: PIXI.Sprite | PIXI.Graphics | PIXI.Container, spriteB: PIXI.Sprite | PIXI.Graphics | PIXI.Container, tolerance = 5) {
@@ -282,6 +300,25 @@ export function startNextWave() {
     // Arcade wave composition: the ROM's count tables (js/waveTable.ts).
     const def = getWaveDef(gameState.wave);
     WavePacing.beginWave(gameState.wave, Math.max(0, gameState.lives - 1));
+    layWave(def);
+
+    if (player) player.isAlive = true;
+    gameState.playerInvulnerableTime = GameConfig.RESPAWN_INVULNERABILITY_TIME;
+}
+
+type WaveCounts = Pick<ReturnType<typeof getWaveDef>, 'grunts' | 'hulks' | 'spheroids' | 'brains' | 'quarks' | 'electrodes' | 'mommies' | 'daddies' | 'mikeys'>;
+
+/**
+ * Lay out a wave's electrodes, enemies and family at ROM spawn positions
+ * (core/SpawnPlacement.ts), with the player in the centre.
+ */
+function layWave(def: WaveCounts): void {
+    if (player && !isEntityGone(player)) {
+        player.sprite.x = GameConfig.GAME_WIDTH / 2;
+        player.sprite.y = GameConfig.GAME_HEIGHT / 2;
+        player.dx = 0;
+        player.dy = 0;
+    }
     const numGrunts = def.grunts, numHulks = def.hulks, numSpheroids = def.spheroids;
     const numBrains = def.brains, numQuarks = def.quarks;
     const numElectrodes = def.electrodes;
@@ -339,7 +376,6 @@ export function startNextWave() {
             const { w, h } = size(hm); place(hm, SpawnPlacement.anywhere(w, h));
         }
     }
-
     if (player) player.isAlive = true;
     gameState.playerInvulnerableTime = GameConfig.RESPAWN_INVULNERABILITY_TIME;
 }

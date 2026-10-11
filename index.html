@@ -59,25 +59,6 @@
         #score, #lives, #bonus { 
             padding: 0 5px;
         }
-        #message-box { 
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: rgba(0,0,0,0.8);
-            color: #FFFF00;
-            padding: 20px;
-            border: 2px solid #FFFF00;
-            text-align: center;
-            font-size: 12px;
-            z-index: 100;
-            display: none;
-            max-width: 90%;
-        }
-        #message-title {
-            font-size: 1.2em;
-            margin-bottom: 10px;
-        }
         .button { 
             font-family: 'Press Start 2P', cursive;
             background-color: #FF00FF;
@@ -112,11 +93,6 @@
             <div id="bonus">BONUS: 1000</div> 
             <div id="lives">LIVES: 30</div>
         </div>
-    </div>
-    <div id="message-box"> 
-        <div id="message-title">GAME OVER</div>
-        <div id="message-text">FINAL SCORE: 0</div>
-        <button id="play-again-button" class="button">PLAY AGAIN?</button>
     </div>
 
     <!-- Relative so the URL matches internal module imports under the

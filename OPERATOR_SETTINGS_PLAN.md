@@ -1,6 +1,6 @@
 # Operator Settings Plan (arcade "GAME ADJUSTMENT" menu)
 
-Status: **steps 1–3 committed (`62d5a8f`); step 4 committed (`fb0d989`); step 4b (remaining enemy params) committed (`96a110d`); wave counts committed (`cb4a626`); electrodes + spawn positions committed (`1d43a7c`); colour cycles + progs committed (`526735f`); electrode shrink committed (`e3983ac`); README facing fix committed (`7808144`); sprite facing (ARCADE_FIDELITY_PLAN M2) committed (`01a1c77`); brain cruise missiles + spheroid difficulty check committed (`c10054e`); ARCADE_FIDELITY_PLAN M3 done 2026-10-11 (uncommitted); step 5 optional.** Branch: `release-3.0`.
+Status: **steps 1–3 committed (`62d5a8f`); step 4 committed (`fb0d989`); step 4b (remaining enemy params) committed (`96a110d`); wave counts committed (`cb4a626`); electrodes + spawn positions committed (`1d43a7c`); colour cycles + progs committed (`526735f`); electrode shrink committed (`e3983ac`); README facing fix committed (`7808144`); sprite facing (ARCADE_FIDELITY_PLAN M2) committed (`01a1c77`); brain cruise missiles + spheroid difficulty check committed (`c10054e`); ARCADE_FIDELITY_PLAN M3 committed (`837f4f9`); M4 done 2026-10-11 (uncommitted); step 5 optional.** Branch: `release-3.0`.
 
 Goal: add the original ROM's operator adjustments that matter to gameplay,
 and skip those that only make sense on physical cabinet hardware.

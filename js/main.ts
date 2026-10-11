@@ -897,8 +897,6 @@ function startGameFromTitle(playerCount: number = 1) {
     const demoContainer = demoPlayContainer;
     if(demoContainer) demoContainer.visible = false;
 
-    const messageBox = document.getElementById('message-box');
-    if(messageBox) messageBox.style.display = 'none';
 }
 
 // --- Legacy Game Loop (Replaced by GameEngine) ---

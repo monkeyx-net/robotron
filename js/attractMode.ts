@@ -81,8 +81,6 @@ function hideDemoPlayScreenLogic() {
 function showTitleScreen() {
     if (!UI || !GameConfig) { console.warn("Attract.showTitleScreen: Missing dependencies."); return; }
 
-    const messageBox = document.getElementById('message-box');
-    if(messageBox) messageBox.style.display = 'none';
 
     gameState.currentGameState = 'TITLE_SCREEN';
     if(UI.hideHighScoreDisplayScreen) UI.hideHighScoreDisplayScreen();
@@ -97,11 +95,10 @@ function showTitleScreen() {
     if (UI.resizeGame) UI.resizeGame();
 }
 
-function showHighScoreDisplayScreen() {
+/** Heroes table; `frames` overrides how long it stays (after a game it is ~580, as in MAME). */
+function showHighScoreDisplayScreen(frames?: number) {
     if (!UI || !GameConfig) { console.warn("Attract.showTitleScreen: Missing dependencies."); return; }
 
-    const messageBox = document.getElementById('message-box');
-    if(messageBox) messageBox.style.display = 'none';
 
     gameState.currentGameState = 'HIGH_SCORE_DISPLAY_SCREEN';
     if(UI.hideTitleScreen) UI.hideTitleScreen();
@@ -111,7 +108,7 @@ function showHighScoreDisplayScreen() {
     loadHighScore();
     if(UI.setupHighScoreDisplayScreen) UI.setupHighScoreDisplayScreen();
 
-    attractModeTimer = GameConfig.HIGH_SCORE_DURATION || 180;
+    attractModeTimer = frames ?? (GameConfig.HIGH_SCORE_DURATION || 180);
     if (UI.resizeGame) UI.resizeGame();
 }
 
@@ -120,8 +117,6 @@ function showDemoPlayScreen() {
         console.warn("Attract.showDemoPlayScreen: Missing dependencies."); return;
     }
 
-    const messageBox = document.getElementById('message-box');
-    if(messageBox) messageBox.style.display = 'none';
 
     gameState.currentGameState = 'DEMO_PLAY';
     if(UI.hideTitleScreen) UI.hideTitleScreen();

@@ -1,6 +1,7 @@
 import * as PIXI from 'pixi.js';
 import { GameConfig } from './config';
-import { titleScreenContainer, highScoreDisplayContainer, demoPlayContainer, app } from './main';
+import { titleScreenContainer, highScoreDisplayContainer, demoPlayContainer, app, gameContentContainer, player } from './main';
+import { DeathBeat } from './core/DeathBeat';
 import { gameState } from './gameState';
 import { saveHighScore, clearEntities } from './gameLogic';
 import { ArcadeHud } from './core/ArcadeHud';
@@ -19,10 +20,6 @@ let highScoreTextElement: PIXI.Text | null = null;
 // UI Elements (HTML) - define these at the top of the module
 const bonusTextEl = document.getElementById('bonus');
 const uiContainerEl = document.getElementById('ui-container');
-const messageBoxEl = document.getElementById('message-box');
-const messageTitleEl = document.getElementById('message-title');
-const messageTextEl = document.getElementById('message-text');
-const playAgainButtonEl = document.getElementById('play-again-button');
 
 // Save/Load message display
 let saveLoadMessageTimeout: number | null = null;
@@ -181,8 +178,8 @@ export function setupHighScoreDisplayScreen() {
     }
     let y = 52;
     table.slice(0, 10).forEach((row, i) => {
-        // no parens in the ROM charset ('0'-'^')
-        addLine(`${String(i + 1).padStart(2, ' ')}. ${row.initials}  ${row.score}`, y, 0xFF4444);
+        // rank separator ')' as in the ROM's heroes table (BitmapFont synthesizes it)
+        addLine(`${String(i + 1).padStart(2, ' ')}) ${row.initials}  ${row.score}`, y, 0xFF4444);
         y += 10;
     });
     if (table.length === 0) addLine('NO HEROES YET', y, 0xFF4444);
@@ -204,17 +201,59 @@ export function hideTitleScreen() {
     if (titleScreenContainer) titleScreenContainer.visible = false;
 }
 
+// Arcade game over (MAME, robotron-re REVERSE.md Phase 21 "Game over"): the
+// playfield freezes with everything still on it while the last man flashes
+// and fades (core/DeathBeat.ts; 120 frames), then GAME OVER shows over it for 120 frames. Then a
+// qualifying score goes to initials entry, and either way the heroes table
+// follows for ~580 frames before the attract cycle carries on. There is no
+// "play again" prompt: START begins a new game from any attract screen.
+const GAME_OVER_DEATH_FRAMES = 120;
+const GAME_OVER_TEXT_FRAMES = 120;
+const GAME_OVER_HEROES_FRAMES = 580;
+const GAME_OVER_TEXT_POS = { x: 118, y: 121 };   // MAME snapshot, colour $AEFF00
+let gameOverTick: ((t: PIXI.Ticker) => void) | null = null;
+let gameOverText: PIXI.Container | null = null;
+
+function stopGameOverBeat(): void {
+    if (gameOverTick) { PIXI.Ticker.shared.remove(gameOverTick); gameOverTick = null; }
+    if (gameOverText) { gameOverText.destroy({ children: true }); gameOverText = null; }
+}
+
 export function showGameOverScreen() {
     if (typeof gameState === 'undefined') {
          console.warn("UI.showGameOverScreen: Missing global state (gameState). Game over screen may not display correctly.");
          return;
     }
+    stopGameOverBeat();
+    gameState.currentGameState = 'GAME_OVER';
+    // the last man flashes and fades on the frozen field first (MAME: GAME OVER
+    // appears 120 frames after the hit)
+    const p = player as any;
+    if (p && p.sprite && !p.sprite.destroyed) DeathBeat.play(p.sprite, () => {}, () => gameState.currentGameState === 'GAME_OVER');
+    let frames = 0;
+    gameOverTick = (t: PIXI.Ticker) => {
+        // a new game started from somewhere else: drop the beat
+        if (gameState.currentGameState !== 'GAME_OVER') { stopGameOverBeat(); return; }
+        frames += t.deltaTime;
+        if (!gameOverText && frames >= GAME_OVER_DEATH_FRAMES && gameContentContainer) {
+            gameOverText = BitmapFont.createText('GAME OVER', { tint: 0xAEFF00 });
+            gameOverText.x = GAME_OVER_TEXT_POS.x;
+            gameOverText.y = GAME_OVER_TEXT_POS.y;
+            gameContentContainer.addChild(gameOverText);
+        }
+        if (frames >= GAME_OVER_DEATH_FRAMES + GAME_OVER_TEXT_FRAMES) {
+            stopGameOverBeat();
+            afterGameOverText();
+        }
+    };
+    PIXI.Ticker.shared.add(gameOverTick);
+}
 
-    // Arcade flow: the playfield is wiped before the game-over/initials
-    // screens — no frozen battlefield behind the prompt.
+function afterGameOverText(): void {
+    // Arcade flow: the playfield is wiped before the initials / heroes screens.
     clearEntities(true);
 
-    // Arcade flow: a qualifying score goes to 3-initial entry first.
+    // A qualifying score goes to 3-initial entry first.
     // In 2P mode, the best of both players' scores is entered.
     const bestScore = Math.max(gameState.score, ...TwoPlayer.allScores());
     gameState.score = bestScore;
@@ -226,81 +265,20 @@ export function showGameOverScreen() {
         const finalScore = gameState.score;
         HighScoreEntry.show(app.stage, finalScore, () => {
             gameState.score = finalScore;
-            finishGameOverScreen();
+            showHeroesAfterGame();
         });
         return;
     }
-    finishGameOverScreen();
+    showHeroesAfterGame();
 }
 
-function finishGameOverScreen() {
-    gameState.currentGameState = 'GAME_OVER';
-
-    if (titleScreenContainer) titleScreenContainer.visible = false;
-    if (highScoreDisplayContainer) highScoreDisplayContainer.visible = false;
-    if (demoPlayContainer) demoPlayContainer.visible = false;
-    if (uiContainerEl) uiContainerEl.style.visibility = 'hidden';
-
+function showHeroesAfterGame(): void {
     if (gameState.score > gameState.highScore) {
         gameState.highScore = gameState.score;
         saveHighScore();
     }
-
-    if (messageBoxEl) messageBoxEl.style.display = 'block';
-    if (messageTitleEl) messageTitleEl.textContent = 'GAME OVER';
-    if (messageTextEl) messageTextEl.textContent = `FINAL SCORE: ${gameState.score}\nHIGH SCORE: ${gameState.highScore}`;
-    if (playAgainButtonEl) {
-        playAgainButtonEl.textContent = 'PLAY AGAIN?';
-        playAgainButtonEl.onclick = () => {
-            stopPlayAgainPadPoll();
-            if (Attract && Attract.showTitleScreen) {
-                Attract.showTitleScreen();
-            } else {
-                console.warn("UI.showGameOverScreen: Attract.showTitleScreen not found for Play Again button.");
-            }
-        };
-        // Focus so Enter/Space work too.
-        playAgainButtonEl.focus();
-        startPlayAgainPadPoll();
-    }
-    resizeGame();
-}
-
-// Gamepad support for the HTML "PLAY AGAIN?" button: A or Start clicks it.
-// Edge-triggered and seeded with the current state, so a button still held
-// from gameplay or initials entry doesn't skip the game-over screen.
-let playAgainPadRaf: number | null = null;
-
-function playAgainPadPressed(): boolean {
-    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
-    for (const pad of pads) {
-        if (pad && (pad.buttons[0]?.pressed || pad.buttons[9]?.pressed)) return true;
-    }
-    return false;
-}
-
-function startPlayAgainPadPoll() {
-    stopPlayAgainPadPoll();
-    let prev = playAgainPadPressed();
-    const poll = () => {
-        playAgainPadRaf = null;
-        if (gameState.currentGameState !== 'GAME_OVER') return;
-        const cur = playAgainPadPressed();
-        if (cur && !prev) {
-            playAgainButtonEl?.click();
-            return;
-        }
-        prev = cur;
-        playAgainPadRaf = requestAnimationFrame(poll);
-    };
-    playAgainPadRaf = requestAnimationFrame(poll);
-}
-
-function stopPlayAgainPadPoll() {
-    if (playAgainPadRaf !== null) {
-        cancelAnimationFrame(playAgainPadRaf);
-        playAgainPadRaf = null;
-    }
+    if (uiContainerEl) uiContainerEl.style.visibility = 'hidden';
+    Attract.showHighScoreDisplayScreen(GAME_OVER_HEROES_FRAMES);
 }
 
 export function resizeGame() {
@@ -357,24 +335,6 @@ export function resizeGame() {
         // Scale UI font size based on canvas scale
         let uiFontSize = Math.max(8, Math.min(16, Math.floor(10 * (scale / 2))));
         uiContainerEl.style.fontSize = uiFontSize + 'px';
-    }
-
-    // Update message box font size
-    if (messageBoxEl) {
-        let msgFontSize = Math.max(10, Math.min(20, Math.floor(12 * (scale / 2))));
-        messageBoxEl.style.fontSize = msgFontSize + 'px';
-
-        if (messageTitleEl) {
-            messageTitleEl.style.fontSize = Math.floor(msgFontSize * 1.2) + 'px';
-        }
-
-        if (playAgainButtonEl) {
-            playAgainButtonEl.style.fontSize = Math.floor(msgFontSize * 0.8) + 'px';
-            const paddingAmount = Math.max(8, Math.floor(10 * (scale / 2)));
-            const marginAmount = Math.max(10, Math.floor(15 * (scale / 2)));
-            playAgainButtonEl.style.padding = `${paddingAmount}px ${marginAmount}px`;
-            playAgainButtonEl.style.marginTop = `${Math.max(10, Math.floor(10 * (scale / 2)))}px`;
-        }
     }
 
     // Center the game wrapper
