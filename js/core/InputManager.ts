@@ -213,6 +213,19 @@ export class UnifiedInputManager {
             { action: InputAction.SHOOT_LEFT, device: InputDevice.GAMEPAD, axis: 2, axisDirection: 'negative' },
             { action: InputAction.SHOOT_RIGHT, device: InputDevice.GAMEPAD, axis: 2, axisDirection: 'positive' },
             
+            // D-pad (standard mapping buttons 12-15) also moves
+            { action: InputAction.MOVE_UP, device: InputDevice.GAMEPAD, button: 12 },
+            { action: InputAction.MOVE_DOWN, device: InputDevice.GAMEPAD, button: 13 },
+            { action: InputAction.MOVE_LEFT, device: InputDevice.GAMEPAD, button: 14 },
+            { action: InputAction.MOVE_RIGHT, device: InputDevice.GAMEPAD, button: 15 },
+
+            // Face buttons fire in their compass direction, for pads
+            // without a right stick (Y=up, A=down, X=left, B=right)
+            { action: InputAction.SHOOT_UP, device: InputDevice.GAMEPAD, button: 3 },
+            { action: InputAction.SHOOT_DOWN, device: InputDevice.GAMEPAD, button: 0 },
+            { action: InputAction.SHOOT_LEFT, device: InputDevice.GAMEPAD, button: 2 },
+            { action: InputAction.SHOOT_RIGHT, device: InputDevice.GAMEPAD, button: 1 },
+
             { action: InputAction.START, device: InputDevice.GAMEPAD, button: 9 }, // Start button
             { action: InputAction.SELECT, device: InputDevice.GAMEPAD, button: 8 }, // Select button
         ];
@@ -419,7 +432,7 @@ export class UnifiedInputManager {
      */
     private setupGamepadListeners(): void {
         window.addEventListener('gamepadconnected', (event) => {
-            console.log(`Gamepad connected: ${event.gamepad.id}`);
+            console.log(`Gamepad connected: ${event.gamepad.id} (mapping: "${event.gamepad.mapping}", ${event.gamepad.axes.length} axes, ${event.gamepad.buttons.length} buttons)`);
             this.addGamepad(event.gamepad);
         });
         
@@ -806,22 +819,23 @@ export class UnifiedInputManager {
             }
         }
         
-        // Check gamepad states for gamepad input
-        for (const binding of keyBindings) {
-            if (binding.device === InputDevice.GAMEPAD && binding.axis !== undefined) {
-                const gamepads = navigator.getGamepads();
-                if (gamepads) {
-                    for (let i = 0; i < gamepads.length; i++) {
-                        const gamepad = gamepads[i];
-                        if (gamepad && gamepad.axes[binding.axis] !== undefined) {
-                            const axisValue = gamepad.axes[binding.axis];
-                            
-                            if (binding.axisDirection === 'positive' && axisValue > this.deadzone) {
-                                return true;
-                            } else if (binding.axisDirection === 'negative' && axisValue < -this.deadzone) {
-                                return true;
-                            }
+        // Check live gamepad state (axes and buttons) for gamepad input
+        const gamepads = navigator.getGamepads ? navigator.getGamepads() : null;
+        if (gamepads) {
+            for (const binding of keyBindings) {
+                if (binding.device !== InputDevice.GAMEPAD) continue;
+                for (let i = 0; i < gamepads.length; i++) {
+                    const gamepad = gamepads[i];
+                    if (!gamepad) continue;
+                    if (binding.axis !== undefined && gamepad.axes[binding.axis] !== undefined) {
+                        const axisValue = gamepad.axes[binding.axis];
+                        if (binding.axisDirection === 'positive' && axisValue > this.deadzone) {
+                            return true;
+                        } else if (binding.axisDirection === 'negative' && axisValue < -this.deadzone) {
+                            return true;
                         }
+                    } else if (binding.button !== undefined && gamepad.buttons[binding.button]?.pressed) {
+                        return true;
                     }
                 }
             }
@@ -890,11 +904,6 @@ export class UnifiedInputManager {
         if (rightPressed) movement.x += 1;
         if (upPressed) movement.y -= 1;
         if (downPressed) movement.y += 1;
-        
-        // Debug logging (can be removed later)
-        if (leftPressed || rightPressed || upPressed || downPressed) {
-            console.log('Movement actions detected:', { leftPressed, rightPressed, upPressed, downPressed });
-        }
         
         // Normalize diagonal movement
         if (movement.magnitude() > 1) {

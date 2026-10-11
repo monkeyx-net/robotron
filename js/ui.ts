@@ -120,7 +120,8 @@ export function updateBonusDisplay() {
 export function updateUI() {
     if (typeof gameState === 'undefined') return;
 
-    const inGame = gameState.currentGameState === 'PLAYING' || gameState.currentGameState === 'DEMO_PLAY';
+    const inGame = gameState.currentGameState === 'PLAYING' || gameState.currentGameState === 'DEMO_PLAY'
+        || gameState.currentGameState === 'WAVE_TRANSITION';
     ArcadeHud.setVisible(inGame);
     if (uiContainerEl) uiContainerEl.style.visibility = 'hidden'; // DOM HUD retired (in-canvas HUD)
     if (inGame) updateScoreDisplay();
@@ -251,14 +252,55 @@ function finishGameOverScreen() {
     if (playAgainButtonEl) {
         playAgainButtonEl.textContent = 'PLAY AGAIN?';
         playAgainButtonEl.onclick = () => {
+            stopPlayAgainPadPoll();
             if (Attract && Attract.showTitleScreen) {
                 Attract.showTitleScreen();
             } else {
                 console.warn("UI.showGameOverScreen: Attract.showTitleScreen not found for Play Again button.");
             }
         };
+        // Focus so Enter/Space work too.
+        playAgainButtonEl.focus();
+        startPlayAgainPadPoll();
     }
     resizeGame();
+}
+
+// Gamepad support for the HTML "PLAY AGAIN?" button: A or Start clicks it.
+// Edge-triggered and seeded with the current state, so a button still held
+// from gameplay or initials entry doesn't skip the game-over screen.
+let playAgainPadRaf: number | null = null;
+
+function playAgainPadPressed(): boolean {
+    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    for (const pad of pads) {
+        if (pad && (pad.buttons[0]?.pressed || pad.buttons[9]?.pressed)) return true;
+    }
+    return false;
+}
+
+function startPlayAgainPadPoll() {
+    stopPlayAgainPadPoll();
+    let prev = playAgainPadPressed();
+    const poll = () => {
+        playAgainPadRaf = null;
+        if (gameState.currentGameState !== 'GAME_OVER') return;
+        const cur = playAgainPadPressed();
+        if (cur && !prev) {
+            playAgainButtonEl?.click();
+            return;
+        }
+        prev = cur;
+        playAgainPadRaf = requestAnimationFrame(poll);
+    };
+    playAgainPadRaf = requestAnimationFrame(poll);
+}
+
+function stopPlayAgainPadPoll() {
+    if (playAgainPadRaf !== null) {
+        cancelAnimationFrame(playAgainPadRaf);
+        playAgainPadRaf = null;
+    }
 }
 
 export function resizeGame() {

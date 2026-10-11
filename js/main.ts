@@ -18,6 +18,7 @@ import { Humans } from './humans';
 import { Obstacles } from './obstacles';
 import { Effects } from './effects';
 import { SoundManager, initAudio } from './soundManager';
+import { WaveTransition } from './core/WaveTransition';
 import { UI } from './ui';
 // Removed old InputManager - using unified input manager instead
 import { gameState } from './gameState';
@@ -551,9 +552,6 @@ function setupGameEngine() {
                             const startPressed = inputManager.isActionPressed(InputAction.START);
                             const selectPressed = inputManager.isActionPressed(InputAction.SELECT);
                             
-                            // Debug logging to see if attract mode is checking for input
-                            console.log('Attract mode checking input:', { startPressed, selectPressed, gameState: gameState.currentGameState });
-                            
                             if (startPressed || selectPressed) {
                                 console.log('Input detected in attract mode:', { startPressed, selectPressed });
                                 startGameFromTitle();
@@ -837,9 +835,10 @@ function startGameFromTitle(playerCount: number = 1) {
     
     if (gameState.currentGameState !== 'TITLE_SCREEN' && gameState.currentGameState !== 'HIGH_SCORE_DISPLAY_SCREEN' && gameState.currentGameState !== 'DEMO_PLAY') return;
 
-    SoundManager.play('insertCoin');
-
     gameState.currentGameState = 'PLAYING';
+    // Arcade: pressing start plays the game-start sound (cmd $28). Played
+    // after leaving DEMO_PLAY, where sounds are muted.
+    SoundManager.play('waveStart');
     console.log('Game state changed to PLAYING');
     resetGameVariables();
     TwoPlayer.startGame(playerCount);
@@ -855,6 +854,11 @@ function startGameFromTitle(playerCount: number = 1) {
     gameState.playerInvulnerableTime = GameConfig.RESPAWN_INVULNERABILITY_TIME;
 
     startNextWave();
+    // Hold play while the first wave beams in, as the arcade does.
+    gameState.currentGameState = 'WAVE_TRANSITION';
+    WaveTransition.materialize(() => {
+        if (gameState.currentGameState === 'WAVE_TRANSITION') gameState.currentGameState = 'PLAYING';
+    });
 
     UI.updateUI();
     UI.hideTitleScreen();

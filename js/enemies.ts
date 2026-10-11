@@ -8,6 +8,7 @@ import { Grunt, Hulk, Spheroid, Enforcer, Brain, Tank, ProgEnemy, Quark } from '
 import { Human, Prog } from './humanClasses';
 import { ArcadeAtlas } from './core/ArcadeAtlas';
 import { prng } from './core/Prng';
+import { SoundManager } from './soundManager';
 import { isEntityGone, clampToPlayfield, spriteHalfExtents } from './gameObject';
 
 /**
@@ -365,7 +366,7 @@ export function updateEnemies(delta: number): void {
                 // Continue spawning enforcers from corner
                 spheroid.spawnEnforcerTimer -= delta;
                 if (spheroid.spawnEnforcerTimer <= 0) {
-                    if (createEnforcer) createEnforcer(spheroid.sprite.x, spheroid.sprite.y);
+                    if (createEnforcer) { createEnforcer(spheroid.sprite.x, spheroid.sprite.y); SoundManager.play('enforcerSpawn'); }
                     spheroid.spawnEnforcerTimer = GameConfig.SPHEROID_SPAWN_ENFORCER_DELAY || 300;
                 }
             } else {
@@ -379,7 +380,7 @@ export function updateEnemies(delta: number): void {
                 // Spawn enforcers
                 spheroid.spawnEnforcerTimer -= delta;
                 if (spheroid.spawnEnforcerTimer <= 0) {
-                    if (createEnforcer) createEnforcer(spheroid.sprite.x, spheroid.sprite.y);
+                    if (createEnforcer) { createEnforcer(spheroid.sprite.x, spheroid.sprite.y); SoundManager.play('enforcerSpawn'); }
                     spheroid.enforcersSpawned++;
                     spheroid.spawnEnforcerTimer = GameConfig.SPHEROID_SPAWN_ENFORCER_DELAY || 300;
                 }

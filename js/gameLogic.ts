@@ -15,6 +15,8 @@ import { getWaveDef } from './waveTable';
 import { prng } from './core/Prng';
 import { TwoPlayer } from './core/TwoPlayer';
 import { isEntityGone } from './gameObject';
+import { ScorePopup } from './core/ScorePopup';
+import { WaveTransition } from './core/WaveTransition';
 
 // --- High Score ---
 export function loadHighScore() {
@@ -52,7 +54,7 @@ export function resetGameVariables() {
     // UI.updateUI() will also be called by main loop or state change handler
 }
 
-export function clearEntities(clearHumans: boolean = false) {
+export function clearEntities(clearHumans: boolean = false, keepPlayer: boolean = false) {
     // Player projectiles
     if (playerProjectiles) {
         playerProjectiles.forEach(p => { if (p.sprite && !p._destroyed) p.sprite.destroy(); });
@@ -91,7 +93,7 @@ export function clearEntities(clearHumans: boolean = false) {
 
     // Player sprite (if exists and managed by player)
     // createPlayer in Player.js handles its own sprite, but main.js might nullify player
-    if (player && !player._destroyed) {
+    if (player && !player._destroyed && !keepPlayer) {
         player.sprite.destroy();
         // player = null; // main.js should manage nullifying player
     }
@@ -134,7 +136,7 @@ export function playerHit() {
         if (player && player.sprite) player.sprite.visible = false;
         setTimeout(() => {
             if (gameState.currentGameState === 'GAME_OVER') return;
-            if (player && player.sprite && GameConfig) {
+            if (player && !isEntityGone(player) && GameConfig) {
                 player.sprite.x = GameConfig.GAME_WIDTH / 2;
                 player.sprite.y = GameConfig.GAME_HEIGHT / 2;
                 player.dx = 0;
@@ -154,9 +156,12 @@ export function playerHit() {
         // restarts fresh after the PLAYER N interstitial (arcade behavior).
         if (player.sprite) player.sprite.visible = false;
         TwoPlayer.showInterstitial(app.stage).then(() => {
-            if (gameState.currentGameState !== 'PLAYING') return;
-            startNextWave();
-            if (player && player.sprite) {
+            if (gameState.currentGameState === 'GAME_OVER') return;
+            // If the wave ended during the interstitial, the wave-transition
+            // timer starts the next wave — but the player must still be
+            // restored, or they stay invisible and unhittable (ghost).
+            if (gameState.currentGameState === 'PLAYING') startNextWave();
+            if (player && !isEntityGone(player)) {
                 player.sprite.x = GameConfig.GAME_WIDTH / 2;
                 player.sprite.y = GameConfig.GAME_HEIGHT / 2;
                 player.dx = 0;
@@ -207,19 +212,6 @@ export function isColliding(spriteA: PIXI.Sprite | PIXI.Graphics | PIXI.Containe
             Math.pow(centerAX - centerBX, 2) + Math.pow(centerAY - centerBY, 2)
         );
         
-        // Debug logging for human rescue collisions (tolerance = 2)
-        if (tolerance === 2) {
-            console.log('[isColliding] Human rescue check:', {
-                playerPos: {x: centerAX, y: centerAY},
-                humanPos: {x: centerBX, y: centerBY},
-                distance: distance.toFixed(2),
-                tolerance: tolerance,
-                spriteAWidth: spriteA.width,
-                spriteBWidth: spriteB.width,
-                result: distance <= tolerance
-            });
-        }
-        
         // Use simple distance-based collision for now
         return distance <= tolerance;
         
@@ -236,11 +228,11 @@ export function startNextWave() {
     }
     gameState.wave++;
     console.log(`Starting Wave: ${gameState.wave}`);
-    SoundManager.play('waveStart');
     ArcadeBorder.setWave(gameState.wave);
     gameState.currentHumanRescueBonus = GameConfig.INITIAL_HUMAN_RESCUE_BONUS;
     gameState.humanRescueBonusDecayTimer = 0;
     if (UI && UI.updateBonusDisplay) UI.updateBonusDisplay();
+    if (UI && UI.updateScoreDisplay) UI.updateScoreDisplay();   // wave label shows the new wave as it beams in
 
     // Clear existing non-player entities for the new wave (optional, depends on desired behavior)
     // Obstacles are typically per-wave. Enemies and projectiles are definitely per-wave.
@@ -251,7 +243,18 @@ export function startNextWave() {
         obstacles.length = 0;
     }
     // Enemy projectiles clear (player projectiles might be kept briefly or cleared too)
-     if (enemyProjectiles) enemyProjectiles.length = 0;
+    if (enemyProjectiles) {
+        enemyProjectiles.forEach(p => { if (!isEntityGone(p)) p.sprite.destroy(); });
+        enemyProjectiles.length = 0;
+    }
+
+    // Arcade behavior: every wave spawns its own enemies from the wave
+    // table. Survivors (hulks — the only enemies left at wave end) must not
+    // carry over, or they pile up wave after wave and wall off the arena.
+    if (enemies) {
+        enemies.forEach(e => { if (!isEntityGone(e)) e.sprite.destroy(); });
+        enemies.length = 0;
+    }
 
     // Arcade behavior: unrescued humans do not carry over — each wave
     // spawns a fresh family.
@@ -263,7 +266,7 @@ export function startNextWave() {
 
 
     // Reset player position (if player exists)
-    if (player && player.sprite && !player._destroyed) {
+    if (player && !isEntityGone(player)) {
         player.sprite.x = GameConfig.GAME_WIDTH / 2;
         player.sprite.y = GameConfig.GAME_HEIGHT / 2;
         player.dx = 0;
@@ -333,11 +336,14 @@ export function checkWaveCompletion() {
             }
         });
 
-        setTimeout(() => {
-            if (gameState.currentGameState === 'GAME_OVER') return;
-            gameState.currentGameState = 'PLAYING';
-            startNextWave();
-        }, 2000);
+        // Arcade wave-clear sequence: wipe, ring zoom, then beam the next
+        // wave in; play resumes when the player has materialized.
+        WaveTransition.start(
+            () => clearEntities(true, true),
+            () => startNextWave(),
+            () => {
+                if (gameState.currentGameState === 'WAVE_TRANSITION') gameState.currentGameState = 'PLAYING';
+            });
     }
 }
 
@@ -428,7 +434,13 @@ export function checkCollisions() {
                         }
                     });
 
-                    Effects.createExplosion(enemy.sprite.x, enemy.sprite.y, explosionColor);
+                    // Arcade: a spheroid kill shows its 1000 points in place
+                    // of an explosion.
+                    if (enemy.type === 'spheroid') {
+                        ScorePopup.show(enemy.sprite.x, enemy.sprite.y, enemy.points || 0);
+                    } else {
+                        Effects.createExplosion(enemy.sprite.x, enemy.sprite.y, explosionColor);
+                    }
                     SoundManager.play(soundToPlayKey);
                     if (enemy.sprite && !(enemy.sprite as any)._destroyed) (enemy.sprite as any).destroy();
                     enemies.splice(j, 1);
@@ -592,6 +604,9 @@ export function checkCollisions() {
                         }
                     });
                     
+                    // Arcade: the bonus value appears where the human was touched.
+                    ScorePopup.show(humanEntity.sprite.x, humanEntity.sprite.y, gameState.currentHumanRescueBonus);
+
                     if (gameState.currentGameState === 'PLAYING') {
                         gameState.score += gameState.currentHumanRescueBonus;
                         if(UI.updateScoreDisplay) UI.updateScoreDisplay();
@@ -645,11 +660,7 @@ export function checkCollisions() {
                     SoundManager.play('humanDeathByEnemy');
                     if (humanEntity.sprite && !(humanEntity.sprite as any)._destroyed) (humanEntity.sprite as any).destroy();
                     humansAndProgs.splice(j, 1);
-                    if (gameState.currentGameState === 'PLAYING') {
-                        gameState.currentHumanRescueBonus = GameConfig.INITIAL_HUMAN_RESCUE_BONUS;
-                        gameState.humanRescueBonusDecayTimer = 0;
-                       if(UI.updateBonusDisplay) UI.updateBonusDisplay();
-                    }
+                    // Arcade: a human's death does not reset the rescue bonus.
                     // No break here, Hulk might trample multiple humans
                 }
             }

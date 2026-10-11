@@ -5,6 +5,11 @@ interface SoundsCollection {
     [key: string]: Howl;
 }
 
+// Bump when any file in sounds/ is replaced so browsers fetch the new audio
+// instead of a cached copy (Howler strips the query when sniffing format).
+const SOUND_VERSION = 2;
+const snd = (file: string) => [`sounds/${file}?v=${SOUND_VERSION}`];
+
 export const SoundManager = {
     sounds: {} as SoundsCollection,
     canPlaySound(): boolean {
@@ -12,130 +17,163 @@ export const SoundManager = {
     },
     init(): void {
         this.sounds.shoot = new Howl({
-            src: ['sounds/shoot.wav'],
+            src: snd('shoot.wav'),
             volume: 0.5
         });
         this.sounds.playerDeath = new Howl({
-            src: ['sounds/player_death.wav'],
+            src: snd('player_death.wav'),
             volume: 0.7
         });
         this.sounds.gruntPop = new Howl({
-            src: ['sounds/grunt_pop.wav'],
+            src: snd('grunt_pop.wav'),
             volume: 0.6
         });
         this.sounds.spheroidPop = new Howl({
-            src: ['sounds/spheroid_pop.wav'],
+            src: snd('spheroid_pop.wav'),
             volume: 0.6
         });
         this.sounds.enforcerPop = new Howl({
-            src: ['sounds/enforcer_pop.wav'],
+            src: snd('enforcer_pop.wav'),
             volume: 0.6
         });
         this.sounds.enforcerFire = new Howl({
-            src: ['sounds/enforcer_fire.wav'],
+            src: snd('enforcer_fire.wav'),
             volume: 0.5
         });
         this.sounds.brainPop = new Howl({
-            src: ['sounds/brain_pop.wav'],
+            src: snd('brain_pop.wav'),
             volume: 0.6
         });
         this.sounds.brainFire = new Howl({
-            src: ['sounds/brain_fire.wav'],
+            src: snd('brain_fire.wav'),
             volume: 0.5
         });
         this.sounds.tankPop = new Howl({
-            src: ['sounds/tank_pop.wav'],
+            src: snd('tank_pop.wav'),
             volume: 0.6
         });
         this.sounds.tankFire = new Howl({
-            src: ['sounds/tank_fire.wav'],
+            src: snd('tank_fire.wav'),
             volume: 0.5
         });
         this.sounds.shellBounce = new Howl({
-            src: ['sounds/shell_bounce.wav'],
+            src: snd('shell_bounce.wav'),
             volume: 0.4
         });
         this.sounds.progDestroy = new Howl({
-            src: ['sounds/prog_destroy.wav'],
+            src: snd('prog_destroy.wav'),
             volume: 0.6
         });
         this.sounds.quarkPop = new Howl({
-            src: ['sounds/quark_pop.wav'],
+            src: snd('quark_pop.wav'),
             volume: 0.6
         });
         this.sounds.subQuarkPop = new Howl({
-            src: ['sounds/sub_quark_pop.wav'],
+            src: snd('sub_quark_pop.wav'),
             volume: 0.5
         });
         this.sounds.humanRescue = new Howl({
-            src: ['sounds/human_rescue.wav'],
+            src: snd('human_rescue.wav'),
             volume: 0.7
         });
         this.sounds.humanDeathByEnemy = new Howl({
-            src: ['sounds/human_death.wav'],
+            src: snd('human_death.wav'),
             volume: 0.7
         });
         this.sounds.humanToProg = new Howl({
-            src: ['sounds/human_to_prog.wav'],
+            src: snd('human_to_prog.wav'),
             volume: 0.6
         });
         this.sounds.waveStart = new Howl({
-            src: ['sounds/wave_start.wav'],
+            src: snd('wave_start.wav'),
             volume: 0.7
         });
         this.sounds.gameOver = new Howl({
-            src: ['sounds/game_over.wav'],
+            src: snd('game_over.wav'),
             volume: 0.8
         });
         this.sounds.extraLife = new Howl({
-            src: ['sounds/extra_life.wav'],
+            src: snd('extra_life.wav'),
             volume: 0.7
         });
         this.sounds.insertCoin = new Howl({
-            src: ['sounds/insert_coin.wav'],
+            src: snd('insert_coin.wav'),
+            volume: 0.7
+        });
+        // ROM-captured (MAME): wave-clear sound (cmd $0E re-sent every 4
+        // frames for 1.86 s, plus its sustained tail), spheroid launching an
+        // enforcer (cmd $18), and the initials-entry music.
+        this.sounds.waveComplete = new Howl({
+            src: snd('wave_complete.wav'),
+            volume: 0.7
+        });
+        this.sounds.enforcerSpawn = new Howl({
+            src: snd('enforcer_spawn.wav'),
+            volume: 0.6
+        });
+        this.sounds.highScoreEntry = new Howl({
+            src: snd('high_score_entry.wav'),
             volume: 0.7
         });
     },
     /**
-     * Track priorities mirroring the ROM's play_music_track ($D3C7): the
-     * Williams sound board is a single channel — a playing track suppresses
-     * requests of LOWER priority and is preempted by equal-or-higher ones.
-     * Values follow the priorities found in the ROM track tables (Ph20):
-     * high-score jingle $EF, death fanfares high, enemy pops ~$70-77,
-     * fire sounds low.
+     * Mixing model (modern, not the arcade's single hard-cut channel):
+     * sounds overlap, and hand over with a short crossfade instead of a cut.
+     * A new sound fades out playing voices of equal or lower priority over
+     * CROSSFADE_MS; higher-priority voices (rescue, death, wave clear...)
+     * keep playing to the end underneath it. Priorities follow the ROM
+     * track tables (Ph20).
      */
     PRIORITIES: {
         insertCoin: 0xF0, highScoreEntry: 0xEF, gameOver: 0xD8,
-        playerDeath: 0xD0, extraLife: 0xC8, waveStart: 0xC0,
+        playerDeath: 0xD0, extraLife: 0xC8, waveStart: 0xC0, waveComplete: 0xC0,
         humanRescue: 0x90, humanToProg: 0x80, humanDeathByEnemy: 0x80,
         spheroidPop: 0x77, quarkPop: 0x77, tankPop: 0x77, brainPop: 0x77,
         gruntPop: 0x70, enforcerPop: 0x70, progDestroy: 0x70,
+        enforcerSpawn: 0x60,
         enforcerFire: 0x50, brainFire: 0x50, tankFire: 0x50, shellBounce: 0x50,
         shoot: 0x20,
     } as Record<string, number>,
 
-    _current: null as { name: string; priority: number; id: number } | null,
+    CROSSFADE_MS: 140,
+    MAX_VOICES: 6,
+
+    _voices: [] as { name: string; priority: number; id: number }[],
+
+    _fadeOut(v: { name: string; id: number }): void {
+        const h = this.sounds[v.name];
+        if (!h || !h.playing(v.id)) return;
+        try {
+            const vol = h.volume(v.id) as number;
+            h.fade(vol, 0, this.CROSSFADE_MS, v.id);
+            h.once('fade', () => h.stop(v.id), v.id);
+        } catch { /* noop */ }
+    },
 
     play(soundName: string): void {
         const sound = this.sounds[soundName];
         if (!sound || !this.canPlaySound()) return;
         const priority = this.PRIORITIES[soundName] ?? 0x40;
-        const cur = this._current;
-        if (cur && this.sounds[cur.name]?.playing(cur.id)) {
-            if (cur.priority > priority) return;   // suppressed by higher-priority track
-            try { this.sounds[cur.name].stop(cur.id); } catch { /* noop */ }
+        this._voices = this._voices.filter(v => this.sounds[v.name]?.playing(v.id));
+        this._voices = this._voices.filter(v => {
+            if (v.priority > priority) return true;   // keeps playing under the new sound
+            this._fadeOut(v);
+            return false;
+        });
+        while (this._voices.length >= this.MAX_VOICES) {
+            const oldest = this._voices.shift();
+            if (oldest) this._fadeOut(oldest);
         }
         try {
             const id = sound.play();
-            this._current = { name: soundName, priority, id };
-            sound.once('end', () => {
-                if (this._current && this._current.id === id) this._current = null;
-            }, id);
+            sound.volume(sound.volume() as number, id);   // a reused voice may still be faded down
+            this._voices.push({ name: soundName, priority, id });
         } catch(e) {
             console.warn(`Sound play failed (${soundName}):`, e);
         }
     },
     stop(soundName: string): void {
+        this._voices = this._voices.filter(v => v.name !== soundName);
         if (this.sounds[soundName]) {
             try {
                 this.sounds[soundName].stop();
@@ -145,7 +183,7 @@ export const SoundManager = {
         }
     },
     stopAll(): void {
-        this._current = null;
+        this._voices = [];
         Object.values(this.sounds).forEach(sound => {
             try {
                 sound.stop();

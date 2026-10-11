@@ -672,6 +672,8 @@ export class VisualEffectsSystem {
     private setupEventListeners(): void {
         // Listen for game events that should trigger effects
         gameEvents.on('enemy:destroyed', (event) => {
+            // Spheroids show a score popup instead (core/ScorePopup).
+            if (event.data.enemyType === 'spheroid') return;
             this.createExplosion(event.data.position, 'enemy');
         });
         
@@ -684,18 +686,11 @@ export class VisualEffectsSystem {
             this.createSparkEffect(event.data.position);
         });
         
-        gameEvents.on('human:rescued', (event) => {
-            this.createRescueEffect(event.data.position);
-        });
-        
-        gameEvents.on('wave:completed', () => {
-            this.startCameraEffect('wave_complete', {
-                type: 'flash',
-                intensity: 0.5,
-                duration: 0.5,
-                color: 0x00FF00
-            });
-        });
+        // human:rescued: no particle burst — the arcade shows the bonus
+        // value instead (core/ScorePopup).
+
+        // wave:completed: no flash — core/WaveTransition plays the arcade
+        // wave-clear sequence.
     }
     
     /**

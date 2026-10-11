@@ -259,7 +259,6 @@ export function updateHumansAndProgs(delta: number) {
             // Check if human has been rescued
             if (entity.isRescued) {
                 console.log('[Humans.updateHumansAndProgs] Removing rescued human');
-                createRescueEffect(entity.sprite.x, entity.sprite.y);
                 entity.destroy();
                 const index = humansAndProgs.indexOf(entity);
                 if (index !== -1) {

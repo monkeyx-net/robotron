@@ -2,6 +2,7 @@ import * as PIXI from 'pixi.js';
 import { GameConfig } from '../config';
 import { gameState } from '../gameState';
 import { BitmapFont } from './BitmapFont';
+import { SoundManager } from '../soundManager';
 
 /**
  * Arcade-style 3-initial high-score entry, rendered in-canvas with the ROM
@@ -9,7 +10,9 @@ import { BitmapFont } from './BitmapFont';
  * table (persisted in localStorage).
  *
  * Controls: up/down (W/S or arrows) cycle the letter, Enter/Space/fire
- * locks it in; after the third initial the table is saved.
+ * locks it in; after the third initial the table is saved. Gamepad: D-pad
+ * or left stick up/down cycles (held = auto-repeat), A / Start / right
+ * locks the letter in.
  */
 
 export interface HighScoreRow { initials: string; score: number; }
@@ -45,6 +48,29 @@ export function insertScore(initials: string, score: number): void {
 
 let container: PIXI.Container | null = null;
 let keyHandler: ((e: KeyboardEvent) => void) | null = null;
+let padRaf: number | null = null;
+
+const STICK_THRESHOLD = 0.5;
+const REPEAT_DELAY_MS = 400;
+const REPEAT_RATE_MS = 120;
+
+type PadDir = 'up' | 'down' | 'confirm';
+
+// Merged state across all connected pads (standard mapping).
+function readPads(): Record<PadDir, boolean> {
+    const state = { up: false, down: false, confirm: false };
+    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    for (const pad of pads) {
+        if (!pad) continue;
+        const btn = (i: number) => !!pad.buttons[i]?.pressed;
+        const ly = pad.axes[1] ?? 0;
+        const lx = pad.axes[0] ?? 0;
+        state.up ||= btn(12) || ly < -STICK_THRESHOLD;
+        state.down ||= btn(13) || ly > STICK_THRESHOLD;
+        state.confirm ||= btn(0) || btn(9) || btn(15) || lx > STICK_THRESHOLD;
+    }
+    return state;
+}
 
 export function show(stage: PIXI.Container, score: number, onDone: () => void): void {
     hide();
@@ -62,6 +88,9 @@ export function show(stage: PIXI.Container, score: number, onDone: () => void): 
         container!.addChild(t);
         return t;
     };
+
+    // Arcade: the initials screen plays its music once through (~24 s).
+    SoundManager.play('highScoreEntry');
 
     addLine('GREAT SCORE', 50, 0xFF4444);
     addLine(String(score), 70, 0xFFFF44);
@@ -92,29 +121,67 @@ export function show(stage: PIXI.Container, score: number, onDone: () => void): 
     };
     redraw();
 
+    const cycle = (step: number) => {
+        initials[slot] = (initials[slot] + step + LETTERS.length) % LETTERS.length;
+        redraw();
+    };
+    // Returns true when the entry finished (screen is torn down).
+    const confirm = (): boolean => {
+        slot++;
+        if (slot >= 3) {
+            insertScore(initials.map(i => LETTERS[i]).join(''), score);
+            hide();
+            onDone();
+            return true;
+        }
+        redraw();
+        return false;
+    };
+
     keyHandler = (e: KeyboardEvent) => {
         if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'KeyI') {
-            initials[slot] = (initials[slot] + 1) % LETTERS.length;
-            redraw();
+            cycle(1);
         } else if (e.code === 'ArrowDown' || e.code === 'KeyS' || e.code === 'KeyK') {
-            initials[slot] = (initials[slot] + LETTERS.length - 1) % LETTERS.length;
-            redraw();
+            cycle(-1);
         } else if (e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyL' || e.code === 'ArrowRight') {
-            slot++;
-            if (slot >= 3) {
-                insertScore(initials.map(i => LETTERS[i]).join(''), score);
-                hide();
-                onDone();
-                return;
-            }
-            redraw();
+            if (confirm()) return;
         }
         e.preventDefault();
     };
     window.addEventListener('keydown', keyHandler);
+
+    // Gamepad: edge-triggered, seeded with the current state so a fire
+    // button still held from gameplay doesn't instantly lock in a letter.
+    let prev = readPads();
+    let heldSince = 0;
+    let lastRepeat = 0;
+    const pollPads = (now: number) => {
+        padRaf = null;
+        const cur = readPads();
+        if (cur.confirm && !prev.confirm) {
+            if (confirm()) return;
+        }
+        const dir = cur.up ? 1 : cur.down ? -1 : 0;
+        const prevDir = prev.up ? 1 : prev.down ? -1 : 0;
+        if (dir !== 0 && dir !== prevDir) {
+            cycle(dir);
+            heldSince = lastRepeat = now;
+        } else if (dir !== 0 && now - heldSince >= REPEAT_DELAY_MS && now - lastRepeat >= REPEAT_RATE_MS) {
+            cycle(dir);
+            lastRepeat = now;
+        }
+        prev = cur;
+        padRaf = requestAnimationFrame(pollPads);
+    };
+    padRaf = requestAnimationFrame(pollPads);
 }
 
 export function hide(): void {
+    if (container) SoundManager.stop('highScoreEntry');
+    if (padRaf !== null) {
+        cancelAnimationFrame(padRaf);
+        padRaf = null;
+    }
     if (keyHandler) {
         window.removeEventListener('keydown', keyHandler);
         keyHandler = null;

@@ -34,23 +34,18 @@ export class PlayerInputComponent {
     }
 
     handleKeyboardInput(): Vector2 {
-        if (!this.player.state.isAlive || gameState.currentGameState !== 'PLAYING') {
+        if (!this.player.isAlive || gameState.currentGameState !== 'PLAYING') {
             return new Vector2(0, 0);
         }
 
         // Use the new unified input manager
         const movement = inputManager.getMovementVector();
         
-        // Debug logging (can be removed later)
-        if (movement.magnitude() > 0) {
-            console.log('Player movement input detected:', movement);
-        }
-        
         return movement;
     }
 
     handleShootingInput(): Vector2 {
-        if (!this.player.state.isAlive || gameState.currentGameState !== 'PLAYING') {
+        if (!this.player.isAlive || gameState.currentGameState !== 'PLAYING') {
             return new Vector2(0, 0);
         }
 
@@ -69,7 +64,7 @@ export class PlayerInputComponent {
     }
 
     handleGamepadInput(): { movement: Vector2; shooting: Vector2 } {
-        if (!this.player.state.isAlive || !inputManager.isGamepadConnected() || gameState.currentGameState !== 'PLAYING') {
+        if (!this.player.isAlive || !inputManager.isGamepadConnected() || gameState.currentGameState !== 'PLAYING') {
             return { movement: new Vector2(0, 0), shooting: new Vector2(0, 0) };
         }
 
@@ -103,7 +98,7 @@ export class PlayerMovementComponent {
     }
 
     updateMovement(inputDirection: Vector2, deltaTime: number): void {
-        if (!this.player.state.isAlive) {
+        if (!this.player.isAlive) {
             this.currentVelocity.set(0, 0);
             return;
         }
@@ -160,7 +155,7 @@ export class PlayerShootingComponent {
     }
 
     shoot(direction: Vector2): void {
-        if (!this.player.state.isAlive || direction.magnitude() === 0) {
+        if (!this.player.isAlive || direction.magnitude() === 0) {
             return;
         }
 
@@ -209,8 +204,8 @@ export class Player extends GameObject {
     get lastShootTime(): number { return this.state.lastShootTime; }
     // NOTE: no isAlive accessor here — the base GameObject class field
     // (useDefineForClassFields) shadows prototype accessors at runtime, so
-    // the inherited data property is the live one. state.isAlive is synced
-    // where Player manages its own lifecycle.
+    // the inherited data property is the live one. Components read
+    // player.isAlive directly; state.isAlive is not kept in sync.
     get isDemoPlayer(): boolean { return this.state.isDemoPlayer; }
     set isDemoPlayer(value: boolean) { this.state.isDemoPlayer = value; }
 
