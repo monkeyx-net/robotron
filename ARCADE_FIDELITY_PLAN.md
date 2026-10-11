@@ -87,18 +87,19 @@ frame order (left 0–2, right 3–5, down 6–8, up 9–11; hulks are reordered
 
 ## M3 — Combat authenticity
 
-1. **Shootable enforcer sparks.** ROM: enforcer bullets die to player fire and award
-   25 pts ($54DC — Ph16). Also enforce the ROM's cap of 8 live sparks (DP[$8E] — Ph21)
-   and electrode spark death award of 25 pts ($6119).
+1. **Shootable enforcer sparks and brain cruise missiles.** ROM: enforcer bullets die
+   to player fire and award 25 pts ($54DC — Ph16). Brain cruise missiles also die to
+   player fire for 25 pts ($6119; Ph21 "Cruise missiles"). Their ROM movement, look and
+   cap of 8 (DP[$8E]) are ported (2026-10-11); being shot is not.
 2. **Shootable tank shells.** ROM sub-bullet on-hit awards 115 pts ($5483 — Ph18).
 3. **Enforcer fire throttling.** Match per-wave spawn params ($BE5F/$BE60) and the
    aim model: PRNG[$85]>>3 + clamped homing delta ×4 → velocity (Ph16), replacing
    any smooth-aim approximation.
-4. **Spheroid child-spawn pacing.** Period from $BE66, throttle while quark count
-   ($BE71) < 20 (Ph17) — verify current spawn cadence against these rules.
-5. **Hulk human-seeking.** ROM hulks target the next human (circular scan of the
-   human pointer table, falling back to player — Ph19 $4237/$4106), not random
-   wander. Verify/port; keep bullet-nudge (already done).
+4. ~~**Spheroid child-spawn pacing.**~~ Done (`96a110d`); re-checked in MAME
+   2026-10-11 at difficulty 0 and 10 (Ph21 "Spheroids and difficulty"). ($BE66 and
+   $BE71 belong to quarks and tanks, also done.)
+5. ~~**Hulk human-seeking.**~~ Done in M2 (`01a1c77`): one target for life, set at
+   spawn ($41B3), the player once that human dies.
 
 **Exit criteria:** sparks/shells killable for the RE point values; enforcer volley
 density comparable to MAME at waves 3–5; hulks visibly hunt humans.

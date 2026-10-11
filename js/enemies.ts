@@ -566,7 +566,9 @@ export function updateEnemies(delta: number): void {
                     brain.missileSteps = WavePacing.prngLe(wp.brainMissileTimer);
                     if (currentPlayer && currentPlayer.isAlive && currentPlayer.sprite && !(currentPlayer.sprite as any)._destroyed
                         && countProjectiles('brain_shot') < MAX_MISSILES) {
-                        Projectiles.createBrainProjectile(brain.sprite.x, brain.sprite.y, currentPlayer.sprite.x, currentPlayer.sprite.y);
+                        // $6041: from the brain's top-left + 3 bytes, 4 lines
+                        const { hw: bw, hh: bh } = spriteHalfExtents(brain.sprite);
+                        Projectiles.createBrainProjectile(brain.position.x - bw + 6, brain.position.y - bh + 4, currentPlayer.sprite.x, currentPlayer.sprite.y);
                     }
                 }
             }

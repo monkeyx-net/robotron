@@ -777,7 +777,7 @@ if (!(window as any).__robotronBooted) {
     (window as any).__robotronBooted = true;
     initializeGame().then(() => {
         // debug/test handle (used by Playwright verification)
-        (window as any).__game = { app, gameState, get enemies() { return enemies; }, get obstacles() { return obstacles; }, get humansAndProgs() { return humansAndProgs; }, get player() { return player; } };
+        (window as any).__game = { app, gameState, get enemies() { return enemies; }, get obstacles() { return obstacles; }, get humansAndProgs() { return humansAndProgs; }, get player() { return player; }, get enemyProjectiles() { return enemyProjectiles; } };
     });
 } else {
     // A second execution of this module means two module instances exist

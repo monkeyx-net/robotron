@@ -1,9 +1,12 @@
 import * as PIXI from 'pixi.js';
 import { GameConfig } from './config';
-import { playerProjectilesContainer, enemyProjectilesContainer, playerProjectiles, enemyProjectiles } from './main';
+import { playerProjectilesContainer, enemyProjectilesContainer, playerProjectiles, enemyProjectiles, player } from './main';
 import { gameState } from './gameState';
 import { SoundManager } from './soundManager';
 import { Projectile } from './projectile';
+import { ColorCycles } from './core/ColorCycles';
+import { WavePacing } from './core/WavePacing';
+import { prng } from './core/Prng';
 
 export function createPlayerProjectile(x: number, y: number, dx: number, dy: number): Projectile {
     if (!GameConfig || !PIXI || !playerProjectilesContainer || !playerProjectiles || !SoundManager) {
@@ -53,24 +56,106 @@ export function createEnforcerProjectile(x: number, y: number, targetX: number, 
     return newProjectile;
 }
 
+// Brain cruise missile (ROM $6006 spawn, $20B0 process, $20C7 move, $207B aim;
+// robotron-re REVERSE.md Phase 21 "Cruise missiles"). The head is a 2 px x 2
+// line block in cycling palette entry A, and it leaves its last 8 positions as
+// a trail in entry D. Every 2 frames it makes two 1-byte / 1-line moves, so it
+// steps 2 px across and/or 1 line down or up per frame, reversing at the
+// playfield edges (it bounces). Every prng_le(7) passes it re-aims at the
+// player plus a random -6..9 bytes/lines: half the time on x (and then half
+// the time on y too), otherwise on y alone, so it moves in 8 directions.
+// It lives until it is shot or hits the player.
+const MISSILE_PASS_FRAMES = 2;
+const MISSILE_TRAIL = 8;
+// $20C7 bounds on the head's top-left, as port pixels: x bytes 7..$8E, y $18..$EA
+const MISSILE_X0 = 2 * 0x07 - 6, MISSILE_X1 = 2 * 0x8E - 6, MISSILE_Y0 = 0x18 - 7, MISSILE_Y1 = 0xEA - 7;
+
+interface Missile {
+    stepX: number;
+    stepY: number;
+    aimPasses: number;
+    passTimer: number;
+    trail: [number, number][];
+    head: PIXI.Graphics;
+    tail: PIXI.Graphics;
+}
+
+/** $207B: aim at the player (target in port pixels). */
+function aimMissile(m: Missile, x: number, y: number, tx: number, ty: number): void {
+    m.stepX = 0; m.stepY = 0;
+    let doY = true;
+    if (prng.step() & 0x80) {
+        const jx = (prng.step() & 0x0F) - 6;
+        m.stepX = tx + 2 * jx >= x ? 2 : -2;
+        doY = !(prng.step() & 0x80);
+    }
+    if (doY) {
+        const jy = (prng.step() & 0x0F) - 6;
+        m.stepY = ty + jy >= y ? 1 : -1;
+    }
+    m.aimPasses = WavePacing.prngLe(7);
+}
+
 export function createBrainProjectile(x: number, y: number, targetX: number, targetY: number): Projectile {
     if (!GameConfig || !PIXI || !enemyProjectilesContainer || !enemyProjectiles || !SoundManager) {
         console.warn("Projectiles.createBrainProjectile: Missing dependencies.");
         const dummySprite = new PIXI.Graphics();
         return new Projectile(dummySprite, 'brain_shot', 0, 0);
     }
-    const projectileSprite = new PIXI.Graphics();
-    projectileSprite.beginFill(0xFF88FF);
-    projectileSprite.drawCircle(0,0,3);
-    projectileSprite.endFill();
-    projectileSprite.x = x; projectileSprite.y = y;
-    const angle = Math.atan2(targetY - y, targetX - x);
-    enemyProjectilesContainer.addChild(projectileSprite);
-    
-    const newProjectile = new Projectile(projectileSprite, 'brain_shot', Math.cos(angle) * GameConfig.BRAIN_PROJECTILE_SPEED, Math.sin(angle) * GameConfig.BRAIN_PROJECTILE_SPEED);
+    // The sprite is the head's position; the trail is drawn relative to it.
+    const container = new PIXI.Container();
+    const tail = new PIXI.Graphics();
+    const head = new PIXI.Graphics().rect(0, 0, 2, 2).fill(0xFFFFFF);
+    container.addChild(tail, head);
+    // every removal path calls sprite.destroy(); take the head and trail with it
+    const destroyContainer = container.destroy.bind(container);
+    container.destroy = () => destroyContainer({ children: true });
+    container.x = Math.max(MISSILE_X0, Math.min(MISSILE_X1, Math.round(x)));
+    container.y = Math.max(MISSILE_Y0, Math.min(MISSILE_Y1, Math.round(y)));
+    enemyProjectilesContainer.addChild(container);
+
+    const newProjectile = new Projectile(container as unknown as PIXI.Graphics, 'brain_shot', 0, 0);
+    const m: Missile = { stepX: 0, stepY: 0, aimPasses: 0, passTimer: MISSILE_PASS_FRAMES, trail: [], head, tail };
+    aimMissile(m, container.x, container.y, targetX, targetY);
+    (newProjectile as any).missile = m;
+    tintMissile(m);
     enemyProjectiles.push(newProjectile);
     SoundManager.play('brainFire');
     return newProjectile;
+}
+
+function tintMissile(m: Missile): void {
+    m.head.tint = ColorCycles.color(0xA) ?? 0xFFFFFF;
+    m.tail.tint = ColorCycles.color(0xD) ?? 0xFFFFFF;
+}
+
+/** $20C7: one move, reversing an axis that would leave the playfield. */
+function moveMissile(sprite: PIXI.Container, m: Missile): void {
+    m.trail.push([sprite.x, sprite.y]);
+    if (m.trail.length > MISSILE_TRAIL) m.trail.shift();
+    let nx = sprite.x + m.stepX;
+    if (nx < MISSILE_X0 || nx > MISSILE_X1) { m.stepX = -m.stepX; nx = sprite.x + m.stepX; }
+    let ny = sprite.y + m.stepY;
+    if (ny < MISSILE_Y0 || ny > MISSILE_Y1) { m.stepY = -m.stepY; ny = sprite.y + m.stepY; }
+    sprite.x = nx; sprite.y = ny;
+}
+
+function updateMissile(p: Projectile, m: Missile, delta: number, tx: number | null, ty: number | null): void {
+    const sprite = p.sprite as unknown as PIXI.Container;
+    m.passTimer -= delta;
+    while (m.passTimer <= 0) {
+        m.passTimer += MISSILE_PASS_FRAMES;
+        if (--m.aimPasses <= 0) {
+            if (tx !== null && ty !== null) aimMissile(m, sprite.x, sprite.y, tx, ty);
+            else m.aimPasses = WavePacing.prngLe(7);
+        }
+        moveMissile(sprite, m);
+        moveMissile(sprite, m);
+    }
+    m.tail.clear();
+    for (const [x, y] of m.trail) m.tail.rect(x - sprite.x, y - sprite.y, 2, 2);
+    if (m.trail.length) m.tail.fill(0xFFFFFF);
+    tintMissile(m);
 }
 
 /**
@@ -143,21 +228,11 @@ export function updateEnemyProjectiles(delta: number): void {
             enemyProjectiles.splice(i, 1);
             continue;
         }
-        // Brain CRUISE missile: homes on the player with a sinusoidal
-        // wiggle perpendicular to its heading (arcade behavior).
         if (p.type === 'brain_shot') {
-            const cm = p as any;
-            if (cm.wigglePhase === undefined) cm.wigglePhase = 0;
-            cm.wigglePhase += 0.35 * delta;
-            const spd = GameConfig.BRAIN_PROJECTILE_SPEED || 2;
-            const heading = Math.atan2(p.dy, p.dx);
-            const wiggle = Math.sin(cm.wigglePhase) * spd * 0.9;
-            p.sprite.x += Math.cos(heading) * spd * delta + Math.cos(heading + Math.PI / 2) * wiggle * delta;
-            p.sprite.y += Math.sin(heading) * spd * delta + Math.sin(heading + Math.PI / 2) * wiggle * delta;
-            const pfb = GameConfig.PLAYFIELD;
-            if (p.sprite.x < pfb.LEFT || p.sprite.x > pfb.RIGHT || p.sprite.y < pfb.TOP || p.sprite.y > pfb.BOTTOM) {
-                p.destroy();
-                enemyProjectiles.splice(i, 1);
+            const m = (p as any).missile as Missile | undefined;
+            if (m) {
+                const pl = player && player.sprite && !(player.sprite as any).destroyed ? player.sprite : null;
+                updateMissile(p, m, delta, pl ? pl.x : null, pl ? pl.y : null);
             }
             continue;
         }

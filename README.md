@@ -31,6 +31,7 @@ Version 3.0 is a ground-up accuracy pass built directly against the original Wil
 - **ROM wave table**: all 40 waves of enemies, electrodes and family members (mommies, daddies, mikeys) generated from the ROM's count tables and checked in MAME; waves past 40 cycle 21–40 as in the arcade
 - **ROM electrodes and spawn positions**: the nine electrode shapes (starburst, lattice, squares, triangles, bars, diamonds, rings, spirals, "2084" plates) pixel for pixel on the ROM's 10-wave cycle, in the arcade's colour-cycling palette entries, shrinking away over 11 frames when destroyed; enemies spawn outside the ROM's per-wave safe zone around the player, brains near the edges, spheroids at the sides and quarks top and bottom
 - **ROM progs**: a reprogrammed human walks as a solid colour-cycling silhouette of itself with a trail of afterimages, stepping toward you one axis at a time
+- **ROM cruise missiles**: brains fire the arcade's colour-cycling missile with its trail, zig-zagging after you in 8 directions and bouncing off the walls
 - **ROM walk animations**: the player, humans, hulks and brains face the way they move, with the ROM's own step sizes and direction tables; the player faces the move stick, never the fire stick
 - **Arcade-authentic AI**: stepped grunt/hulk movement, drifting PRNG-jittered enforcers, cruise-missile brain projectiles with sinusoidal wiggle, hulks that seek humans via the ROM's pointer-table scan — all traced from disassembly, not reimplemented from memory of the game
 
