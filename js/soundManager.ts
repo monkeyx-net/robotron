@@ -122,17 +122,34 @@ export const SoundManager = {
      * A new sound fades out playing voices of equal or lower priority over
      * CROSSFADE_MS; higher-priority voices (rescue, death, wave clear...)
      * keep playing to the end underneath it. Priorities follow the ROM
-     * track tables (Ph20).
+     * track tables: each track's first byte, which play_music_track ($D3C7)
+     * compares with the playing one (robotron-re REVERSE.md Phase 21 "Sound
+     * priorities"). Equal priority replaces, as in the ROM.
      */
     PRIORITIES: {
-        insertCoin: 0xF0, highScoreEntry: 0xEF, gameOver: 0xD8,
-        playerDeath: 0xD0, extraLife: 0xC8, waveStart: 0xC0, waveComplete: 0xC0,
-        humanRescue: 0x90, humanToProg: 0x80, humanDeathByEnemy: 0x80,
-        spheroidPop: 0x77, quarkPop: 0x77, tankPop: 0x77, brainPop: 0x77,
-        gruntPop: 0x70, enforcerPop: 0x70, progDestroy: 0x70,
-        enforcerSpawn: 0x60,
-        enforcerFire: 0x50, brainFire: 0x50, tankFire: 0x50, shellBounce: 0x50,
-        shoot: 0x20,
+        // not in the flat ROM (sound board / bank-switched): kept in order
+        highScoreEntry: 0xFE, gameOver: 0xFD, extraLife: 0xF8,
+        waveComplete: 0xFF,      // $8607 track $4143 (prio $FF) is the likely match, unconfirmed
+        insertCoin: 0xF0,        // $673A track $26E6
+        playerDeath: 0xEE,       // $70EF track $26D9
+        waveStart: 0xE0,         // $6A9C track $26EB
+        humanDeathByEnemy: 0xE0, // $438A track $0026 (hulk kills a human)
+        humanToProg: 0xD8,       // $5D7E track $1AEF
+        enforcerSpawn: 0xD8,     // $5377 track $114C
+        spheroidPop: 0xD1,       // $52EA track $1151
+        humanRescue: 0xD0,       // $7221 track $26F0
+        gruntPop: 0xD0,          // $7A8E track $3898
+        enforcerPop: 0xD0,       // $54A1 track $115B
+        brainPop: 0xD0,          // $5E09 track $1ACD
+        progDestroy: 0xD0,       // $5F5B track $1ADA
+        quarkPop: 0xD0,          // $8BEB track $4B29
+        tankPop: 0xD0,           // $8E0A track $4B0C
+        subQuarkPop: 0xD0,       // $8FE7 track $4B1E (shell, spark, missile shot)
+        enforcerFire: 0xD0,      // $547B track $1156
+        brainFire: 0xC8,         // $6053 track $1AE2 (cruise missile)
+        tankFire: 0xC8,          // $8F8C track $4B11
+        shellBounce: 0xC8,       // $8FCD track $4B16
+        shoot: 0x20,             // player fire: not in the flat ROM; lowest so it never cuts anything
     } as Record<string, number>,
 
     CROSSFADE_MS: 140,

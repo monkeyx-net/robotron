@@ -181,12 +181,15 @@ origin (a small square in the top-left corner on every screen).
 
 ## M5 — Systems polish (stretch)
 
-1. **Sound priority values.** Our single-channel priority scheme exists; align the
-   actual priority numbers with the ROM track table (e.g. quark death $77, spheroid
-   death $70, high-score $EF — Ph20) so preemption decisions match.
+1. **Sound priority values.** Done 2026-10-11. Every `play_music_track` call in the flat
+   ROM was read for its track's priority byte (REVERSE.md Phase 21, "Sound priorities"),
+   and `soundManager.ts` uses those values: death $EE, wave start $E0, enforcer spawn and
+   prog birth $D8, spheroid $D1, most kills and fire $D0, missile/tank fire and shell
+   bounce $C8. The old "quark $77, spheroid $70" figures were invented. Sounds not called
+   from the flat ROM keep their order above them, and the player's own shot stays lowest.
 2. **Attract cutscenes.** Alt-font story screens between attract phases.
-3. **Waves 13+ policy.** ROM wave table was captured for waves 1–12; decide and
-   document the wrap rule for 13+ (arcade repeats late-wave configs) and implement.
+3. ~~**Waves 13+ policy.**~~ Done (`cb4a626`): all 40 waves come from the ROM's count
+   tables, and waves past 40 repeat 21–40 as the ROM does.
 4. **Demo-play input.** ROM attract uses scripted demo input (DP[$52]); replace the
    current AI demo player with something closer to the ROM's feel if observable.
 
