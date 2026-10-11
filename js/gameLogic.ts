@@ -12,10 +12,11 @@ import { gameEvents } from './core/EventSystem';
 import { Vector2 } from './utils/Vector2';
 import { ArcadeBorder } from './core/ArcadeBorder';
 import { getWaveDef } from './waveTable';
-import { prng } from './core/Prng';
 import { WavePacing } from './core/WavePacing';
 import { TwoPlayer } from './core/TwoPlayer';
-import { isEntityGone } from './gameObject';
+import { isEntityGone, spriteHalfExtents } from './gameObject';
+import { SpawnPlacement, SpawnPoint } from './core/SpawnPlacement';
+import { electrodeLook } from './core/ElectrodeShapes';
 import { ScorePopup } from './core/ScorePopup';
 import { WaveTransition } from './core/WaveTransition';
 import { Operator } from './core/OperatorSettings';
@@ -283,30 +284,58 @@ export function startNextWave() {
     const numBrains = def.brains, numQuarks = def.quarks;
     const numElectrodes = def.electrodes;
     // Tanks are not wave-spawned in the arcade: quarks drop them.
-    const numTanks = 0;
 
+    // ROM spawn positions (core/SpawnPlacement.ts): most things stay out of a
+    // per-wave box around the player's start; brains, spheroids and quarks
+    // start near the edges; humans go anywhere.
+    const place = (e: any, p: SpawnPoint) => {
+        if (!e) return;
+        e.sprite.x = e.position.x = e.previousPosition.x = p.x;
+        e.sprite.y = e.position.y = e.previousPosition.y = p.y;
+    };
+    const size = (e: any) => ({ w: e.sprite.width || 8, h: e.sprite.height || 8 });
+    const look = electrodeLook(gameState.wave);
     for (let i = 0; i < numElectrodes; i++) {
-        const elX = GameConfig.GAME_WIDTH * 0.2 + prng.float() * (GameConfig.GAME_WIDTH * 0.6);
-        const elY = GameConfig.GAME_HEIGHT * 0.2 + prng.float() * (GameConfig.GAME_HEIGHT * 0.6);
-        const elSize = 8;
-        const colors = [0xFF0000, 0xFFFF00, 0x00FFFF, 0xFF00FF, 0x00FF00];
-        if (Obstacles && Obstacles.createElectrode) Obstacles.createElectrode(elX, elY, elSize, elSize, colors[i % colors.length]);
+        const p = SpawnPlacement.electrode(gameState.wave, look.rows[0].length, look.rows.length);
+        Obstacles.createElectrode(p.x, p.y, 8, 8);
     }
-    const pf = GameConfig.PLAYFIELD;
-    const spawnX = () => pf.LEFT + 6 + prng.float() * (pf.RIGHT - pf.LEFT - 12);
-    const spawnY = () => pf.TOP + 6 + prng.float() * (pf.BOTTOM - pf.TOP - 12);
-    for(let i=0;i<numGrunts;i++){ if (Enemies && Enemies.createGrunt) Enemies.createGrunt(spawnX(), spawnY());}
-    for(let i=0;i<numHulks;i++){ if (Enemies && Enemies.createHulk) Enemies.createHulk(spawnX(), spawnY());}
-    for(let i=0;i<numSpheroids;i++){ if (Enemies && Enemies.createSpheroid) Enemies.createSpheroid(spawnX(), spawnY());}
-    for(let i=0;i<numBrains;i++){ if (Enemies && Enemies.createBrain) Enemies.createBrain(spawnX(), spawnY());}
-    for(let i=0;i<numTanks;i++){ if (Enemies && Enemies.createTank) Enemies.createTank(spawnX(), spawnY());}
-    for(let i=0;i<numQuarks;i++){ if (Enemies && Enemies.createQuark) Enemies.createQuark(spawnX(), spawnY());}
+    // grunts also skip spots that overlap something already placed ($DE0F)
+    const overlaps = (self: any, p: SpawnPoint, w: number, h: number) =>
+        [...obstacles, ...enemies].some((o: any) => {
+            if (o === self || isEntityGone(o)) return false;
+            const { hw, hh } = spriteHalfExtents(o.sprite);
+            return Math.abs(o.sprite.x - p.x) < hw + w / 2 && Math.abs(o.sprite.y - p.y) < hh + h / 2;
+        });
+    for (let i = 0; i < numGrunts; i++) {
+        const g = Enemies.createGrunt(0, 0); if (!g) continue;
+        const { w, h } = size(g);
+        place(g, SpawnPlacement.outsideBox(gameState.wave, w, h, p => overlaps(g, p, w, h)));
+    }
+    for (let i = 0; i < numHulks; i++) {
+        const e = Enemies.createHulk(0, 0); if (!e) continue;
+        const { w, h } = size(e); place(e, SpawnPlacement.outsideBox(gameState.wave, w, h));
+    }
+    for (let i = 0; i < numSpheroids; i++) {
+        const e = Enemies.createSpheroid(0, 0); if (!e) continue;
+        const { w, h } = size(e); place(e, SpawnPlacement.spheroid(w, h));
+    }
+    for (let i = 0; i < numBrains; i++) {
+        const e = Enemies.createBrain(0, 0); if (!e) continue;
+        const { w, h } = size(e); place(e, SpawnPlacement.brain(w, h));
+    }
+    for (let i = 0; i < numQuarks; i++) {
+        const e = Enemies.createQuark(0, 0); if (!e) continue;
+        const { w, h } = size(e); place(e, SpawnPlacement.quark(w, h));
+    }
 
     // The ROM spawns each family member type in its own count ($42B2):
     // mommies = WOMAN, daddies = MAN, mikeys = CHILD.
     const family: [string, number][] = [['WOMAN', def.mommies], ['MAN', def.daddies], ['CHILD', def.mikeys]];
     for (const [type, n] of family) {
-        for (let i = 0; i < n; i++) Humans.createHuman(spawnX(), spawnY(), type);
+        for (let i = 0; i < n; i++) {
+            const hm = Humans.createHuman(0, 0, type); if (!hm) continue;
+            const { w, h } = size(hm); place(hm, SpawnPlacement.anywhere(w, h));
+        }
     }
 
     if (player) player.isAlive = true;

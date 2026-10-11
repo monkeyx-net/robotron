@@ -1,6 +1,6 @@
 # Operator Settings Plan (arcade "GAME ADJUSTMENT" menu)
 
-Status: **steps 1–3 committed (`62d5a8f`); step 4 committed (`fb0d989`); step 4b (remaining enemy params) committed (`96a110d`); wave counts from the ROM done 2026-10-11 (uncommitted); step 5 optional.** Branch: `release-3.0`.
+Status: **steps 1–3 committed (`62d5a8f`); step 4 committed (`fb0d989`); step 4b (remaining enemy params) committed (`96a110d`); wave counts committed (`cb4a626`); electrodes + spawn positions done 2026-10-11 (uncommitted); step 5 optional.** Branch: `release-3.0`.
 
 Goal: add the original ROM's operator adjustments that matter to gameplay,
 and skip those that only make sense on physical cabinet hardware.
@@ -141,8 +141,20 @@ physical high-score-reset switch; SET ATTRACT MODE MESSAGE and SET HIGHEST SCORE
      3 humans on wave 1 (ROM: 2) and 59 grunts on wave 9 (ROM: 60). MAME confirmed wave 1's
      human pointer table holds 2 and $BE69 is electrodes. Browser check on waves 1, 2, 5, 7,
      9, 10, 15, 24, 41 matched the table.
-   - Still open: per-wave electrode shapes/colors (DP $93 at wave init), ROM spawn
-     positions.
+   - **Electrodes and spawn positions (2026-10-11).**
+     - Electrodes: wave-init picks one of 9 shapes ($3B05 descriptors) from a 10-wave table
+       at $2A4B. `js/core/ElectrodeShapes.ts` is generated from the ROM by robotron-re
+       `tools/gen_electrodes_ts.py`; colours were measured in MAME (`tools/electrode_probe.lua`;
+       the ROM bitmaps fit every unobscured electrode exactly). The alpha flicker is gone
+       (the ROM's are steady).
+     - Spawns (`js/core/SpawnPlacement.ts`): random top-left per $7199; grunts/hulks stay
+       out of the per-wave box at $3920, electrodes out of it shrunk 4 lines/3 bytes, grunts
+       also avoid overlapping anything placed; humans anywhere; brains in edge bands;
+       spheroids at x $09/$87; quarks at rows $1A/$DC. All 188 MAME electrode positions
+       respect the shrunk box. Browser: 3000 draws per wave never broke a rule.
+     - Not ported: the electrode shrink frames when destroyed; the ROM's exact spawn order.
+   - Seen, not fixed: `Humans.convertToProg` draws progs as 16×16 magenta placeholder
+     squares (enemies.ts `createProg` has proper mikey frames).
 5. **Optional:** FANCY ATTRACT MODE toggle; a statistics page (extra men earned, play
    time, men played — non-coin bookkeeping); a controller test screen (the web version
    of the switch test).

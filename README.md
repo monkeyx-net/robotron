@@ -29,6 +29,7 @@ Version 3.0 is a ground-up accuracy pass built directly against the original Wil
 - **ROM sprite atlas & bitmap fonts**: extracted directly from the ROM's graphics ROM banks and blitter source data, then hand-verified frame-by-frame against MAME captures (not redrawn or approximated)
 - **Ported PRNG**: the ROM's actual pseudo-random number generator (`$D6CD`), so enemy homing jitter, spawn positions, and re-homing decisions follow the same statistical behavior as the arcade
 - **ROM wave table**: all 40 waves of enemies, electrodes and family members (mommies, daddies, mikeys) generated from the ROM's count tables and checked in MAME; waves past 40 cycle 21–40 as in the arcade
+- **ROM electrodes and spawn positions**: the nine electrode shapes (starburst, lattice, squares, triangles, bars, diamonds, rings, spirals, "2084" plates) pixel for pixel on the ROM's 10-wave cycle, in MAME-measured colours; enemies spawn outside the ROM's per-wave safe zone around the player, brains near the edges, spheroids at the sides and quarks top and bottom
 - **Arcade-authentic AI**: stepped grunt/hulk movement, drifting PRNG-jittered enforcers, cruise-missile brain projectiles with sinusoidal wiggle, hulks that seek humans via the ROM's pointer-table scan — all traced from disassembly, not reimplemented from memory of the game
 
 ### 🎯 Faithful Game Feel
@@ -254,7 +255,7 @@ Full detail in [`ARCADE_FIDELITY_PLAN.md`](ARCADE_FIDELITY_PLAN.md). Highlights:
 - [ ] 4-direction sprite facing for player, grunts, humans (currently down-facing only)
 - [ ] Shootable enforcer sparks & tank shells for their ROM point values
 - [ ] Arcade-accurate game-over → high-score → attract flow (retire the DOM "Play Again?" button)
-- [ ] 2P dual-score HUD, richer per-wave electrode shapes
+- [ ] 2P dual-score HUD
 - [ ] Performance optimization with object pooling
 - [ ] Online leaderboards, replay system
 
