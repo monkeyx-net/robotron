@@ -83,6 +83,7 @@ export function clearEntities(clearHumans: boolean = false, keepPlayer: boolean 
         obstacles.forEach(o => { if (o.sprite && !o.sprite._destroyed) o.sprite.destroy(); });
         obstacles.length = 0;
     }
+    Obstacles.clearDyingElectrodes();
     // Effects
     if (effectsContainer) { // Effects container directly holds children sprites
         // Iterate backwards safely
@@ -246,6 +247,7 @@ export function startNextWave() {
         obstacles.forEach(o => { if (o.sprite && !o._destroyed) o.sprite.destroy(); });
         obstacles.length = 0;
     }
+    Obstacles.clearDyingElectrodes();
     // Enemy projectiles clear (player projectiles might be kept briefly or cleared too)
     if (enemyProjectiles) {
         enemyProjectiles.forEach(p => { if (!isEntityGone(p)) p.sprite.destroy(); });
@@ -294,9 +296,9 @@ export function startNextWave() {
         e.sprite.y = e.position.y = e.previousPosition.y = p.y;
     };
     const size = (e: any) => ({ w: e.sprite.width || 8, h: e.sprite.height || 8 });
-    const look = electrodeLook(gameState.wave);
+    const rest = electrodeLook(gameState.wave).frames[0].rows;
     for (let i = 0; i < numElectrodes; i++) {
-        const p = SpawnPlacement.electrode(gameState.wave, look.rows[0].length, look.rows.length);
+        const p = SpawnPlacement.electrode(gameState.wave, rest[0].length, rest.length);
         Obstacles.createElectrode(p.x, p.y, 8, 8);
     }
     // grunts also skip spots that overlap something already placed ($DE0F)
@@ -577,8 +579,7 @@ export function checkCollisions() {
                     (en.sprite as any).destroy();
                     enemies.splice(ei, 1);
                     WavePacing.onGruntKilled();
-                    (ob.sprite as any).destroy();
-                    obstacles.splice(oi, 1);
+                    Obstacles.killElectrode(ob);     // ROM shrink ($7AA9)
                     if (gameState.currentGameState === 'PLAYING') {
                         addScore(GameConfig.POINTS.GRUNT);
                     }
@@ -587,7 +588,8 @@ export function checkCollisions() {
             }
         }
 
-        // Player bullet vs Electrode — one shot destroys it (no points).
+        // Player bullet vs Electrode — one shot destroys it (no points) and it
+        // shrinks away over 11 frames.
         for (let pi = playerProjectiles.length - 1; pi >= 0; pi--) {
             const pb = playerProjectiles[pi];
             if (isEntityGone(pb)) continue;
@@ -597,8 +599,7 @@ export function checkCollisions() {
                 if (isColliding(pb.sprite, ob.sprite, 5)) {
                     (pb.sprite as any).destroy();
                     playerProjectiles.splice(pi, 1);
-                    (ob.sprite as any).destroy();
-                    obstacles.splice(oi, 1);
+                    Obstacles.killElectrode(ob);
                     break;
                 }
             }

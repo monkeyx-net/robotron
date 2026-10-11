@@ -1,6 +1,6 @@
 # Operator Settings Plan (arcade "GAME ADJUSTMENT" menu)
 
-Status: **steps 1–3 committed (`62d5a8f`); step 4 committed (`fb0d989`); step 4b (remaining enemy params) committed (`96a110d`); wave counts committed (`cb4a626`); electrodes + spawn positions committed (`1d43a7c`); colour cycles + progs done 2026-10-11 (uncommitted); step 5 optional.** Branch: `release-3.0`.
+Status: **steps 1–3 committed (`62d5a8f`); step 4 committed (`fb0d989`); step 4b (remaining enemy params) committed (`96a110d`); wave counts committed (`cb4a626`); electrodes + spawn positions committed (`1d43a7c`); colour cycles + progs committed (`526735f`); electrode shrink done 2026-10-11 (uncommitted); step 5 optional.** Branch: `release-3.0`.
 
 Goal: add the original ROM's operator adjustments that matter to gameplay,
 and skip those that only make sense on physical cabinet hardware.
@@ -154,7 +154,15 @@ physical high-score-reset switch; SET ATTRACT MODE MESSAGE and SET HIGHEST SCORE
        also avoid overlapping anything placed; humans anywhere; brains in edge bands;
        spheroids at x $09/$87; quarks at rows $1A/$DC. All 188 MAME electrode positions
        respect the shrunk box. Browser: 3000 draws per wave never broke a rule.
-     - Not ported: the electrode shrink frames when destroyed; the ROM's exact spawn order.
+     - Not ported: the ROM's exact spawn order.
+   - **Electrode shrink (2026-10-11).** When an electrode is shot or a grunt walks into it,
+     $7AA9 unlinks it from the electrode list (so nothing collides with it any more) and
+     hands its sprite to a process ($3AD9/$3AE0). The process shows each descriptor frame
+     for its hold: the resting shape for 6 frames, then frames 1 and 2 for 3 and 2, then
+     erases it. Every shape uses 6/3/2. `ElectrodeShapes.ts` now carries all 3 frames, and
+     `Obstacles.killElectrode` plays them. In the browser: out of the list on the hit
+     frame, then 100/50/34 ms, colour still cycling. The ROM also starts a sound ($38A5);
+     the port has no electrode sample, so that is left out.
    - **Progs (2026-10-11).** The ROM prog ($5E19/$5EAB, earlier mislabelled a grunt)
      walks with the captured human's own frames drawn as a solid silhouette in palette
      entry A, leaving its last 6 positions behind in entry E. Every 3 frames it steps 4 px
