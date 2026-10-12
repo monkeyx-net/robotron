@@ -155,8 +155,10 @@ npm run preview
 ### Deploy
 
 The live site at [robotron.hatch.org](https://robotron.hatch.org/) is a private S3 bucket
-served through CloudFront (HTTPS, certificate from ACM, DNS in Route 53). With AWS
-credentials for that account:
+served through CloudFront (HTTPS, certificate from ACM, DNS in Route 53). The bucket
+and distribution are not in the repo: copy `.env.deploy.example` to `.env.deploy`
+(git-ignored) and fill in `DEPLOY_BUCKET` and `DEPLOY_DIST_ID`, or export them. Then,
+with AWS credentials for that account:
 
 ```bash
 # Build, check dist/, upload to S3 and invalidate the CloudFront cache

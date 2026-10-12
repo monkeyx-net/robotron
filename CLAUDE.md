@@ -324,8 +324,10 @@ Use these for library documentation lookups and automated testing when implement
 
 The game is served from **https://robotron.hatch.org/**: a private S3 bucket
 (us-east-1) read only by CloudFront through origin access control, with an ACM
-certificate and Route 53 alias records. `deploy.sh` holds the bucket and
-distribution. GitHub Pages is not used.
+certificate and Route 53 alias records. GitHub Pages is not used. The bucket and
+distribution ID are only local: `deploy.sh` reads `DEPLOY_BUCKET` and
+`DEPLOY_DIST_ID` from the environment or from the git-ignored `.env.deploy`
+(template: `.env.deploy.example`). Never commit them.
 
 ```bash
 npm run deploy   # ./deploy.sh: build, check dist, sync to S3, invalidate CloudFront

@@ -22,3 +22,7 @@ top-hn-posts.txt
 handoff.md
 docs/3d-reimagining/
 docs/superpowers/
+
+# local deploy settings (bucket, CloudFront distribution); see .env.deploy.example
+.env*
+!.env.deploy.example

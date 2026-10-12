@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import { cpSync } from 'node:fs';
 
-// Production is served from the root of https://robotron.hatch.org (deploy.sh);
+// Production is served from the root of its domain (deploy.sh);
 // the dev server keeps the /robotron/ path.
 export default defineConfig(({ command }) => ({
   base: command === 'build' ? '/' : '/robotron/',
