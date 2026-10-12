@@ -1,0 +1,29 @@
+Robotron: 2084 Web Remake
+Copyright 2025-2026 Steven Hatch
+
+The source code of this project is licensed under the Apache License,
+Version 2.0 (see LICENSE).
+
+THIRD-PARTY MATERIAL NOT COVERED BY THAT LICENSE
+
+Robotron: 2084 (1982) was created by Eugene Jarvis and Larry DeMar and
+published by Williams Electronics. The game, its artwork, sounds and data,
+and the ROBOTRON: 2084 trademark belong to their current rights holders.
+
+The following files are extracted, captured or generated from the original
+arcade ROM and are NOT licensed under the Apache License or by this
+project's authors:
+
+  sprites/        sprite atlas and bitmap fonts extracted from the ROM
+  sounds/         the arcade game's sound effects and music (several
+                  captured from its sound board running in MAME)
+  js/waveTable.ts, js/core/WaveParams.ts, js/core/ElectrodeShapes.ts
+                  data tables generated from the ROM
+
+They are included solely so this non-commercial, unofficial fan remake can
+be studied and played. No ROM images are distributed. If you hold rights
+in this material and want it removed, please open an issue at
+https://github.com/shatch/robotron/issues and it will be taken down.
+
+This project is not affiliated with or endorsed by Williams Electronics,
+Midway, Warner Bros. or any successor.

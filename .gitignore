@@ -1,7 +1,7 @@
 # build output and caches
 dist/
 .vite/
-node_modules/.vite/
+node_modules/
 
 # OS and Finder/iCloud duplicates ("name 2.ext")
 .DS_Store

@@ -4,7 +4,7 @@ A faithful recreation of the classic 1982 arcade game **Robotron: 2084** built w
 
 [![Play Now](https://img.shields.io/badge/Play-Demo-brightgreen?style=for-the-badge)](https://robotron.hatch.org/)
 [![Release](https://img.shields.io/github/v/release/shatch/robotron?style=for-the-badge)](https://github.com/shatch/robotron/releases)
-[![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue?style=for-the-badge)](LICENSE)
 
 ## 🎮 Play Now
 
@@ -270,7 +270,9 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+The source code is licensed under the Apache License 2.0; see [LICENSE](LICENSE).
+
+The sprites, fonts, sounds and ROM-generated data tables come from the original arcade game and are **not** covered by that license; they belong to their rights holders. See [NOTICE](NOTICE) for the list of files and how to request removal. No ROM images are included.
 
 ## 🙏 Acknowledgments
 
