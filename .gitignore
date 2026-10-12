@@ -1,0 +1,16 @@
+# build output and caches
+dist/
+.vite/
+node_modules/.vite/
+
+# OS and Finder/iCloud duplicates ("name 2.ext")
+.DS_Store
+* 2
+* 2.*
+
+# Playwright MCP logs and ad-hoc debug screenshots in the repo root
+.playwright-mcp/
+/*.png
+
+# scratch
+top-hn-posts.txt
