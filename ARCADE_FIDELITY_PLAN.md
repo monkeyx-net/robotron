@@ -220,10 +220,10 @@ moving the published tag.*
 1. Update README.md + CLAUDE.md with Release 3.0 notes (atlas pipeline, arcade
    systems, verification results). Fold this plan's outcomes into the docs.
 2. `npm version major` → v3.0; tag; push branch + tags; merge to main per repo flow.
-3. `npm run deploy` (gh-pages) and verify the live demo end-to-end.
+3. `npm run deploy` (S3 + CloudFront, robotron.hatch.org) and verify the live demo end-to-end.
 4. GitHub release with before/after screenshots vs MAME.
 
-**Exit criteria:** live demo at shatch.github.io/robotron plays a full credit
+**Exit criteria:** live demo at robotron.hatch.org plays a full credit
 correctly; tag `v3.0` published.
 
 ---

@@ -2,13 +2,13 @@
 
 A faithful recreation of the classic 1982 arcade game **Robotron: 2084** built with modern web technologies — now with ROM-accurate arcade fidelity.
 
-[![Play Now](https://img.shields.io/badge/Play-Demo-brightgreen?style=for-the-badge)](https://shatch.github.io/robotron/)
+[![Play Now](https://img.shields.io/badge/Play-Demo-brightgreen?style=for-the-badge)](https://robotron.hatch.org/)
 [![Release](https://img.shields.io/github/v/release/shatch/robotron?style=for-the-badge)](https://github.com/shatch/robotron/releases)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
 
 ## 🎮 Play Now
 
-**[▶️ Launch Game Demo](https://shatch.github.io/robotron/)**
+**[▶️ Launch Game Demo](https://robotron.hatch.org/)**
 
 ## 📖 About
 
@@ -117,7 +117,7 @@ Version 2.0 represented a ground-up refactoring using modern software engineerin
 ## 🚀 Quick Start
 
 ### Play Online
-Simply visit the [live demo](https://shatch.github.io/robotron/) - no installation required!
+Simply visit the [live demo](https://robotron.hatch.org/) - no installation required!
 
 ### Run Locally
 

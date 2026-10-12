@@ -1,8 +1,10 @@
 import { defineConfig } from 'vite';
 import { cpSync } from 'node:fs';
 
-export default defineConfig({
-  base: '/robotron/',
+// Production is served from the root of https://robotron.hatch.org (deploy.sh);
+// the dev server keeps the /robotron/ path.
+export default defineConfig(({ command }) => ({
+  base: command === 'build' ? '/' : '/robotron/',
   plugins: [{
     // sprites/ and sounds/ are fetched at runtime (not imported), so Vite
     // doesn't bundle them — copy them into dist explicitly.
@@ -30,4 +32,4 @@ export default defineConfig({
     port: 5173,
     open: true
   }
-});
+}));

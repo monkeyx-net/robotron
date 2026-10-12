@@ -221,7 +221,7 @@ Complete architectural overhaul with modern design patterns:
 - **Quality**: Comprehensive error handling, debug interfaces, save/load system
 
 **Git Tags**: `v2.0` on main branch
-**Demo**: https://shatch.github.io/robotron/
+**Demo**: https://robotron.hatch.org/
 
 ### Release 1.0 - Original Implementation
 **Status**: Legacy - Preserved for reference
@@ -319,26 +319,23 @@ The `.kiro/settings/mcp.json` configuration enables:
 
 Use these for library documentation lookups and automated testing when implementing new features.
 
-## GitHub Pages Deployment
+## Deployment (robotron.hatch.org)
 
-### Automatic Deployment
-The project is configured for GitHub Pages deployment:
+The game is served from **https://robotron.hatch.org/**: a private S3 bucket
+(`<bucket>`, us-east-1) read only by CloudFront through origin access
+control `<oac-id>`. CloudFront distribution `<distribution-id>`
+(<distribution-domain>.cloudfront.net) uses ACM certificate `<certificate-id>-…` (us-east-1),
+and Route 53 (hatch.org zone) has A/AAAA alias records. GitHub Pages is not used
+(the repo is private).
 
 ```bash
-# Build and deploy to gh-pages branch
-npm run deploy
+npm run deploy   # ./deploy.sh: build, check dist, sync to S3, invalidate CloudFront
 ```
 
-### Manual Deployment Setup
-1. Build the project: `npm run build`
-2. Deploy dist/ folder to gh-pages branch
-3. Configure repository settings:
-   - Settings → Pages → Source: gh-pages branch
-   - Base path configured in `vite.config.ts`
-
-### Live Demo
-- **Production**: https://shatch.github.io/robotron/
-- **Repository**: https://github.com/shatch/robotron
+- Production builds use base `/`; the dev server keeps `/robotron/` (`vite.config.ts`).
+- Cache: hashed `assets/` 1 year (immutable), sprites/sounds 1 hour, `index.html` 60 s;
+  every deploy invalidates `/*`.
+- Verify with a cache-busted load (`https://robotron.hatch.org/?cb=<n>`).
 
 ## Release Process
 
@@ -372,7 +369,7 @@ npm run deploy
    git push origin --tags
    ```
 
-6. **Deploy to GitHub Pages**:
+6. **Deploy to robotron.hatch.org**:
    ```bash
    npm run deploy
    ```
