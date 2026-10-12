@@ -13,7 +13,7 @@ export const GameConfig = {
 
     // Attract mode timing constants
     TITLE_SCREEN_DURATION: 300,
-    HIGH_SCORE_DURATION: 180,
+    HIGH_SCORE_DURATION: 603,   // heroes screen in attract mode (MAME)
     DEMO_PLAY_DURATION: 450,
 
     // Enemy speeds

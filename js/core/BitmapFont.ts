@@ -22,13 +22,15 @@ interface LoadedFont {
 
 const fonts = new Map<string, LoadedFont>();
 const DASH_W = 3;
-// Punctuation outside the extracted '0'-'^' range, drawn as pixel patterns.
-// The alt ')' is copied from the heroes table in a MAME snapshot; the rest
-// follow the same style. Each advances by its width plus a blank column,
-// like the ROM glyph cells.
+// Punctuation outside the extracted '0'-'^' range, drawn as pixel patterns,
+// plus glyphs whose extracted cell is wrong (a pattern here wins over the
+// sheet). The alt ')' and 'I' and the main ')' are copied from the heroes
+// table in MAME snapshots; the rest follow the same style. Each advances by
+// its width plus a blank column, like the ROM glyph cells.
 const SYNTH: Record<string, Record<string, string[]>> = {
     font_alt: {
         ')': ['#..', '.#.', '..#', '..#', '.#.', '#..'],
+        'I': ['.##.', '.##.', '.##.', '.##.', '.##.', '.##.'],
         '(': ['..#', '.#.', '#..', '#..', '.#.', '..#'],
         '.': ['.', '.', '.', '.', '.', '#'],
         ',': ['.', '.', '.', '.', '#', '#'],
@@ -36,7 +38,7 @@ const SYNTH: Record<string, Record<string, string[]>> = {
         '!': ['#', '#', '#', '#', '.', '#'],
     },
     font_main: {
-        ')': ['#.', '.#', '.#', '.#', '#.'],
+        ')': ['.#.', '..#', '..#', '..#', '.#.'],
         '(': ['.#', '#.', '#.', '#.', '.#'],
         '.': ['.', '.', '.', '.', '#'],
         ',': ['.', '.', '.', '#', '#'],
@@ -104,8 +106,9 @@ export const BitmapFont = {
         const spaceW = (font.meta.glyphs['0']?.w ?? 4);
         let x = 0;
         for (const raw of text.toUpperCase()) {
-            const tex = glyphTexture(font, raw);
-            if (!tex && raw === '-') {
+            const synth = SYNTH[fontName]?.[raw];
+            const tex = synth ? null : glyphTexture(font, raw);
+            if (!tex && !synth && raw === '-') {
                 // the ROM charset ('0'-'^') has no hyphen: synthesize one
                 const dash = new PIXI.Graphics()
                     .rect(0, Math.floor(font.meta.lineHeight / 2), DASH_W, 1)
@@ -115,7 +118,6 @@ export const BitmapFont = {
                 x += DASH_W + tracking;
                 continue;
             }
-            const synth = !tex ? SYNTH[fontName]?.[raw] : undefined;
             if (synth) {
                 const g = new PIXI.Graphics();
                 synth.forEach((row, yy) => {
@@ -154,7 +156,8 @@ export const BitmapFont = {
         let x = 0;
         for (const raw of text.toUpperCase()) {
             const g = font.meta.glyphs[raw];
-            x += (g ? g.w : raw === '-' ? DASH_W : synthWidth(`font_${opts.font ?? 'main'}`, raw) ?? spaceW) + tracking;
+            const sw = synthWidth(`font_${opts.font ?? 'main'}`, raw);
+            x += (sw ?? (g ? g.w : raw === '-' ? DASH_W : spaceW)) + tracking;
         }
         return Math.max(0, x - tracking);
     },

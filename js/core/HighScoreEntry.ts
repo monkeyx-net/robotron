@@ -7,9 +7,9 @@ import { Operator } from './OperatorSettings';
 
 /**
  * Arcade-style initials entry (3 letters; the operator LETTERS setting for a
- * new #1 score), rendered in-canvas with the ROM
- * alt font. Shown from the game-over path when the score makes the top-10
- * table (persisted in localStorage).
+ * new all-time #1 score), rendered in-canvas with the ROM
+ * alt font. Shown from the game-over path when the score makes either
+ * heroes table (persisted in localStorage).
  *
  * Controls: up/down (W/S or arrows) cycle the letter, Enter/Space/fire
  * locks it in; after the third initial the table is saved. Gamepad: D-pad
@@ -19,40 +19,91 @@ import { Operator } from './OperatorSettings';
 
 export interface HighScoreRow { initials: string; score: number; }
 
+/*
+ * The arcade keeps two tables (MAME, robotron-re REVERSE.md Phase 21 "Heroes
+ * table"): ROBOTRON HEROES, 10 rows, which a factory restore fills with the
+ * ROM's own list below, and ALL TIME HEROES, 37 rows of 10000 with no
+ * initials. A score that beats the last row of either table earns initials
+ * and goes into every table it beats. HIGH SCORE TABLE RESET (operator menu)
+ * puts ROBOTRON HEROES back to the ROM list and leaves ALL TIME HEROES alone.
+ */
 const TABLE_KEY = 'robotronHighScoreTable';
-const TABLE_MAX = 10;
+const ALL_TIME_KEY = 'robotronAllTimeHeroes';
+export const HEROES_MAX = 10;
+export const ALL_TIME_MAX = 37;
+const ROM_HEROES: HighScoreRow[] = [
+    { initials: 'DRJ', score: 52127 }, { initials: 'LED', score: 50218 },
+    { initials: 'EPJ', score: 41255 }, { initials: 'JER', score: 41250 },
+    { initials: 'KID', score: 31920 }, { initials: 'MLG', score: 31919 },
+    { initials: 'SSR', score: 26645 }, { initials: 'UNA', score: 26635 },
+    { initials: 'JRS', score: 25250 }, { initials: 'CJM', score: 24110 },
+];
+const ALL_TIME_DEFAULT: HighScoreRow = { initials: '', score: 10000 };
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ. ';
 
-export function loadTable(): HighScoreRow[] {
+function readRows(key: string): HighScoreRow[] | null {
     try {
-        const raw = localStorage.getItem(TABLE_KEY);
-        if (raw) return JSON.parse(raw);
-    } catch { /* corrupted table: start fresh */ }
-    return [];
+        const raw = localStorage.getItem(key);
+        if (raw) {
+            const rows = JSON.parse(raw);
+            if (Array.isArray(rows)) return rows.filter(r => r && typeof r.score === 'number');
+        }
+    } catch { /* corrupted or blocked storage: use the defaults */ }
+    return null;
 }
 
-function saveTable(rows: HighScoreRow[]): void {
-    localStorage.setItem(TABLE_KEY, JSON.stringify(rows.slice(0, TABLE_MAX)));
+function writeRows(key: string, rows: HighScoreRow[]): void {
+    try { localStorage.setItem(key, JSON.stringify(rows)); } catch { /* storage blocked */ }
+}
+
+const same = (a: HighScoreRow, b: HighScoreRow) => a.initials === b.initials && a.score === b.score;
+
+/** Sort high to low; top up to `max` rows from `pad` (rows already there are not added twice). */
+function fill(rows: HighScoreRow[], pad: HighScoreRow[], max: number): HighScoreRow[] {
+    const missing = pad.filter(p => !rows.some(r => same(r, p)));
+    return [...rows, ...missing].sort((a, b) => b.score - a.score).slice(0, max);
+}
+
+/** ROBOTRON HEROES: always 10 rows (older saves are topped up from the ROM list). */
+export function loadTable(): HighScoreRow[] {
+    return fill(readRows(TABLE_KEY) ?? [], ROM_HEROES, HEROES_MAX);
+}
+
+/** ALL TIME HEROES: always 37 rows. The first time, it takes over the scores
+ *  saved before this table existed. */
+export function loadAllTime(): HighScoreRow[] {
+    let rows = readRows(ALL_TIME_KEY);
+    if (!rows) {
+        rows = (readRows(TABLE_KEY) ?? []).filter(r => !ROM_HEROES.some(d => same(r, d)));
+        writeRows(ALL_TIME_KEY, rows);
+    }
+    const blank = new Array(ALL_TIME_MAX).fill(ALL_TIME_DEFAULT);
+    const real = rows.filter(r => r.initials || r.score !== ALL_TIME_DEFAULT.score);
+    return [...real, ...blank].sort((a, b) => b.score - a.score).slice(0, ALL_TIME_MAX);
 }
 
 export function qualifies(score: number): boolean {
     if (score <= 0) return false;
-    const t = loadTable();
-    return t.length < TABLE_MAX || score > t[t.length - 1].score;
+    return score > loadTable()[HEROES_MAX - 1].score || score > loadAllTime()[ALL_TIME_MAX - 1].score;
 }
 
-/** Would `score` take the #1 spot? The arcade's operator LETTERS FOR
- *  HIGHEST SCORE NAME setting applies only to that entry. */
+/** Would `score` take the all-time #1 spot? The arcade's operator LETTERS
+ *  FOR HIGHEST SCORE NAME setting applies only to that entry. */
 function isNewTopScore(score: number): boolean {
-    const t = loadTable();
-    return t.length === 0 || score > t[0].score;
+    return score > loadAllTime()[0].score;
 }
 
 export function insertScore(initials: string, score: number): void {
-    const t = loadTable();
-    t.push({ initials, score });
-    t.sort((a, b) => b.score - a.score);
-    saveTable(t);
+    const row = { initials, score };
+    const allTime = loadAllTime();   // first, so an old save is taken over before the heroes table changes
+    const heroes = loadTable();
+    if (score > heroes[HEROES_MAX - 1].score) {
+        writeRows(TABLE_KEY, [row, ...heroes].sort((a, b) => b.score - a.score).slice(0, HEROES_MAX));
+    }
+    if (score > allTime[ALL_TIME_MAX - 1].score) {
+        const real = allTime.filter(r => r.initials || r.score !== ALL_TIME_DEFAULT.score);
+        writeRows(ALL_TIME_KEY, [row, ...real].sort((a, b) => b.score - a.score).slice(0, ALL_TIME_MAX));
+    }
 }
 
 let container: PIXI.Container | null = null;
@@ -203,4 +254,4 @@ export function hide(): void {
     }
 }
 
-export const HighScoreEntry = { show, hide, qualifies, insertScore, loadTable };
+export const HighScoreEntry = { show, hide, qualifies, insertScore, loadTable, loadAllTime };

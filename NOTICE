@@ -19,6 +19,7 @@ project's authors:
                   captured from its sound board running in MAME)
   js/waveTable.ts, js/core/WaveParams.ts, js/core/ElectrodeShapes.ts
                   data tables generated from the ROM
+  docs/images/    screenshots of this port, which show the ROM graphics
 
 They are included solely so this non-commercial, unofficial fan remake can
 be studied and played. No ROM images are distributed. If you hold rights

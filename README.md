@@ -10,6 +10,11 @@ A faithful recreation of the classic 1982 arcade game **Robotron: 2084** built w
 
 **[▶️ Launch Game Demo](https://robotron.hatch.org/)**
 
+<p align="center">
+  <img src="docs/images/gameplay.png" alt="Wave 1: the player among red grunts, electrodes and a family member, in the arcade HUD and border" width="438">
+  <img src="docs/images/heroes.png" alt="The ROBOTRON HEROES and ALL TIME HEROES tables inside the rainbow checker border" width="438">
+</p>
+
 ## 📖 About
 
 Robotron: 2084 is a multi-directional shooter arcade game developed by Eugene Jarvis and Larry DeMar of Vid Kidz. This web-based remake faithfully recreates the intense gameplay, featuring:
@@ -37,6 +42,7 @@ Version 3.1 finishes the gap-closure plan ([`ARCADE_FIDELITY_PLAN.md`](ARCADE_FI
 - **Attract story**: the attract cycle tells, in the arcade's typed ROM-font style, how this port was made: a game remembered from 1982, its ROM read back byte by byte in MAME, and its rebirth for the web by a human and an AI together
 - **ROM sound priorities and scoring**: every sound's priority byte and every point value read from the ROM and checked in the browser
 - **New home**: the game is now hosted at [robotron.hatch.org](https://robotron.hatch.org/)
+- **Arcade heroes screen**: ROBOTRON HEROES (the ROM's own top 10 until you beat them) and a 37-row ALL TIME HEROES table, in the arcade's two-table layout with its rainbow checker border and pulsing colours, matched to MAME pixel for pixel
 
 ## ✨ Release 3.0 — Arcade Fidelity
 
@@ -296,7 +302,7 @@ Full detail in [`ARCADE_FIDELITY_PLAN.md`](ARCADE_FIDELITY_PLAN.md). Highlights:
 - [x] Shootable enforcer sparks, cruise missiles & tank shells for their ROM point values (25 each)
 - [x] Arcade-accurate game-over → high-score → attract flow (the DOM "Play Again?" button is gone)
 - [x] 2P dual-score HUD, laid out and coloured from MAME
-- [ ] Arcade heroes table layout (two columns, ALL TIME HEROES)
+- [x] Arcade heroes screen: ROBOTRON HEROES (ROM defaults) and 37-row ALL TIME HEROES, colour-cycling border and pulses, pixel-matched to MAME
 - [ ] Performance optimization with object pooling
 - [ ] Online leaderboards, replay system
 

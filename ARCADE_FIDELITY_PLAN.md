@@ -132,7 +132,7 @@ sound is $4B1E.
 
 ---
 
-## M4 — Presentation & game flow — DONE 2026-10-11 (heroes layout left)
+## M4 — Presentation & game flow — DONE 2026-10-11
 
 Checked against MAME snapshots (robotron-re `tools/gameover_probe.lua`; REVERSE.md Phase
 21, "Player death, game over and the HUD"):
@@ -157,8 +157,15 @@ Checked against MAME snapshots (robotron-re `tools/gameover_probe.lua`; REVERSE.
 4. **Heroes separator.**
    - The ROM uses ')' (MAME), not '>': the ROM's '>' glyph is an up-arrow. BitmapFont now
      synthesizes ')'.
-   - Left: the arcade table is in the tall font, in two columns (1–5, 6–10), plus ALL TIME
-     HEROES; the port shows one column.
+   - Done 2026-10-11 (`core/HeroesScreen.ts`): ROBOTRON HEROES (10 rows, the ROM's
+     factory list DRJ 52127 … CJM 24110) in two tall-font columns, and ALL TIME HEROES
+     (37 rows, factory 10000) with #1 in the tall font and #2–37 in three small-font
+     columns. The border is 8 checker-dithered 2 px rings; a 21-step rainbow ramp moves
+     outward one ring every 3 frames and the headings take ring 6's colour. The tables pulse
+     red → pink → white → red (24 frames) on a 56-frame cycle, ALL TIME 28 frames later.
+     Every text row and column matches a MAME snapshot to the pixel. Attract holds it 603
+     frames. HIGH SCORE TABLE RESET restores ROBOTRON HEROES and keeps ALL TIME HEROES
+     (assumed; the cabinet button had no visible effect mid-screen in MAME).
 5. **HUD, both players** (`core/ArcadeHud.ts`):
    - Scores in the tall font, ending at x 82 / 210. The current player's score cycles in
      palette entry A, and the waiting player's is red; a zero score shows as "00".

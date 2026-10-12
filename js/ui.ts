@@ -7,6 +7,8 @@ import { saveHighScore, clearEntities } from './gameLogic';
 import { ArcadeHud } from './core/ArcadeHud';
 import { HighScoreEntry } from './core/HighScoreEntry';
 import { BitmapFont } from './core/BitmapFont';
+import { HeroesScreen } from './core/HeroesScreen';
+import { ArcadeBorder } from './core/ArcadeBorder';
 import { TwoPlayer } from './core/TwoPlayer';
 import { Attract } from './attractMode';
 import { gameEvents } from './core/EventSystem';
@@ -160,40 +162,17 @@ export function setupHighScoreDisplayScreen() {
         return;
     }
 
-    // Arcade "ROBOTRON HEROES" table, rendered with the ROM fonts.
-    highScoreDisplayContainer.removeChildren();
-    const cx = GameConfig.GAME_WIDTH / 2;
-    const addLine = (text: string, y: number, tint: number, font: 'main' | 'alt' = 'main') => {
-        const t = BitmapFont.createText(text, { font, tint });
-        t.x = cx - BitmapFont.measure(text, { font }) / 2;
-        t.y = y;
-        highScoreDisplayContainer.addChild(t);
-        return t;
-    };
-
-    addLine('ROBOTRON HEROES', 24, 0xFF4444, 'alt');
-    const table = HighScoreEntry.loadTable();
-    if (table.length === 0 && gameState.highScore > 0) {
-        table.push({ initials: '...', score: gameState.highScore });
-    }
-    let y = 52;
-    table.slice(0, 10).forEach((row, i) => {
-        // rank separator ')' as in the ROM's heroes table (BitmapFont synthesizes it)
-        addLine(`${String(i + 1).padStart(2, ' ')}) ${row.initials}  ${row.score}`, y, 0xFF4444);
-        y += 10;
-    });
-    if (table.length === 0) addLine('NO HEROES YET', y, 0xFF4444);
-
-    addLine('SAVE THE LAST HUMAN FAMILY', 168, 0xFF4444);
-    addLine('DESTROY THE ROBOTS', 182, 0xFF4444);
-    addLine('2084', 205, 0xFFFF44, 'alt');
-
+    // The arcade heroes screen (ROBOTRON HEROES + ALL TIME HEROES), from MAME.
+    HeroesScreen.show(highScoreDisplayContainer);
+    ArcadeBorder.setVisible(false);
     highScoreDisplayContainer.visible = true;
     if (titleScreenContainer) titleScreenContainer.visible = false;
     if (demoPlayContainer) demoPlayContainer.visible = false;
 }
 
 export function hideHighScoreDisplayScreen() {
+    if (highScoreDisplayContainer?.visible) ArcadeBorder.setVisible(true);
+    HeroesScreen.stop();
     if (highScoreDisplayContainer) highScoreDisplayContainer.visible = false;
 }
 
