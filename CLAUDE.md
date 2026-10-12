@@ -323,11 +323,9 @@ Use these for library documentation lookups and automated testing when implement
 ## Deployment (robotron.hatch.org)
 
 The game is served from **https://robotron.hatch.org/**: a private S3 bucket
-(`<bucket>`, us-east-1) read only by CloudFront through origin access
-control `<oac-id>`. CloudFront distribution `<distribution-id>`
-(<distribution-domain>.cloudfront.net) uses ACM certificate `<certificate-id>-…` (us-east-1),
-and Route 53 (hatch.org zone) has A/AAAA alias records. GitHub Pages is not used
-(the repo is private).
+(us-east-1) read only by CloudFront through origin access control, with an ACM
+certificate and Route 53 alias records. `deploy.sh` holds the bucket and
+distribution. GitHub Pages is not used.
 
 ```bash
 npm run deploy   # ./deploy.sh: build, check dist, sync to S3, invalidate CloudFront

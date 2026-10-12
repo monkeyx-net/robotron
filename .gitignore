@@ -14,3 +14,11 @@ node_modules/
 
 # scratch
 top-hn-posts.txt
+
+# local agent/editor state and private planning notes (kept on disk, not published)
+.claude/
+.remember/
+.kiro/settings/
+handoff.md
+docs/3d-reimagining/
+docs/superpowers/
