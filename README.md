@@ -36,6 +36,7 @@ Version 3.1 finishes the gap-closure plan ([`ARCADE_FIDELITY_PLAN.md`](ARCADE_FI
 - **ROM death and game over**: the playfield freezes while you flash and fade, then the survivors are re-laid and beam back in; the last death ends on GAME OVER over the frozen field, then initials and the heroes table, with the arcade HUD for both players
 - **Attract story**: the attract cycle tells, in the arcade's typed ROM-font style, how this port was made: a game remembered from 1982, its ROM read back byte by byte in MAME, and its rebirth for the web by a human and an AI together
 - **ROM sound priorities and scoring**: every sound's priority byte and every point value read from the ROM and checked in the browser
+- **New home**: the game is now hosted at [robotron.hatch.org](https://robotron.hatch.org/)
 
 ## ✨ Release 3.0 — Arcade Fidelity
 
@@ -144,6 +145,21 @@ npm run build
 # Preview production build
 npm run preview
 ```
+
+### Deploy
+
+The live site at [robotron.hatch.org](https://robotron.hatch.org/) is a private S3 bucket
+served through CloudFront (HTTPS, certificate from ACM, DNS in Route 53). With AWS
+credentials for that account:
+
+```bash
+# Build, check dist/, upload to S3 and invalidate the CloudFront cache
+npm run deploy
+```
+
+`deploy.sh` caches hashed bundles for a year, sprites and sounds for an hour and
+`index.html` for a minute. Production builds are served from `/`; the dev server
+uses `/robotron/`.
 
 ## 📦 Tech Stack
 
