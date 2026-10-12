@@ -1,16 +1,21 @@
 /**
  * The arcade's heroes screen, laid out from MAME snapshots (robotron-re
- * REVERSE.md Phase 21 "Heroes table", tools/attract_snap_probe.lua):
+ * REVERSE.md Phase 21 "Heroes table", tools/attract_snap_probe.lua and
+ * tools/gameover_probe.lua):
  *
- * - A frame of 8 concentric rings, each 2 px thick and dithered on a
- *   checkerboard, from (6,6) to (285,233). Every 3 frames the colours of a
- *   21-step rainbow ramp move one ring outward; the two headings take ring 6's
- *   colour.
+ * - The whole screen is concentric rings, each 2 px thick and dithered on a
+ *   checkerboard: ring k runs from (6+2k, 6+2k) to (284-2k, 232-2k), k = 0..56.
+ *   Ring k takes ring (k mod 8)'s colour from a 21-step rainbow ramp, and the
+ *   ramp moves one ring every 3 frames.
+ * - The rectangle wipe: from black, the rings are drawn outward in 8-ring bands,
+ *   then erased from the centre out, leaving rings 0-7 as the frame. WIPE holds
+ *   the MAME frames, since the ROM's timing depends on how busy the CPU is.
  * - ROBOTRON HEROES: 10 rows in the tall font, two columns of 5.
  * - ALL TIME HEROES: #1 in the tall font, then #2-37 in the small font in
  *   three columns of 12.
- * - Both tables are red and pulse through pink to white and back (24 frames)
- *   on a 56-frame cycle, ALL TIME HEROES 28 frames after ROBOTRON HEROES.
+ * - The two headings take ring 6's colour. Both tables are red and pulse through
+ *   pink to white and back (24 frames) on a 56-frame cycle, ALL TIME HEROES
+ *   28 frames after ROBOTRON HEROES.
  */
 import * as PIXI from 'pixi.js';
 import { BitmapFont } from './BitmapFont';
@@ -22,9 +27,45 @@ const RAMP = [
     0xFF00A0, 0xFF00A0, 0xFF00FF, 0xFF00FF, 0xD900FF,
 ];
 const RING_FRAMES = 3;
-const RINGS = 8, RING_W = 2;
-const FRAME_X0 = 6, FRAME_Y0 = 6, FRAME_X1 = 285, FRAME_Y1 = 233;
+const RINGS = 57, FRAME_RINGS = 8, RING_W = 2;
+const FRAME_X0 = 6, FRAME_Y0 = 6, FRAME_X1 = 284, FRAME_Y1 = 232;
 const HEADING_RING = 6;
+
+/**
+ * The wipe, one entry per frame from the first black frame (MAME, after GAME OVER):
+ * [ramp step, then lit rings as first,last pairs]. The text appears on the next
+ * frame, at ramp step 2.
+ */
+const WIPE: number[][] = [
+    [0], [0], [0], [0],
+    [0], [0], [0], [2, 55,55],
+    [2, 55,55], [3, 47,47,54,55], [3, 46,47,54,55], [3, 46,47,54,55],
+    [4, 45,47,53,55], [4, 45,47,53,55], [4, 38,39,45,47,53,55], [5, 36,39,44,47,52,55],
+    [5, 36,39,44,47,52,55], [5, 36,39,44,47,52,55], [5, 30,31,36,39,44,47,52,55], [6, 29,31,35,39,43,47,51,55],
+    [6, 27,31,35,39,43,47,51,55], [6, 27,31,35,39,43,47,51,55], [7, 26,31,34,39,42,47,50,55], [7, 22,23,26,31,34,39,42,47,50,55],
+    [7, 21,23,26,31,34,39,42,47,50,55], [7, 20,23,26,31,34,39,42,47,50,55], [8, 18,23,25,31,33,39,41,47,49,55], [8, 17,23,25,31,33,39,41,47,49,55],
+    [8, 17,23,25,31,33,39,41,47,49,55], [8, 14,15,17,23,25,31,33,39,41,47,49,55], [8, 13,15,17,23,25,31,33,39,41,47,49,55], [9, 12,56],
+    [9, 11,56], [9, 10,56], [9, 8,56], [9, 7,56],
+    [10, 6,56], [10, 5,56], [10, 4,56], [10, 3,56],
+    [10, 2,56], [10, 1,56], [11, 0,56], [11, 0,52],
+    [12, 0,50], [12, 0,48], [12, 0,46], [12, 0,44],
+    [13, 0,42], [13, 0,40], [13, 0,38], [14, 0,36],
+    [14, 0,34], [14, 0,32], [15, 0,30], [15, 0,29],
+    [15, 0,27], [16, 0,25], [16, 0,24], [16, 0,22],
+    [16, 0,21], [17, 0,19], [17, 0,18], [17, 0,17],
+    [17, 0,15], [17, 0,14], [18, 0,13], [18, 0,12],
+    [18, 0,10], [18, 0,9], [18, 0,8], [19, 0,7],
+    [19, 0,7], [19, 0,7], [19, 0,7], [19, 0,7],
+    [20, 0,7], [20, 0,7], [20, 0,7], [20, 0,7],
+    [0, 0,7], [0, 0,7], [0, 0,7], [0, 0,7],
+    [1, 0,7], [1, 0,7], [1, 0,7],];
+const TABLE_RAMP_START = 2;
+
+/**
+ * Game over erases the frozen playfield right to left before the wipe (the ROM
+ * clears video memory column by column): x where the cleared part starts, per frame.
+ */
+export const ERASE_FROM_X = [284, 272, 216, 158, 104, 46];
 
 const RED = 0xFF0000;
 /** red -> pink -> white -> pink -> red, one entry per frame of the pulse */
@@ -44,7 +85,7 @@ function pulse(frame: number, at: number): number {
     return p < PULSE.length ? PULSE[p] : RED;
 }
 
-/** One ring of the frame: lit where (x + y) is even, in white so it can be tinted. */
+/** One ring: lit where (x + y) is even, in white so it can be tinted. */
 function ring(k: number): PIXI.Graphics {
     const g = new PIXI.Graphics();
     const x0 = FRAME_X0 + k * RING_W, y0 = FRAME_Y0 + k * RING_W;
@@ -59,13 +100,28 @@ function ring(k: number): PIXI.Graphics {
     return g.fill(0xFFFFFF);
 }
 
+/** Ring geometry is fixed, so it is built once and reused. */
+let ringContexts: PIXI.GraphicsContext[] | null = null;
+function ringContext(k: number): PIXI.GraphicsContext {
+    if (!ringContexts) ringContexts = [];
+    if (!ringContexts[k]) {
+        const g = ring(k);
+        ringContexts[k] = g.context;
+    }
+    return ringContexts[k];
+}
+
 export const HeroesScreen = {
-    /** Build the screen into `c` (cleared first) and start its colour cycling. */
+    /** Frames of the rectangle wipe before the tables appear. */
+    WIPE_FRAMES: WIPE.length,
+
+    /** Build the screen into `c` (cleared first), play the wipe and start the colour cycling. */
     show(c: PIXI.Container): void {
         HeroesScreen.stop();
         c.removeChildren().forEach(ch => ch.destroy({ children: true }));
 
-        const rings = Array.from({ length: RINGS }, (_, k) => c.addChild(ring(k)));
+        const rings = Array.from({ length: RINGS }, (_, k) => c.addChild(new PIXI.Graphics(ringContext(k))));
+        const table = c.addChild(new PIXI.Container());
         const headings: PIXI.Container[] = [];
         const heroesText: PIXI.Container[] = [];
         const allTimeText: PIXI.Container[] = [];
@@ -74,7 +130,7 @@ export const HeroesScreen = {
             const t = BitmapFont.createText(s, { ...opts, tint: RED });
             t.x = x;
             t.y = y;
-            c.addChild(t);
+            table.addChild(t);
             into.push(t);
         };
         // right-aligned so the last lit column is `right`; glyph cells carry a blank column
@@ -107,16 +163,39 @@ export const HeroesScreen = {
             right(String(r.score), 96 + col, y, SMALL, allTimeText);
         });
 
-        const paint = (frame: number) => {
-            const shift = Math.floor(frame / RING_FRAMES);
-            rings.forEach((g, k) => { g.tint = RAMP[(shift + k) % RAMP.length]; });
-            const heading = RAMP[(shift + HEADING_RING) % RAMP.length];
+        const tintRings = (step: number) =>
+            rings.forEach((g, k) => { if (g.visible) g.tint = RAMP[(step + (k % FRAME_RINGS)) % RAMP.length]; });
+        const paintWipe = (frame: number) => {
+            const [step, ...lit] = WIPE[frame];
+            rings.forEach((g, k) => {
+                let on = false;
+                for (let i = 0; i < lit.length; i += 2) if (k >= lit[i] && k <= lit[i + 1]) on = true;
+                g.visible = on;
+            });
+            tintRings(step);
+        };
+        const paintTable = (frame: number) => {
+            const step = TABLE_RAMP_START + Math.floor(frame / RING_FRAMES);
+            tintRings(step);
+            const heading = RAMP[(step + HEADING_RING) % RAMP.length];
             const h = pulse(frame, HEROES_PULSE_AT), a = pulse(frame, ALL_TIME_PULSE_AT);
             const tintAll = (list: PIXI.Container[], tint: number) =>
                 list.forEach(t => t.children.forEach(ch => { (ch as PIXI.Sprite).tint = tint; }));
             tintAll(headings, heading);
             tintAll(heroesText, h);
             tintAll(allTimeText, a);
+        };
+        const paint = (frame: number) => {
+            if (frame < WIPE.length) {
+                table.visible = false;
+                paintWipe(frame);
+                return;
+            }
+            if (!table.visible) {
+                table.visible = true;
+                rings.forEach((g, k) => { g.visible = k < FRAME_RINGS; });
+            }
+            paintTable(frame - WIPE.length);
         };
         let frames = 0, shown = -1;
         paint(0);

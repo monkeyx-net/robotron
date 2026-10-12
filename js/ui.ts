@@ -7,7 +7,7 @@ import { saveHighScore, clearEntities } from './gameLogic';
 import { ArcadeHud } from './core/ArcadeHud';
 import { HighScoreEntry } from './core/HighScoreEntry';
 import { BitmapFont } from './core/BitmapFont';
-import { HeroesScreen } from './core/HeroesScreen';
+import { HeroesScreen, ERASE_FROM_X } from './core/HeroesScreen';
 import { ArcadeBorder } from './core/ArcadeBorder';
 import { TwoPlayer } from './core/TwoPlayer';
 import { Attract } from './attractMode';
@@ -183,8 +183,9 @@ export function hideTitleScreen() {
 // Arcade game over (MAME, robotron-re REVERSE.md Phase 21 "Game over"): the
 // playfield freezes with everything still on it while the last man flashes
 // and fades (core/DeathBeat.ts; 120 frames), then GAME OVER shows over it for 120 frames. Then a
-// qualifying score goes to initials entry, and either way the heroes table
-// follows for ~580 frames before the attract cycle carries on. There is no
+// qualifying score goes to initials entry; otherwise the playfield is erased
+// right to left (6 frames). Either way the heroes screen follows: its rectangle
+// wipe, then the tables for ~580 frames before the attract cycle carries on. There is no
 // "play again" prompt: START begins a new game from any attract screen.
 const GAME_OVER_DEATH_FRAMES = 120;
 const GAME_OVER_TEXT_FRAMES = 120;
@@ -192,10 +193,12 @@ const GAME_OVER_HEROES_FRAMES = 580;
 const GAME_OVER_TEXT_POS = { x: 118, y: 121 };   // MAME snapshot, colour $AEFF00
 let gameOverTick: ((t: PIXI.Ticker) => void) | null = null;
 let gameOverText: PIXI.Container | null = null;
+let gameOverErase: PIXI.Graphics | null = null;
 
 function stopGameOverBeat(): void {
     if (gameOverTick) { PIXI.Ticker.shared.remove(gameOverTick); gameOverTick = null; }
     if (gameOverText) { gameOverText.destroy({ children: true }); gameOverText = null; }
+    if (gameOverErase) { gameOverErase.destroy(); gameOverErase = null; }
 }
 
 export function showGameOverScreen() {
@@ -220,16 +223,25 @@ export function showGameOverScreen() {
             gameOverText.y = GAME_OVER_TEXT_POS.y;
             gameContentContainer.addChild(gameOverText);
         }
-        if (frames >= GAME_OVER_DEATH_FRAMES + GAME_OVER_TEXT_FRAMES) {
+        if (frames < GAME_OVER_DEATH_FRAMES + GAME_OVER_TEXT_FRAMES) return;
+        // A qualifying score goes straight to initials entry. Otherwise the ROM
+        // erases the frozen playfield right to left, then the heroes wipe follows.
+        const erase = Math.floor(frames - (GAME_OVER_DEATH_FRAMES + GAME_OVER_TEXT_FRAMES));
+        const bestScore = Math.max(gameState.score, ...TwoPlayer.allScores());
+        if (erase >= ERASE_FROM_X.length || HighScoreEntry.qualifies(bestScore) || !app?.stage) {
             stopGameOverBeat();
             afterGameOverText();
+            return;
         }
+        if (!gameOverErase) gameOverErase = app.stage.addChild(new PIXI.Graphics());
+        const x = ERASE_FROM_X[erase];
+        gameOverErase.clear().rect(x, 0, GameConfig.GAME_WIDTH - x, GameConfig.GAME_HEIGHT).fill(0x000000);
     };
     PIXI.Ticker.shared.add(gameOverTick);
 }
 
 function afterGameOverText(): void {
-    // Arcade flow: the playfield is wiped before the initials / heroes screens.
+    // Arcade flow: the playfield is cleared before the initials / heroes screens.
     clearEntities(true);
 
     // A qualifying score goes to 3-initial entry first.

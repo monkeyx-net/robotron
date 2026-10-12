@@ -162,7 +162,7 @@ gameEvents.subscribe('player:hit', (data) => {
 - `js/core/DeathBeat.ts` - the ROM's player-death flash and fade (playerHit, game over)
 - `js/core/AttractStory.ts` - attract-mode story pages about the reverse-engineering and rebuild (title → story → heroes → demo)
 - `js/core/ArcadeHud.ts` - in-canvas HUD for both players, laid out from MAME
-- `js/core/HeroesScreen.ts` - the arcade heroes screen (ROBOTRON HEROES + ALL TIME HEROES), pixel-matched to MAME; tables live in `HighScoreEntry.ts`
+- `js/core/HeroesScreen.ts` - the arcade heroes screen (ROBOTRON HEROES + ALL TIME HEROES) and the rectangle wipe that opens it, pixel-matched to MAME; tables live in `HighScoreEntry.ts`
 - `js/core/WavePacing.ts` - Live enemy pacing: ROM grunt cadence/ramp, mercy table, prng_le timers for the other enemies (wired in `enemies.ts`)
 - `js/core/CollisionSystem.ts` - Optimized collision detection
 - `js/core/RenderSystem.ts` - Rendering pipeline with effects

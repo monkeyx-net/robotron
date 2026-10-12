@@ -42,7 +42,7 @@ Version 3.1 finishes the gap-closure plan ([`ARCADE_FIDELITY_PLAN.md`](ARCADE_FI
 - **Attract story**: the attract cycle tells, in the arcade's typed ROM-font style, how this port was made: a game remembered from 1982, its ROM read back byte by byte in MAME, and its rebirth for the web by a human and an AI together
 - **ROM sound priorities and scoring**: every sound's priority byte and every point value read from the ROM and checked in the browser
 - **New home**: the game is now hosted at [robotron.hatch.org](https://robotron.hatch.org/)
-- **Arcade heroes screen**: ROBOTRON HEROES (the ROM's own top 10 until you beat them) and a 37-row ALL TIME HEROES table, in the arcade's two-table layout with its rainbow checker border and pulsing colours, matched to MAME pixel for pixel
+- **Arcade heroes screen**: ROBOTRON HEROES (the ROM's own top 10 until you beat them) and a 37-row ALL TIME HEROES table, in the arcade's two-table layout with its rainbow checker border and pulsing colours, opening with the arcade's rainbow rectangle wipe, matched to MAME pixel for pixel
 
 ## ✨ Release 3.0 — Arcade Fidelity
 

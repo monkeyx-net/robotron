@@ -1,4 +1,5 @@
 import { AttractStory } from './core/AttractStory';
+import { HeroesScreen } from './core/HeroesScreen';
 import { GameConfig } from './config';
 import { demoPlayContainer, demoPlayer, setDemoPlayer, enemies, app } from './main';
 import { Enemy } from './enemiesClasses';
@@ -96,7 +97,10 @@ function showTitleScreen() {
     if (UI.resizeGame) UI.resizeGame();
 }
 
-/** Heroes table; `frames` overrides how long it stays (after a game it is ~580, as in MAME). */
+/**
+ * Heroes table; `frames` overrides how long the tables stay up (after a game it is
+ * ~580, as in MAME). The rectangle wipe before them adds HeroesScreen.WIPE_FRAMES.
+ */
 function showHighScoreDisplayScreen(frames?: number) {
     if (!UI || !GameConfig) { console.warn("Attract.showTitleScreen: Missing dependencies."); return; }
 
@@ -109,7 +113,7 @@ function showHighScoreDisplayScreen(frames?: number) {
     loadHighScore();
     if(UI.setupHighScoreDisplayScreen) UI.setupHighScoreDisplayScreen();
 
-    attractModeTimer = frames ?? (GameConfig.HIGH_SCORE_DURATION || 180);
+    attractModeTimer = (frames ?? (GameConfig.HIGH_SCORE_DURATION || 180)) + HeroesScreen.WIPE_FRAMES;
     if (UI.resizeGame) UI.resizeGame();
 }
 

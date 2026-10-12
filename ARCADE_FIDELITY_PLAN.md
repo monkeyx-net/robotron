@@ -143,7 +143,13 @@ Checked against MAME snapshots (robotron-re `tools/gameover_probe.lua`; REVERSE.
      ROM position and colour for 120 frames, then initials entry if the score qualifies,
      then the heroes table for 580 frames, then the attract cycle.
    - START begins a new game from any attract screen, as before.
-   - Not ported: the rectangle wipe before the heroes table when the score doesn't qualify.
+   - Done 2026-10-12: a score that doesn't qualify erases the frozen playfield right to
+     left over 6 frames (the ROM clears video memory column by column), then every heroes
+     screen opens with the rectangle wipe (87 frames, `core/HeroesScreen.ts`): from black,
+     2 px dithered rings are drawn outward in 8-ring bands to fill the screen, then erased
+     from the centre out, leaving rings 0–7 as the frame. The ring states and ramp steps
+     are a per-frame table from MAME, since the ROM's timing depends on CPU load. A
+     screenshot of the port matches its MAME frame with zero differing pixels.
 2. **Wave-complete flash.** Not needed. The ROM routine this item cited ($9E60) is the
    player death; the wave-clear sequence (`WaveTransition.ts`, already timed in MAME)
    has no player flash.
@@ -160,7 +166,8 @@ Checked against MAME snapshots (robotron-re `tools/gameover_probe.lua`; REVERSE.
    - Done 2026-10-11 (`core/HeroesScreen.ts`): ROBOTRON HEROES (10 rows, the ROM's
      factory list DRJ 52127 … CJM 24110) in two tall-font columns, and ALL TIME HEROES
      (37 rows, factory 10000) with #1 in the tall font and #2–37 in three small-font
-     columns. The border is 8 checker-dithered 2 px rings; a 21-step rainbow ramp moves
+     columns. The border is 8 checker-dithered 2 px rings from (6,6) to (284,232) (fixed
+     2026-10-12: it had been 1 px too wide and tall); a 21-step rainbow ramp moves
      outward one ring every 3 frames and the headings take ring 6's colour. The tables pulse
      red → pink → white → red (24 frames) on a 56-frame cycle, ALL TIME 28 frames later.
      Every text row and column matches a MAME snapshot to the pixel. Attract holds it 603
