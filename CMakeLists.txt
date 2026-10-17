@@ -20,12 +20,24 @@ endif()
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
 
-# Pure C, no SDL: deterministic simulation and framebuffer drawing.
+# Pure C, no SDL: deterministic simulation, asset loading and framebuffer drawing.
 add_library(robotron_core STATIC
   src/sim/prng.c
+  src/assets/png.c
+  src/assets/json.c
+  src/assets/assets.c
   src/gfx/fb.c
+  src/gfx/blit.c
+  src/gfx/font.c
+  src/gfx/title.c
 )
 target_include_directories(robotron_core PUBLIC src)
+target_link_libraries(robotron_core PUBLIC m)
+# Development builds also find sprites/ in the source tree; releases ship assets/.
+option(ROBOTRON_DEV_ASSETS "Fall back to the source tree's sprites/ at run time" ON)
+if(ROBOTRON_DEV_ASSETS)
+  target_compile_definitions(robotron_core PRIVATE ROBOTRON_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+endif()
 
 add_executable(robotron
   src/main.c
@@ -39,6 +51,10 @@ add_executable(test_prng src/tests/test_prng.c)
 target_link_libraries(test_prng PRIVATE robotron_core)
 add_test(NAME prng_golden
   COMMAND test_prng ${CMAKE_SOURCE_DIR}/tests/fixtures/prng_golden.txt)
+
+add_executable(test_assets src/tests/test_assets.c)
+target_link_libraries(test_assets PRIVATE robotron_core)
+add_test(NAME assets COMMAND test_assets ${CMAKE_SOURCE_DIR})
 
 # Reference checks against the arcade in MAME. Only when MAME and a ROM set
 # are present: the ROMs are user-supplied and never committed (.gitignore).
