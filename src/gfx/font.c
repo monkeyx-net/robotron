@@ -5,7 +5,6 @@
 
 #include "gfx/blit.h"
 
-#define TRACKING 1
 #define DASH_W 3
 
 /* Punctuation outside the ROM charset ('0'-'^'), plus cells the extractor got
@@ -67,7 +66,7 @@ int font_line_height(const Assets *a, FontId id)
     return font_of(a, id)->line_height;
 }
 
-int font_measure(const Assets *a, FontId id, const char *text)
+int font_measure_t(const Assets *a, FontId id, const char *text, int tracking)
 {
     const Font *f = font_of(a, id);
     int x = 0;
@@ -76,13 +75,18 @@ int font_measure(const Assets *a, FontId id, const char *text)
         const Synth *s = synth_for(id, ch);
         const Glyph *g = glyph_for(f, ch);
         int w = s ? (int)strlen(s->rows[0]) + 1 : g ? g->w : ch == '-' ? DASH_W : space_width(f);
-        x += w + TRACKING;
+        x += w + tracking;
     }
-    return x > TRACKING ? x - TRACKING : 0;
+    return x > tracking ? x - tracking : 0;
 }
 
-void font_draw(Framebuffer *fb, const Assets *a, FontId id, const char *text,
-               double x, double y, int scale, uint32_t tint)
+int font_measure(const Assets *a, FontId id, const char *text)
+{
+    return font_measure_t(a, id, text, 1);
+}
+
+void font_draw_t(Framebuffer *fb, const Assets *a, FontId id, const char *text,
+                 double x, double y, int scale, int tracking, uint32_t tint)
 {
     const Font *f = font_of(a, id);
     int cx = 0; /* cursor in unscaled font pixels */
@@ -97,15 +101,21 @@ void font_draw(Framebuffer *fb, const Assets *a, FontId id, const char *text,
                 for (int col = 0; col < w; col++)
                     if (s->rows[row][col] == '#')
                         fill_rectf(fb, ox + col * scale, y + row * scale, scale, scale, tint);
-            cx += w + 1 + TRACKING;
+            cx += w + 1 + tracking;
         } else if (g) {
             blit(fb, &f->image, g->x, g->y, g->w, g->h, ox, y, scale, tint);
-            cx += g->w + TRACKING;
+            cx += g->w + tracking;
         } else if (ch == '-') {
             fill_rectf(fb, ox, y + (f->line_height / 2) * scale, DASH_W * scale, scale, tint);
-            cx += DASH_W + TRACKING;
+            cx += DASH_W + tracking;
         } else {
-            cx += space_width(f) + TRACKING;
+            cx += space_width(f) + tracking;
         }
     }
+}
+
+void font_draw(Framebuffer *fb, const Assets *a, FontId id, const char *text,
+               double x, double y, int scale, uint32_t tint)
+{
+    font_draw_t(fb, a, id, text, x, y, scale, 1, tint);
 }

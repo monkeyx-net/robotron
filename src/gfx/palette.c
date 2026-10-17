@@ -1,0 +1,32 @@
+#include "gfx/palette.h"
+
+static const uint8_t RG[8] = { 0x00, 0x26, 0x51, 0x76, 0x89, 0xAE, 0xD9, 0xFF };
+static const uint8_t BL[4] = { 0x00, 0x5F, 0xA0, 0xFF };
+
+static const uint8_t D_TABLE[] = {
+    0xFF, 0xBF, 0x3F, 0x3E, 0x3C, 0x38, 0x39, 0x3A, 0x3B, 0x3C, 0x3D, 0x3E, 0x3F,
+    0x37, 0x2F, 0x27, 0x1F, 0x17, 0x47, 0x87, 0xC7, 0xC6, 0xC5, 0xCC, 0xCB, 0xCA,
+    0xDA, 0xE8, 0xF8, 0xF9, 0xFA, 0xFB, 0xFD,
+};
+
+uint32_t palette_rgb(uint8_t b)
+{
+    return (uint32_t)RG[b & 7] << 16 | (uint32_t)RG[(b >> 3) & 7] << 8 | BL[b >> 6];
+}
+
+void cycle_a_init(CycleA *c)
+{
+    c->slot = -1;
+    c->color = 0xFF;
+    prng_reset(&c->rng);
+}
+
+uint32_t cycle_a_color(CycleA *c, unsigned long frame)
+{
+    long slot = (long)(frame / 8);
+    if (slot != c->slot) {
+        c->slot = slot;
+        c->color = D_TABLE[prng_bounded(&c->rng, (int)sizeof D_TABLE)];
+    }
+    return palette_rgb(frame % 8 < 6 ? c->color : 0xFF);
+}

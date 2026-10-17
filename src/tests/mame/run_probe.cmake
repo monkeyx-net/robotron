@@ -7,6 +7,22 @@ foreach(v MAME ROMPATH WORKDIR PROBE COUNT FIXTURE)
   endif()
 endforeach()
 
+set(mame_args robotron
+    -rompath "${ROMPATH}"
+    -nvram_directory "${WORKDIR}/nvram"
+    -cfg_directory "${WORKDIR}/cfg"
+    -snapshot_directory "${WORKDIR}/snap"
+    -video none -sound none -nothrottle -noplugin data -skip_gameinfo)
+
+# With no NVRAM the arcade boots into FACTORY SETTINGS RESTORED and waits there,
+# so the first run in a fresh build dir would capture nothing. Prime it once.
+if(NOT EXISTS "${WORKDIR}/nvram/robotron/nvram")
+  execute_process(COMMAND "${MAME}" ${mame_args} -seconds_to_run 30 RESULT_VARIABLE rc OUTPUT_QUIET)
+  if(NOT rc EQUAL 0 OR NOT EXISTS "${WORKDIR}/nvram/robotron/nvram")
+    message(FATAL_ERROR "MAME priming run failed (${rc}); no NVRAM written")
+  endif()
+endif()
+
 get_filename_component(name "${PROBE}" NAME_WE)
 set(out "${WORKDIR}/${name}.txt")
 file(REMOVE "${out}")
@@ -14,14 +30,7 @@ set(ENV{PROBE_OUT} "${out}")
 set(ENV{PROBE_COUNT} "${COUNT}")
 
 execute_process(
-  COMMAND "${MAME}" robotron
-          -rompath "${ROMPATH}"
-          -nvram_directory "${WORKDIR}/nvram"
-          -cfg_directory "${WORKDIR}/cfg"
-          -snapshot_directory "${WORKDIR}/snap"
-          -video none -sound none -nothrottle -noplugin data -skip_gameinfo
-          -seconds_to_run 600
-          -autoboot_script "${PROBE}"
+  COMMAND "${MAME}" ${mame_args} -seconds_to_run 600 -autoboot_script "${PROBE}"
   RESULT_VARIABLE rc
   OUTPUT_QUIET)
 if(NOT rc EQUAL 0)

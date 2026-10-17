@@ -1,11 +1,14 @@
 /*
  * Robotron: 2084 native build: SDL setup and the fixed 60 Hz loop.
- * See SDL2_PORT_PLAN.md. So far: the title screen.
+ * See SDL2_PORT_PLAN.md. So far: the attract cycle (title, story, heroes).
  *
  *   robotron [--windowed] [--frames N] [--screenshot out.png]
+ *   robotron --extract <rom dir> [<asset dir>]
  *
  * --frames N stops after N updates; with --screenshot the last frame is
  * written as a 292x240 PNG (use SDL_VIDEODRIVER=dummy to run headless).
+ * --extract reads the user's ROM set and writes the data tables to
+ * <asset dir>/data (default: assets/ next to the program).
  */
 #include <SDL.h>
 #include <stdio.h>
@@ -13,9 +16,10 @@
 #include <string.h>
 
 #include "assets/assets.h"
+#include "assets/extract.h"
 #include "assets/png.h"
+#include "game/attract.h"
 #include "gfx/fb.h"
-#include "gfx/title.h"
 #include "platform/input.h"
 #include "platform/video.h"
 #include "sim/prng.h"
@@ -29,14 +33,31 @@ static Assets assets;
 
 typedef struct {
     Prng prng;
-    unsigned title_frame;
-    unsigned high_score;
+    Attract attract;
 } Game;
 
 static void step(Game *g, const InputFrame *in)
 {
-    (void)in;
-    g->title_frame++;
+    (void)in; /* START begins a game once the gameplay sim exists (P2) */
+    attract_step(&g->attract);
+}
+
+static int extract(const char *argv0, const char *rom_dir, const char *out_dir)
+{
+    static RomSet rom;
+    char err[512], def[1024];
+    if (!out_dir) {
+        const char *slash = strrchr(argv0, '/');
+        int n = slash ? (int)(slash - argv0) : 0;
+        snprintf(def, sizeof def, "%.*s%sassets", n, argv0, slash ? "/" : "");
+        out_dir = def;
+    }
+    if (rom_load(&rom, rom_dir, err, sizeof err) || extract_all(&rom, out_dir, err, sizeof err)) {
+        fprintf(stderr, "robotron: %s\n", err);
+        return 1;
+    }
+    printf("robotron: ROM tables written to %s/data\n", out_dir);
+    return 0;
 }
 
 static int save_screenshot(const char *path)
@@ -63,12 +84,14 @@ int main(int argc, char **argv)
     bool windowed = false;
     long max_frames = -1;
     const char *screenshot = NULL;
+    if (argc >= 3 && !strcmp(argv[1], "--extract")) return extract(argv[0], argv[2], argc > 3 ? argv[3] : NULL);
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--windowed")) windowed = true;
         else if (!strcmp(argv[i], "--frames") && i + 1 < argc) max_frames = strtol(argv[++i], NULL, 10);
         else if (!strcmp(argv[i], "--screenshot") && i + 1 < argc) screenshot = argv[++i];
         else {
-            fprintf(stderr, "usage: %s [--windowed] [--frames N] [--screenshot out.png]\n", argv[0]);
+            fprintf(stderr, "usage: %s [--windowed] [--frames N] [--screenshot out.png]\n"
+                            "       %s --extract <rom dir> [<asset dir>]\n", argv[0], argv[0]);
             return 2;
         }
     }
@@ -91,8 +114,9 @@ int main(int argc, char **argv)
     }
     input_init();
 
-    Game g = {0};
+    static Game g;
     prng_reset(&g.prng);
+    attract_init(&g.attract, &assets);
 
     const Uint64 freq = SDL_GetPerformanceFrequency();
     const Uint64 step_ticks = freq / FRAME_HZ;
@@ -120,8 +144,9 @@ int main(int argc, char **argv)
             acc -= step_ticks;
             if (max_frames >= 0 && frames >= max_frames) break;
         }
-        title_draw(&fb, &assets, g.title_frame, g.high_score);
-        video_present(&fb); /* blocks on vsync */
+        /* Headless runs (--frames) only need the last frame, and skip vsync pacing. */
+        if (max_frames < 0 || frames >= max_frames) attract_draw(&fb, &assets, &g.attract);
+        if (max_frames < 0) video_present(&fb); /* blocks on vsync */
         if (max_frames >= 0 && frames >= max_frames) {
             if (screenshot && save_screenshot(screenshot)) rc = 1;
             break;

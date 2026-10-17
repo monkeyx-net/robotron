@@ -78,6 +78,13 @@ from the user's ROM set running in MAME (section 3.0).
      without sound if no WAVs are present.
    Both builds load the same `assets/` layout, and CI checks that the
    extractor's output matches the full release's files byte for byte.
+   Implemented so far (`src/assets/rom.c`, `extract.c`): the extractor
+   reads ROM tables at their documented CPU addresses and writes plain
+   text to `assets/data/` (`heroes.txt` from `$E495`, `waves.txt` from
+   `$2E24`); the game reads only those files. Development builds run it
+   after every build when `robotron/` holds the ROM set, and the `rom`
+   CTest label cross-checks the output against the web build's
+   `js/waveTable.ts`.
 2. **Select+Start**: hold 1 s = quit to the frontend; Select+R1 = operator menu
    (both rebindable).
 3. **No right stick**: ABXY = fire up/right/down/left, two buttons together =

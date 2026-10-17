@@ -20,4 +20,9 @@ void font_draw(Framebuffer *fb, const Assets *a, FontId id, const char *text,
                double x, double y, int scale, uint32_t tint);
 int font_line_height(const Assets *a, FontId id);
 
+/* The same with explicit tracking (extra pixels between glyphs; default 1). */
+int font_measure_t(const Assets *a, FontId id, const char *text, int tracking);
+void font_draw_t(Framebuffer *fb, const Assets *a, FontId id, const char *text,
+                 double x, double y, int scale, int tracking, uint32_t tint);
+
 #endif

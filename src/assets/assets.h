@@ -1,10 +1,11 @@
 /*
- * Run-time game assets: sprite atlas and ROM fonts, read from
- * <asset dir>/sprites/{atlas,font_main,font_alt}.{png,json}. Nothing
- * ROM-derived is compiled into the binary (SDL2_PORT_PLAN.md, decision 1).
+ * Run-time game assets. Nothing ROM-derived is compiled into the binary
+ * (SDL2_PORT_PLAN.md, decision 1):
+ *   sprites/{atlas,font_main,font_alt}.{png,json}  required
+ *   data/{heroes,waves}.txt                        written by --extract; optional
  *
- * Asset dir search order: $ROBOTRON_ASSETS, <exe dir>/assets, then the
- * source tree (development builds only).
+ * Each part comes from the first of these that has it: $ROBOTRON_ASSETS,
+ * <exe dir>/assets, then the source tree (development builds only).
  */
 #ifndef ROBOTRON_ASSETS_H
 #define ROBOTRON_ASSETS_H
@@ -38,11 +39,25 @@ typedef struct {
     Glyph glyphs[MAX_GLYPHS]; /* indexed by char - ' ' */
 } Font;
 
+#define HEROES_ROWS 10
+#define WAVES 40
+enum { W_GRUNTS, W_ELECTRODES, W_MOMMIES, W_DADDIES, W_MIKEYS, W_HULKS, W_BRAINS, W_SPHEROIDS, W_QUARKS, WAVE_FIELDS };
+
 typedef struct {
-    char dir[1024];
+    char initials[4];
+    unsigned score;
+} HeroRow;
+
+typedef struct {
+    char sprites_dir[1024]; /* holds sprites/ */
+    char data_dir[1024];    /* holds data/, or "" when not extracted yet */
     Atlas atlas;
     Font font_main;
     Font font_alt;
+    int have_heroes;        /* data/heroes.txt loaded */
+    HeroRow rom_heroes[HEROES_ROWS];
+    int have_waves;         /* data/waves.txt loaded */
+    unsigned char waves[WAVES][WAVE_FIELDS];
 } Assets;
 
 /* Find the asset dir and load everything. Returns 0, or -1 with a message in err (size errlen). */

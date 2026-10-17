@@ -26,7 +26,13 @@ add_library(robotron_core STATIC
   src/assets/png.c
   src/assets/json.c
   src/assets/assets.c
+  src/assets/rom.c
+  src/assets/extract.c
+  src/game/attract.c
   src/gfx/fb.c
+  src/gfx/palette.c
+  src/gfx/story.c
+  src/gfx/heroes.c
   src/gfx/blit.c
   src/gfx/font.c
   src/gfx/title.c
@@ -56,11 +62,27 @@ add_executable(test_assets src/tests/test_assets.c)
 target_link_libraries(test_assets PRIVATE robotron_core)
 add_test(NAME assets COMMAND test_assets ${CMAKE_SOURCE_DIR})
 
-# Reference checks against the arcade in MAME. Only when MAME and a ROM set
-# are present: the ROMs are user-supplied and never committed (.gitignore).
+# The user's ROM set (never committed; see .gitignore) enables the extractor
+# steps; MAME as well enables the reference checks against the arcade.
 set(ROBOTRON_ROM_DIR "${CMAKE_SOURCE_DIR}/robotron" CACHE PATH
     "Directory holding the robotron ROM set (MAME or old 1996 file names)")
 find_program(MAME_EXECUTABLE mame)
+
+if(EXISTS "${ROBOTRON_ROM_DIR}")
+  # Development builds: extract the ROM tables next to the binary after each build.
+  add_custom_command(TARGET robotron POST_BUILD
+    COMMAND robotron --extract ${ROBOTRON_ROM_DIR} ${CMAKE_BINARY_DIR}/assets
+    COMMENT "Extracting ROM tables to ${CMAKE_BINARY_DIR}/assets/data" VERBATIM)
+
+  add_executable(test_extract src/tests/test_extract.c)
+  target_link_libraries(test_extract PRIVATE robotron_core)
+  add_test(NAME rom_extract COMMAND test_extract ${ROBOTRON_ROM_DIR} ${CMAKE_SOURCE_DIR})
+  set_tests_properties(rom_extract PROPERTIES LABELS rom)
+  message(STATUS "ROM set found in ${ROBOTRON_ROM_DIR}: extractor steps enabled")
+else()
+  message(STATUS "No ROM set in ${ROBOTRON_ROM_DIR}: extractor steps and ROM tests disabled")
+endif()
+
 if(MAME_EXECUTABLE AND EXISTS "${ROBOTRON_ROM_DIR}")
   # MAME looks files up by its current names; link them so either naming works.
   set(rom_names
@@ -95,7 +117,7 @@ if(MAME_EXECUTABLE AND EXISTS "${ROBOTRON_ROM_DIR}")
       -DFIXTURE=${CMAKE_SOURCE_DIR}/tests/fixtures/prng_golden.txt
       -P ${CMAKE_SOURCE_DIR}/src/tests/mame/run_probe.cmake)
   set_tests_properties(mame_prng_golden PROPERTIES LABELS mame TIMEOUT 300)
-  message(STATUS "MAME reference tests enabled (${MAME_EXECUTABLE}, ROMs in ${ROBOTRON_ROM_DIR})")
+  message(STATUS "MAME reference tests enabled (${MAME_EXECUTABLE})")
 else()
   message(STATUS "MAME reference tests disabled (need mame and ${ROBOTRON_ROM_DIR})")
 endif()

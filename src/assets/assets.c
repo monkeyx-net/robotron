@@ -7,18 +7,19 @@
 
 #include "assets/json.h"
 
-static int is_asset_dir(const char *dir)
+static int has_file(const char *dir, const char *rel)
 {
     char path[1100];
     struct stat st;
-    snprintf(path, sizeof path, "%s/sprites/atlas.json", dir);
+    snprintf(path, sizeof path, "%s/%s", dir, rel);
     return stat(path, &st) == 0;
 }
 
-static int find_dir(char *out, size_t outlen, const char *argv0)
+/* First search dir holding `rel`: $ROBOTRON_ASSETS, <exe dir>/assets, source tree. */
+static int find_dir(char *out, size_t outlen, const char *argv0, const char *rel)
 {
     const char *env = getenv("ROBOTRON_ASSETS");
-    if (env && is_asset_dir(env)) {
+    if (env && has_file(env, rel)) {
         snprintf(out, outlen, "%s", env);
         return 0;
     }
@@ -29,22 +30,59 @@ static int find_dir(char *out, size_t outlen, const char *argv0)
         if (slash) *slash = '\0';
         else snprintf(exe_dir, sizeof exe_dir, ".");
         snprintf(out, outlen, "%s/assets", exe_dir);
-        if (is_asset_dir(out)) return 0;
+        if (has_file(out, rel)) return 0;
     }
 #ifdef ROBOTRON_SOURCE_DIR
-    if (is_asset_dir(ROBOTRON_SOURCE_DIR)) {
+    if (has_file(ROBOTRON_SOURCE_DIR, rel)) {
         snprintf(out, outlen, "%s", ROBOTRON_SOURCE_DIR);
         return 0;
     }
 #endif
+    out[0] = '\0';
     return -1;
+}
+
+/* Lines of a data table, '#' comments and blank lines skipped; calls row() per line. */
+static int read_table(const char *dir, const char *name, int (*row)(Assets *, int, const char *), Assets *a)
+{
+    char path[1100], line[256];
+    snprintf(path, sizeof path, "%s/data/%s", dir, name);
+    FILE *f = fopen(path, "r");
+    if (!f) return -1;
+    int n = 0, bad = 0;
+    while (fgets(line, sizeof line, f)) {
+        if (line[0] == '#' || line[0] == '\n') continue;
+        if (row(a, n++, line)) bad = 1;
+    }
+    fclose(f);
+    return bad ? -1 : n;
+}
+
+static int hero_row(Assets *a, int i, const char *line)
+{
+    if (i >= HEROES_ROWS) return -1;
+    HeroRow *r = &a->rom_heroes[i];
+    return sscanf(line, "%3s %u", r->initials, &r->score) == 2 ? 0 : -1;
+}
+
+static int wave_row(Assets *a, int i, const char *line)
+{
+    int w, v[WAVE_FIELDS];
+    if (i >= WAVES || sscanf(line, "%d %d %d %d %d %d %d %d %d %d", &w, &v[0], &v[1], &v[2], &v[3], &v[4],
+                             &v[5], &v[6], &v[7], &v[8]) != 10 || w != i + 1)
+        return -1;
+    for (int k = 0; k < WAVE_FIELDS; k++) {
+        if (v[k] < 0 || v[k] > 255) return -1;
+        a->waves[i][k] = (unsigned char)v[k];
+    }
+    return 0;
 }
 
 static int load_image(const Assets *a, const char *name, Image *img, char *err, int errlen)
 {
     char path[1100];
     const char *e = NULL;
-    snprintf(path, sizeof path, "%s/sprites/%s.png", a->dir, name);
+    snprintf(path, sizeof path, "%s/sprites/%s.png", a->sprites_dir, name);
     if (png_load(path, img, &e)) {
         snprintf(err, (size_t)errlen, "%s: %s", path, e);
         return -1;
@@ -56,7 +94,7 @@ static JsonValue *load_meta(const Assets *a, const char *name, char *err, int er
 {
     char path[1100];
     const char *e = NULL;
-    snprintf(path, sizeof path, "%s/sprites/%s.json", a->dir, name);
+    snprintf(path, sizeof path, "%s/sprites/%s.json", a->sprites_dir, name);
     JsonValue *meta = json_load(path, &e);
     if (!meta) snprintf(err, (size_t)errlen, "%s: %s", path, e);
     return meta;
@@ -143,7 +181,7 @@ done:
 int assets_load(Assets *a, const char *argv0, char *err, int errlen)
 {
     memset(a, 0, sizeof *a);
-    if (find_dir(a->dir, sizeof a->dir, argv0)) {
+    if (find_dir(a->sprites_dir, sizeof a->sprites_dir, argv0, "sprites/atlas.json")) {
         snprintf(err, (size_t)errlen,
                  "game assets not found: set ROBOTRON_ASSETS, or put an assets/ folder next to the program");
         return -1;
@@ -152,6 +190,11 @@ int assets_load(Assets *a, const char *argv0, char *err, int errlen)
         load_font(a, &a->font_alt, "font_alt", err, errlen)) {
         assets_free(a);
         return -1;
+    }
+    /* ROM tables are optional: without them the game runs with what it has */
+    if (!find_dir(a->data_dir, sizeof a->data_dir, argv0, "data/heroes.txt")) {
+        a->have_heroes = read_table(a->data_dir, "heroes.txt", hero_row, a) == HEROES_ROWS;
+        a->have_waves = read_table(a->data_dir, "waves.txt", wave_row, a) == WAVES;
     }
     return 0;
 }
