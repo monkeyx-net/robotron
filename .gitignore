@@ -26,3 +26,10 @@ docs/superpowers/
 # local deploy settings (bucket, CloudFront distribution); see .env.deploy.example
 .env*
 !.env.deploy.example
+
+# native SDL2 build (CMake)
+/build*/
+
+# arcade ROM set (user-supplied; never commit or publish)
+/robotron/
+robotron.zip
