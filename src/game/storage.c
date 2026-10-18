@@ -5,6 +5,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#ifdef _WIN32
+#include <direct.h>
+#define mkdir(dir, mode) _mkdir(dir)
+#endif
 
 static char path[1100];
 
@@ -30,6 +34,13 @@ static const char *save_dir(char *buf, size_t len)
         snprintf(buf, len, "%s/robotron", xdg);
         return buf;
     }
+#ifdef _WIN32
+    const char *appdata = getenv("APPDATA");
+    if (appdata && *appdata) {
+        snprintf(buf, len, "%s/robotron", appdata);
+        return buf;
+    }
+#endif
     const char *home = getenv("HOME");
     snprintf(buf, len, "%s/.local/share/robotron", home && *home ? home : ".");
     return buf;
@@ -100,6 +111,9 @@ int storage_save(const SaveData *d)
         bad |= fprintf(f, "alltime %u %s\n", d->all_time[i].score, d->all_time[i].initials) < 0;
     bad |= fflush(f) != 0;
     bad |= fclose(f) != 0;
+#ifdef _WIN32
+    if (!bad) remove(p); /* Windows rename() does not replace */
+#endif
     if (bad || rename(tmp, p)) {
         remove(tmp);
         return -1;

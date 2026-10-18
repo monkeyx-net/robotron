@@ -34,6 +34,10 @@
 #include "platform/video.h"
 #include "sim/prng.h"
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 #define FRAME_HZ 60
 /* Cap catch-up after a stall (suspend/resume, SD card hiccup). */
 #define MAX_STEPS_PER_PRESENT 4
@@ -74,6 +78,9 @@ static EntryInput entry_input(const InputFrame *in)
 static void save_scores(Game *g)
 {
     if (storage_save(&g->save)) fprintf(stderr, "robotron: cannot save %s\n", storage_path());
+#ifdef __EMSCRIPTEN__
+    EM_ASM(FS.syncfs(false, function (err) {})); /* flush /save to IndexedDB */
+#endif
 }
 
 static void show_heroes_after_game(Game *g)
@@ -259,11 +266,81 @@ static int save_screenshot(const char *path)
     return 0;
 }
 
+/* Loop state, static so the browser can run one pass per animation frame. */
+static Game g;
+static long max_frames = -1;
+static const char *screenshot;
+static Uint64 step_ticks, last, acc;
+static long frames;
+static int rc;
+static InputFrame in;
+
+static void game_init(void)
+{
+    prng_reset(&g.prng);
+    cycle_a_init(&g.cycle);
+    attract_init(&g.attract, &assets, &g.clock, &g.cycle);
+    g.attract.demo_enabled = world_can_play(&assets);
+    storage_load(&g.save);
+    hiscore_tables(&g.save, &assets, &g.attract.tables);
+    g.attract.high_score = g.save.high_score;
+    if (!world_can_play(&assets))
+        fprintf(stderr, "robotron: ROM tables not found; run --extract to enable play (attract only)\n");
+
+    step_ticks = SDL_GetPerformanceFrequency() / FRAME_HZ;
+    last = SDL_GetPerformanceCounter();
+}
+
+/* Step the sim for the time elapsed, then draw and present; false = stop. */
+static bool run_once(void)
+{
+    Uint64 now = SDL_GetPerformanceCounter();
+    acc += now - last;
+    last = now;
+    if (acc > step_ticks * MAX_STEPS_PER_PRESENT)
+        acc = step_ticks * MAX_STEPS_PER_PRESENT;
+    /* Headless runs step once per loop so the frame count is exact. */
+    if (max_frames >= 0 && acc < step_ticks) acc = step_ticks;
+
+    /* Sim advances in whole frames only; arcade logic is frame-quantised. */
+    while (acc >= step_ticks) {
+        input_poll(&in);
+#ifndef __EMSCRIPTEN__
+        if (in.quit) return false; /* a browser tab has nothing to quit to */
+#endif
+        if (script_len) apply_script(&in, frames + 1);
+        step(&g, &in);
+        frames++;
+        acc -= step_ticks;
+        if (max_frames >= 0 && frames >= max_frames) break;
+    }
+    /* Headless runs (--frames) only need the last frame, and skip vsync pacing. */
+    if (max_frames < 0 || frames >= max_frames) draw(&g);
+    if (max_frames < 0) video_present(&fb); /* blocks on vsync */
+    if (max_frames >= 0 && frames >= max_frames) {
+        if (screenshot && save_screenshot(screenshot)) rc = 1;
+        return false;
+    }
+    return true;
+}
+
+#ifdef __EMSCRIPTEN__
+/* Saves live in /save, an IndexedDB-backed folder loaded before the game starts. */
+static void web_frame(void)
+{
+    static bool started;
+    if (!started) {
+        if (!EM_ASM_INT({ return Module.robotronSaveReady | 0; })) return;
+        game_init();
+        started = true;
+    }
+    run_once();
+}
+#endif
+
 int main(int argc, char **argv)
 {
     bool windowed = false;
-    long max_frames = -1;
-    const char *screenshot = NULL;
     if (argc >= 3 && !strcmp(argv[1], "--extract")) return extract(argv[0], argv[2], argc > 3 ? argv[3] : NULL);
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--windowed")) windowed = true;
@@ -290,6 +367,9 @@ int main(int argc, char **argv)
         assets_free(&assets);
         return 1;
     }
+#ifdef __EMSCRIPTEN__
+    windowed = true; /* the page's canvas */
+#endif
     if (!video_init(windowed)) {
         SDL_Quit();
         assets_free(&assets);
@@ -298,54 +378,18 @@ int main(int argc, char **argv)
     input_init();
     if (max_frames < 0) audio_init(argv[0]); /* headless runs stay silent */
 
-    static Game g;
-    prng_reset(&g.prng);
-    cycle_a_init(&g.cycle);
-    attract_init(&g.attract, &assets, &g.clock, &g.cycle);
-    g.attract.demo_enabled = world_can_play(&assets);
-    storage_load(&g.save);
-    hiscore_tables(&g.save, &assets, &g.attract.tables);
-    g.attract.high_score = g.save.high_score;
-    if (!world_can_play(&assets))
-        fprintf(stderr, "robotron: ROM tables not found; run --extract to enable play (attract only)\n");
+#ifdef __EMSCRIPTEN__
+    setenv("ROBOTRON_SAVE_DIR", "/save", 1);
+    EM_ASM(
+        FS.mkdir('/save');
+        FS.mount(IDBFS, {}, '/save');
+        FS.syncfs(true, function (err) { Module.robotronSaveReady = 1; });
+    );
+    emscripten_set_main_loop(web_frame, 0, 1); /* never returns */
+#endif
+    game_init();
+    while (run_once()) {}
 
-    const Uint64 freq = SDL_GetPerformanceFrequency();
-    const Uint64 step_ticks = freq / FRAME_HZ;
-    Uint64 last = SDL_GetPerformanceCounter();
-    Uint64 acc = 0;
-    long frames = 0;
-    int rc = 0;
-    InputFrame in = {0};
-
-    for (;;) {
-        Uint64 now = SDL_GetPerformanceCounter();
-        acc += now - last;
-        last = now;
-        if (acc > step_ticks * MAX_STEPS_PER_PRESENT)
-            acc = step_ticks * MAX_STEPS_PER_PRESENT;
-        /* Headless runs step once per loop so the frame count is exact. */
-        if (max_frames >= 0 && acc < step_ticks) acc = step_ticks;
-
-        /* Sim advances in whole frames only; arcade logic is frame-quantised. */
-        while (acc >= step_ticks) {
-            input_poll(&in);
-            if (in.quit) goto done;
-            if (script_len) apply_script(&in, frames + 1);
-            step(&g, &in);
-            frames++;
-            acc -= step_ticks;
-            if (max_frames >= 0 && frames >= max_frames) break;
-        }
-        /* Headless runs (--frames) only need the last frame, and skip vsync pacing. */
-        if (max_frames < 0 || frames >= max_frames) draw(&g);
-        if (max_frames < 0) video_present(&fb); /* blocks on vsync */
-        if (max_frames >= 0 && frames >= max_frames) {
-            if (screenshot && save_screenshot(screenshot)) rc = 1;
-            break;
-        }
-    }
-
-done:
     audio_shutdown();
     input_shutdown();
     video_shutdown();

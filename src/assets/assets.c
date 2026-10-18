@@ -27,6 +27,10 @@ static int find_dir(char *out, size_t outlen, const char *argv0, const char *rel
         char exe_dir[900];
         snprintf(exe_dir, sizeof exe_dir, "%s", argv0);
         char *slash = strrchr(exe_dir, '/');
+#ifdef _WIN32
+        char *bslash = strrchr(exe_dir, '\\');
+        if (bslash > slash) slash = bslash;
+#endif
         if (slash) *slash = '\0';
         else snprintf(exe_dir, sizeof exe_dir, ".");
         snprintf(out, outlen, "%s/assets", exe_dir);

@@ -3,8 +3,8 @@
  * TIME HEROES rows (the web build keeps these in localStorage). One text file, written to a
  * temp file and renamed so a power-off mid-write keeps the old one.
  *
- * Directory: $ROBOTRON_SAVE_DIR, else $XDG_DATA_HOME/robotron, else
- * ~/.local/share/robotron.
+ * Directory: $ROBOTRON_SAVE_DIR, else $XDG_DATA_HOME/robotron, else (Windows)
+ * %APPDATA%/robotron, else ~/.local/share/robotron.
  */
 #ifndef ROBOTRON_STORAGE_H
 #define ROBOTRON_STORAGE_H

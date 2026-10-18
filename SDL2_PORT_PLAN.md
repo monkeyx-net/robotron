@@ -296,6 +296,14 @@ golden traces → render goldens → sanitizer run → glibc-floor check → pac
 artifacts (PortMaster zip, tarball). CI has no ROMs, so the `mame` label
 runs locally (`ctest -L mame`) and its fixtures are committed.
 
+Implemented so far (`.github/workflows/build.yml`): Linux x86_64 and aarch64
+build in an Ubuntu 20.04 container, run the always-on tests and upload the
+tarball and PortMaster zip; Windows x86_64 builds with MSYS2 MinGW-w64 and
+ships `robotron.exe` with `SDL2.dll` (`package_windows`); the web build
+(Emscripten, `index.{html,js,wasm,data}`) is zipped as well. A push to
+`sdl2-port` whose `project()` version has no release yet publishes the
+GitHub release `v<version>` with all archives.
+
 ## 4. Phases
 
 | Phase | Work | Exit criterion |

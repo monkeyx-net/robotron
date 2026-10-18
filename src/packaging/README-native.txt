@@ -1,7 +1,8 @@
 Robotron: 2084 (native SDL2 build)
 ==================================
 
-Run ./robotron (add --windowed for a window on a desktop).
+Run ./robotron, or robotron.exe on Windows (add --windowed for a window on a
+desktop).
 
 Controls
   Move: left stick / D-pad, keyboard WASD
@@ -17,7 +18,8 @@ Game data
       ./robotron --extract /path/to/robotron.zip
 
 Saved scores and settings go to $ROBOTRON_SAVE_DIR, else
-$XDG_DATA_HOME/robotron, else ~/.local/share/robotron.
+$XDG_DATA_HOME/robotron, else (Windows) %APPDATA%\robotron, else
+~/.local/share/robotron.
 
 See NOTICE for the third-party material (sprites, sounds, data tables)
 this package contains.

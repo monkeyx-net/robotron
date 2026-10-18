@@ -43,9 +43,13 @@ SDL_VIDEODRIVER=dummy build/robotron --input src/tests/scripts/wave1.txt \
 build/robotron --extract robotron/ [assets_dir]   # ROM tables from a folder or robotron.zip
 cmake --build build --target package_linux package_portmaster   # release archives
 cmake -S . -B build-san -DROBOTRON_SANITIZE=ON    # ASan/UBSan build
+emcmake cmake -S . -B build-web && cmake --build build-web --target serve   # web build on http://localhost:8000/
 ```
 
 Release builds: `-DROBOTRON_DEV_ASSETS=OFF` (no source-tree asset fallback).
+The web build bundles `sprites/`, `sounds/` and the ROM tables from
+`ROBOTRON_WEB_DATA` (default `build/assets/data`, from a native build) into
+`index.data`; saves persist in IndexedDB (`/save`).
 The build dir is a runnable layout: `build/assets/` links to `sprites/` and
 `sounds/` and holds the extracted `data/`.
 

@@ -1,5 +1,5 @@
-# Native SDL2 build for Linux handhelds and desktops (aarch64, x86_64).
-# See SDL2_PORT_PLAN.md. The web build (js/, Vite) is unaffected.
+# Native SDL2 build for Linux handhelds and desktops (aarch64, x86_64),
+# Windows (MinGW) and the web (Emscripten). See SDL2_PORT_PLAN.md.
 cmake_minimum_required(VERSION 3.13)
 project(robotron VERSION 0.1.0 LANGUAGES C)
 
@@ -17,8 +17,16 @@ if(ROBOTRON_SANITIZE)
   add_link_options(-fsanitize=address,undefined)
 endif()
 
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
+add_library(sdl2 INTERFACE)
+if(EMSCRIPTEN)
+  # Emscripten's own SDL2 port
+  target_compile_options(sdl2 INTERFACE -sUSE_SDL=2)
+  target_link_options(sdl2 INTERFACE -sUSE_SDL=2)
+else()
+  find_package(PkgConfig REQUIRED)
+  pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
+  target_link_libraries(sdl2 INTERFACE PkgConfig::SDL2)
+endif()
 
 # Pure C, no SDL: deterministic simulation, asset loading and framebuffer drawing.
 add_library(robotron_core STATIC
@@ -61,20 +69,71 @@ add_executable(robotron
   src/platform/input.c
   src/platform/audio.c
 )
-target_link_libraries(robotron PRIVATE robotron_core PkgConfig::SDL2 m)
+target_link_libraries(robotron PRIVATE robotron_core sdl2 m)
+
+# Web build: emcmake cmake -S . -B build-web && cmake --build build-web --target serve
+# writes <build>/web/index.{html,js,wasm,data} and serves it on localhost.
+# Assets go in index.data next to the wasm, not into the binary; the ROM
+# tables come from a native build's --extract output (ROBOTRON_WEB_DATA).
+if(EMSCRIPTEN)
+  set(web_data_default "")
+  if(EXISTS "${CMAKE_SOURCE_DIR}/build/assets/data/waves.txt")
+    set(web_data_default "${CMAKE_SOURCE_DIR}/build/assets/data")
+  endif()
+  set(ROBOTRON_WEB_DATA "${web_data_default}" CACHE PATH
+      "Extracted ROM tables (assets/data) to bundle; empty = attract only")
+  set(ROBOTRON_WEB_PORT 8000 CACHE STRING "Port for the serve target")
+
+  set(web_files)
+  foreach(f atlas font_main font_alt)
+    list(APPEND web_files "${CMAKE_SOURCE_DIR}/sprites/${f}.png" "${CMAKE_SOURCE_DIR}/sprites/${f}.json")
+  endforeach()
+  set(web_preload)
+  foreach(f ${web_files})
+    get_filename_component(name "${f}" NAME)
+    list(APPEND web_preload "SHELL:--preload-file '${f}@/assets/sprites/${name}'")
+  endforeach()
+  list(APPEND web_preload "SHELL:--preload-file '${CMAKE_SOURCE_DIR}/sounds@/assets/sounds'")
+  if(ROBOTRON_WEB_DATA)
+    list(APPEND web_preload "SHELL:--preload-file '${ROBOTRON_WEB_DATA}@/assets/data'")
+    message(STATUS "Web build bundles the ROM tables from ${ROBOTRON_WEB_DATA}")
+  else()
+    message(STATUS "Web build without ROM tables (attract only): set ROBOTRON_WEB_DATA")
+  endif()
+
+  set(shell "${CMAKE_SOURCE_DIR}/src/web/shell.html")
+  set_target_properties(robotron PROPERTIES
+    OUTPUT_NAME index SUFFIX .html
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/web"
+    LINK_DEPENDS "${shell}")
+  target_link_options(robotron PRIVATE
+    -sALLOW_MEMORY_GROWTH=1 -lidbfs.js "SHELL:--shell-file '${shell}'" ${web_preload})
+
+  find_program(PYTHON3_EXECUTABLE NAMES python3 python)
+  add_custom_target(serve
+    COMMAND ${CMAKE_COMMAND} -E echo "Robotron: http://localhost:${ROBOTRON_WEB_PORT}/"
+    COMMAND ${PYTHON3_EXECUTABLE} -m http.server ${ROBOTRON_WEB_PORT} --bind 127.0.0.1
+      --directory "${CMAKE_BINARY_DIR}/web"
+    DEPENDS robotron USES_TERMINAL)
+  return()  # no dev asset links, packages or tests for the web build
+endif()
 
 # The build dir is a runnable layout: <build>/assets holds links to the repo's
 # sprites and sounds, and the extracted ROM tables (below), next to the binary.
 file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/assets")
 foreach(d sprites sounds)
   if(NOT EXISTS "${CMAKE_BINARY_DIR}/assets/${d}")
-    file(CREATE_LINK "${CMAKE_SOURCE_DIR}/${d}" "${CMAKE_BINARY_DIR}/assets/${d}" SYMBOLIC)
+    if(WIN32)  # symlinks need extra rights on Windows: copy instead
+      file(COPY "${CMAKE_SOURCE_DIR}/${d}" DESTINATION "${CMAKE_BINARY_DIR}/assets")
+    else()
+      file(CREATE_LINK "${CMAKE_SOURCE_DIR}/${d}" "${CMAKE_BINARY_DIR}/assets/${d}" SYMBOLIC)
+    endif()
   endif()
 endforeach()
 
-# Release archives: cmake --build build --target package_linux / package_portmaster
-# (configure release builds with -DROBOTRON_DEV_ASSETS=OFF)
-foreach(kind linux portmaster)
+# Release archives: cmake --build build --target package_linux / package_portmaster /
+# package_windows (configure release builds with -DROBOTRON_DEV_ASSETS=OFF)
+foreach(kind linux portmaster windows)
   add_custom_target(package_${kind}
     COMMAND ${CMAKE_COMMAND} -DKIND=${kind} -DSRC=${CMAKE_SOURCE_DIR} -DBIN=${CMAKE_BINARY_DIR}
       -DGAME=$<TARGET_FILE:robotron> -DARCH=${CMAKE_SYSTEM_PROCESSOR} -DVERSION=${PROJECT_VERSION}

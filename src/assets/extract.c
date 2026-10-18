@@ -4,6 +4,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
+#ifdef _WIN32
+#include <direct.h>
+#define mkdir(dir, mode) _mkdir(dir)
+#endif
 
 #define HEROES_ADDR 0xE495
 #define HEROES_ROWS 10
@@ -46,6 +50,9 @@ static int write_file(const char *dir, const char *name, const char *text, char 
         snprintf(err, (size_t)errlen, "cannot write %s", path);
         return -1;
     }
+#ifdef _WIN32
+    remove(path); /* Windows rename() does not replace */
+#endif
     if (rename(tmp, path)) {
         remove(tmp);
         snprintf(err, (size_t)errlen, "cannot replace %s", path);
