@@ -13,6 +13,8 @@
 /* Open the device and load <asset dir>/sounds. Returns 1 if sound is available. */
 int audio_init(const char *argv0);
 void audio_play(SoundId id);
+/* Stop every voice playing this sound at once. */
+void audio_stop(SoundId id);
 void audio_stop_all(void);
 void audio_shutdown(void);
 

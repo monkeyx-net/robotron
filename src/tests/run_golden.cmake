@@ -21,6 +21,9 @@ foreach(c ${cases})
   list(GET parts 0 script)
   list(GET parts 1 frames)
   set(png "${WORKDIR}/${script}_${frames}.png")
+  # each run starts from no saved scores, and never touches the user's own
+  file(REMOVE_RECURSE "${WORKDIR}/save")
+  set(ENV{ROBOTRON_SAVE_DIR} "${WORKDIR}/save")
   execute_process(COMMAND "${GAME}" --input "${SCRIPTS}/${script}.txt" --frames ${frames} --screenshot "${png}"
                   RESULT_VARIABLE rc OUTPUT_QUIET ERROR_QUIET)
   if(NOT rc EQUAL 0)

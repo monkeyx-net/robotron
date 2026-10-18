@@ -31,6 +31,7 @@ void attract_show_heroes(Attract *at, int frames)
 
 unsigned attract_qualify_min(const Attract *at)
 {
+    if (at->tables.hero_count < HEROES_ROWS) return 0; /* a table with room takes any score */
     unsigned m = at->tables.all_time[ALL_TIME_ROWS - 1].score;
     if (at->tables.hero_count == HEROES_ROWS && at->tables.heroes[HEROES_ROWS - 1].score < m)
         m = at->tables.heroes[HEROES_ROWS - 1].score;

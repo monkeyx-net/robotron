@@ -22,6 +22,9 @@
 #include "assets/extract.h"
 #include "assets/png.h"
 #include "game/attract.h"
+#include "game/entry.h"
+#include "game/hiscore.h"
+#include "game/storage.h"
 #include "gfx/play.h"
 #include "sim/world.h"
 #include "gfx/fb.h"
@@ -39,7 +42,8 @@ static Assets assets;
 
 #define GAME_OVER_HEROES_FRAMES 580 /* heroes screen after a game (MAME) */
 
-typedef enum { MODE_ATTRACT, MODE_PLAY } Mode;
+typedef enum { MODE_ATTRACT, MODE_PLAY, MODE_ENTRY } Mode;
+#define HIGH_SCORE_LETTERS 3 /* operator LETTERS FOR HIGHEST SCORE NAME (factory) */
 
 typedef struct {
     Prng prng;            /* the ROM PRNG, shared by everything, never reset */
@@ -48,7 +52,28 @@ typedef struct {
     Mode mode;
     Attract attract;
     World world;
+    Entry entry;
+    SaveData save;
 } Game;
+
+static EntryInput entry_input(const InputFrame *in)
+{
+    EntryInput e = { in->move_y < 0 || in->fire_y < 0, in->move_y > 0 || in->fire_y > 0,
+                     in->start || in->coin || in->fire_x > 0 || in->move_x > 0 };
+    return e;
+}
+
+static void save_scores(Game *g)
+{
+    if (storage_save(&g->save)) fprintf(stderr, "robotron: cannot save %s\n", storage_path());
+}
+
+static void show_heroes_after_game(Game *g)
+{
+    hiscore_tables(&g->save, &assets, &g->attract.tables);
+    attract_show_heroes(&g->attract, GAME_OVER_HEROES_FRAMES);
+    g->mode = MODE_ATTRACT;
+}
 
 static void play_sounds(World *w)
 {
@@ -70,19 +95,40 @@ static void step(Game *g, const InputFrame *in)
         attract_step(&g->attract);
         return;
     }
+    if (g->mode == MODE_ENTRY) {
+        entry_step(&g->entry, entry_input(in));
+        if (g->entry.done) {
+            audio_stop(SND_HIGH_SCORE_ENTRY);
+            hiscore_insert(&g->save, &assets, g->entry.result, g->entry.score);
+            save_scores(g);
+            show_heroes_after_game(g);
+        }
+        return;
+    }
     PlayInput pin = { in->move_x, in->move_y, in->fire_x, in->fire_y };
     world_step(&g->world, &pin);
     play_sounds(&g->world);
     if (g->world.state == W_DONE) {
-        if (g->world.score > g->attract.high_score) g->attract.high_score = g->world.score;
-        attract_show_heroes(&g->attract, GAME_OVER_HEROES_FRAMES);
-        g->mode = MODE_ATTRACT;
+        unsigned score = g->world.score;
+        if (score > g->save.high_score) {
+            g->save.high_score = g->attract.high_score = score;
+            save_scores(g);
+        }
+        if (hiscore_qualifies(&g->attract.tables, score)) {
+            int letters = hiscore_is_new_top(&g->attract.tables, score) ? HIGH_SCORE_LETTERS : 3;
+            entry_start(&g->entry, score, letters, entry_input(in));
+            audio_play(SND_HIGH_SCORE_ENTRY);
+            g->mode = MODE_ENTRY;
+        } else {
+            show_heroes_after_game(g);
+        }
     }
 }
 
 static void draw(Game *g)
 {
     if (g->mode == MODE_PLAY) play_draw(&fb, &g->world, &g->cycle, g->clock);
+    else if (g->mode == MODE_ENTRY) entry_draw(&fb, &assets, &g->entry, g->world.border_color);
     else attract_draw(&fb, &assets, &g->attract);
 }
 
@@ -212,6 +258,9 @@ int main(int argc, char **argv)
     prng_reset(&g.prng);
     cycle_a_init(&g.cycle);
     attract_init(&g.attract, &assets, &g.clock, &g.cycle);
+    storage_load(&g.save);
+    hiscore_tables(&g.save, &assets, &g.attract.tables);
+    g.attract.high_score = g.save.high_score;
     if (!world_can_play(&assets))
         fprintf(stderr, "robotron: ROM tables not found; run --extract to enable play (attract only)\n");
 

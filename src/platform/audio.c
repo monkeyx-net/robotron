@@ -164,6 +164,15 @@ void audio_play(SoundId id)
     SDL_UnlockAudioDevice(dev);
 }
 
+void audio_stop(SoundId id)
+{
+    if (!dev) return;
+    SDL_LockAudioDevice(dev);
+    for (int c = 0; c < CHANNELS; c++)
+        if (voices[c].id == (int)id) voices[c].active = 0;
+    SDL_UnlockAudioDevice(dev);
+}
+
 void audio_stop_all(void)
 {
     if (!dev) return;
