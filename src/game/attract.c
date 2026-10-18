@@ -23,6 +23,13 @@ static void show_heroes(Attract *at)
     at->timer = HIGH_SCORE_DURATION + HEROES_WIPE_FRAMES;
 }
 
+static void show_demo(Attract *at)
+{
+    at->screen = ATTRACT_DEMO;
+    at->timer = DEMO_PLAY_DURATION;
+    at->demo_fresh = 1;
+}
+
 void attract_show_heroes(Attract *at, int frames)
 {
     show_heroes(at);
@@ -65,7 +72,13 @@ void attract_step(Attract *at)
         break;
     case ATTRACT_HEROES:
         at->heroes_frame++;
-        if (--at->timer <= 0) show_title(at); /* demo play goes here (P2) */
+        if (--at->timer <= 0) {
+            if (at->demo_enabled) show_demo(at);
+            else show_title(at);
+        }
+        break;
+    case ATTRACT_DEMO:
+        if (--at->timer <= 0) show_title(at);
         break;
     }
 }
@@ -83,6 +96,8 @@ void attract_draw(Framebuffer *fb, const Assets *a, Attract *at)
         break;
     case ATTRACT_HEROES:
         heroes_draw(fb, a, &at->tables, at->heroes_frame);
+        break;
+    case ATTRACT_DEMO: /* drawn by the caller from its demo world */
         break;
     }
 }

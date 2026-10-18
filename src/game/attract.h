@@ -1,7 +1,8 @@
 /*
  * The attract cycle, as js/attractMode.ts: title (300 frames) -> story pages
- * -> heroes screen (wipe + 603 frames) -> demo play -> title. Demo play needs
- * the gameplay sim (P2), so for now the heroes screen returns to the title.
+ * -> heroes screen (wipe + 603 frames) -> demo play (450 frames) -> title.
+ * The caller runs the demo world (sim/world.h) while `screen` is ATTRACT_DEMO;
+ * without the ROM tables the heroes screen returns straight to the title.
  */
 #ifndef ROBOTRON_ATTRACT_H
 #define ROBOTRON_ATTRACT_H
@@ -12,7 +13,7 @@
 #include "gfx/palette.h"
 #include "gfx/story.h"
 
-typedef enum { ATTRACT_TITLE, ATTRACT_STORY, ATTRACT_HEROES } AttractScreen;
+typedef enum { ATTRACT_TITLE, ATTRACT_STORY, ATTRACT_HEROES, ATTRACT_DEMO } AttractScreen;
 
 typedef struct {
     AttractScreen screen;
@@ -24,10 +25,13 @@ typedef struct {
     const unsigned long *clock; /* global frame clock (colour cycling) */
     unsigned high_score;
     HeroTables tables;
+    int demo_enabled;        /* set by the caller when demo play can run */
+    int demo_fresh;          /* the demo just began: the caller sets up its world */
 } Attract;
 
 #define TITLE_SCREEN_DURATION 300
 #define HIGH_SCORE_DURATION 603
+#define DEMO_PLAY_DURATION 450
 
 void attract_init(Attract *at, const Assets *a, const unsigned long *clock, CycleA *cycle);
 /* After a game: the heroes screen for `frames` (plus the wipe), then on with the cycle. */

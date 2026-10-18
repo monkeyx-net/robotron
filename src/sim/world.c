@@ -133,6 +133,7 @@ static const BorderStyle BORDER_STYLES[10] = {
 
 static void sfx(World *w, SoundId id)
 {
+    if (w->state == W_DEMO) return; /* canPlaySound: the demo is silent */
     if (w->sound_count < (int)(sizeof w->sounds / sizeof w->sounds[0])) w->sounds[w->sound_count++] = id;
 }
 
@@ -659,6 +660,7 @@ static int beat_step(World *w)
 static void player_hit(World *w)
 {
     Player *pl = &w->player;
+    if (w->state != W_PLAYING) return; /* the demo man cannot die */
     if (!pl->alive || pl->invuln_ms > 0) return;
     sfx(w, SND_PLAYER_DEATH);
     w->lives--;
@@ -1105,6 +1107,7 @@ static void prog_offsets(World *w, Human *p)
 
 static void prog_home(World *w, Human *p)
 {
+    if (w->state == W_DEMO) return; /* homes on the game's player, who is gone in the demo */
     if (prng_step(w->prng) & 0x80) {
         int up = w->player.y + p->offset_y <= p->y;
         p->dir_base = up ? 9 : 6;
@@ -1643,7 +1646,17 @@ static void atlas_size(const Assets *a, const char *name, int *w, int *h, int dw
     *h = f ? f->h : dh;
 }
 
+static void world_init(World *w, const Assets *a, Prng *prng, const unsigned long *clock, CycleA *cycle);
+
 void world_start(World *w, const Assets *a, Prng *prng, const unsigned long *clock, CycleA *cycle)
+{
+    world_init(w, a, prng, clock, cycle);
+    sfx(w, SND_WAVE_START); /* pressing start: the game-start sound */
+    start_next_wave(w);
+    start_beam_in(w);
+}
+
+static void world_init(World *w, const Assets *a, Prng *prng, const unsigned long *clock, CycleA *cycle)
 {
     unsigned qualify = w->qualify_min, cursor = w->hulk_cursor;
     memset(w, 0, sizeof *w);
@@ -1686,10 +1699,73 @@ void world_start(World *w, const Assets *a, Prng *prng, const unsigned long *clo
     w->player.visible = 1;
     w->player.alpha = 1;
     w->player.invuln_ms = RESPAWN_INVULNERABILITY_MS;
+}
 
-    sfx(w, SND_WAVE_START); /* pressing start: the game-start sound */
-    start_next_wave(w);
-    start_beam_in(w);
+void world_start_demo(World *w, const Assets *a, Prng *prng, const unsigned long *clock, CycleA *cycle)
+{
+    world_init(w, a, prng, clock, cycle);
+    w->state = W_DEMO;
+    w->hud_visible = 0;
+    w->wave = 1;
+    w->player.invuln_ms = 0;
+    w->player.x = PF_LEFT + (PF_RIGHT - PF_LEFT) * 0.25;
+    w->player.y = PF_TOP + (PF_BOTTOM - PF_TOP) * 0.5;
+    w->demo_move_timer = 0;
+    w->demo_shoot_timer = 0;
+#define PX(f) (PF_LEFT + (PF_RIGHT - PF_LEFT) * (f))
+#define PY(f) (PF_TOP + (PF_BOTTOM - PF_TOP) * (f))
+    Enemy *e = create_grunt(w);
+    e->x = PX(0.75);
+    e->y = PY(0.25);
+    e = create_enemy(w, EN_HULK, 1 << 30, 0);
+    e->x = PX(0.7);
+    e->y = PY(0.6);
+    e = create_brain(w);
+    e->x = PX(0.75);
+    e->y = PY(0.75);
+    Human *h = create_human(w, (HumanKind)(int)(aux_float(w) * 3));
+    h->x = PX(0.6);
+    h->y = PY(0.3);
+#undef PX
+#undef PY
+}
+
+/* updateDemoPlayerAI: random headings (the demo man never moves: Player.update
+   only runs while PLAYING) and a shot at the nearest destructible enemy */
+static void demo_ai(World *w)
+{
+    Player *p = &w->player;
+    if (--w->demo_move_timer <= 0) {
+        double dx = (aux_float(w) - 0.5) * 2, dy = (aux_float(w) - 0.5) * 2, len = sqrt(dx * dx + dy * dy);
+        p->dx = len > 0 ? dx / len : dx;
+        p->dy = len > 0 ? dy / len : dy;
+        w->demo_move_timer = 60 + aux_float(w) * 60;
+    }
+    if (--w->demo_shoot_timer <= 0) {
+        const Enemy *nearest = NULL;
+        double best = 1e30;
+        for (int i = 0; i < w->enemy_count; i++) {
+            const Enemy *e = &w->enemies[i];
+            if (e->kind == EN_HULK) continue;
+            double d = (p->x - e->x) * (p->x - e->x) + (p->y - e->y) * (p->y - e->y);
+            if (d < best) { best = d; nearest = e; }
+        }
+        double sx = (aux_float(w) - 0.5) * 2, sy = (aux_float(w) - 0.5) * 2;
+        if (nearest) {
+            double ang = atan2(nearest->y - p->y, nearest->x - p->x);
+            sx = cos(ang);
+            sy = sin(ang);
+        }
+        double len = sqrt(sx * sx + sy * sy);
+        if (len > 0 && w->shot_count < MAX_PLAYER_SHOTS) {
+            Shot *s = &w->shots[w->shot_count++];
+            s->x = p->x;
+            s->y = p->y;
+            s->dx = sx / len * PROJECTILE_SPEED;
+            s->dy = sy / len * PROJECTILE_SPEED;
+        }
+        w->demo_shoot_timer = 90 + aux_float(w) * 30;
+    }
 }
 
 void world_step(World *w, const PlayInput *in)
@@ -1729,6 +1805,15 @@ void world_step(World *w, const PlayInput *in)
         step_game_over(w);
         break;
     case W_DONE:
+        break;
+    case W_DEMO:
+        demo_ai(w);
+        update_shots(w);
+        update_enemy_shots(w);
+        update_enemies(w);
+        update_humans(w);
+        update_particles(w);
+        check_collisions(w);
         break;
     }
 }

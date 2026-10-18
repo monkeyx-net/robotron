@@ -41,7 +41,8 @@ typedef enum {
     W_WAVE_CLEAR,       /* WAVE_TRANSITION: rings, flash, then the next wave */
     W_DEATH,            /* WAVE_TRANSITION: the death beat, then the wave re-lays */
     W_GAME_OVER,        /* death beat, GAME OVER, erase */
-    W_DONE              /* game finished: the caller shows the heroes screen */
+    W_DONE,             /* game finished: the caller shows the heroes screen */
+    W_DEMO              /* attract-mode demo play (attractMode.ts) */
 } WorldState;
 
 typedef enum { EN_GRUNT, EN_HULK, EN_SPHEROID, EN_ENFORCER, EN_BRAIN, EN_TANK, EN_QUARK, EN_KINDS } EnemyKind;
@@ -217,6 +218,9 @@ typedef struct {
     int hud_visible;
     unsigned qualify_min; /* a score above this earns initials (set by the caller) */
 
+    /* demo play: the demo man's AI timers (frames) */
+    double demo_move_timer, demo_shoot_timer;
+
     /* sounds started this frame, for the caller to play and clear */
     SoundId sounds[32];
     int sound_count;
@@ -233,6 +237,9 @@ int world_can_play(const Assets *a);
 /* startGameFromTitle: reset, wave 1, beam in. */
 void world_start(World *w, const Assets *a, Prng *prng, const unsigned long *clock, CycleA *cycle);
 void world_step(World *w, const PlayInput *in);
+/* showDemoPlayScreen: a grunt, a hulk, a brain and a human against a demo man who
+   stands and shoots; no deaths, no score, no sound. The caller ends it. */
+void world_start_demo(World *w, const Assets *a, Prng *prng, const unsigned long *clock, CycleA *cycle);
 
 /* Palette entry for electrodes on the current wave, and the look. */
 const ElectrodeLook *world_electrode_look(const World *w);

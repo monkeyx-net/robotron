@@ -92,7 +92,16 @@ static void step(Game *g, const InputFrame *in)
             play_sounds(&g->world);
             return;
         }
+        if (g->attract.screen == ATTRACT_DEMO) {
+            static const PlayInput none = {0};
+            world_step(&g->world, &none);
+            g->world.sound_count = 0;
+        }
         attract_step(&g->attract);
+        if (g->attract.demo_fresh) { /* showDemoPlayScreen: set up now, first update next frame */
+            g->attract.demo_fresh = 0;
+            world_start_demo(&g->world, &assets, &g->prng, &g->clock, &g->cycle);
+        }
         return;
     }
     if (g->mode == MODE_ENTRY) {
@@ -129,6 +138,7 @@ static void draw(Game *g)
 {
     if (g->mode == MODE_PLAY) play_draw(&fb, &g->world, &g->cycle, g->clock);
     else if (g->mode == MODE_ENTRY) entry_draw(&fb, &assets, &g->entry, g->world.border_color);
+    else if (g->attract.screen == ATTRACT_DEMO) play_draw(&fb, &g->world, &g->cycle, g->clock);
     else attract_draw(&fb, &assets, &g->attract);
 }
 
@@ -258,6 +268,7 @@ int main(int argc, char **argv)
     prng_reset(&g.prng);
     cycle_a_init(&g.cycle);
     attract_init(&g.attract, &assets, &g.clock, &g.cycle);
+    g.attract.demo_enabled = world_can_play(&assets);
     storage_load(&g.save);
     hiscore_tables(&g.save, &assets, &g.attract.tables);
     g.attract.high_score = g.save.high_score;
