@@ -4,390 +4,103 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a web-based remake of the classic arcade game Robotron 2084, built with TypeScript, PixiJS for rendering, and Howler.js for audio. The project is undergoing a significant refactoring from a monolithic structure to a modern, modular architecture using OOP design patterns, performance optimizations, and a comprehensive core systems layer.
-
-**Current State**: The codebase is in a transitional state. The refactoring is partially complete with both legacy and new systems coexisting. The `js/core/` directory contains the new modular architecture, while root-level `js/` files represent the legacy implementation being gradually migrated.
-
-## Development Commands
-
-### Running the Game
-```bash
-npm run dev          # Start Vite dev server with HMR (default: http://localhost:5173)
-npm run build        # TypeScript compilation + Vite production build
-npm run preview      # Preview production build locally
-```
-
-### Development Notes
-- `npm test`: PRNG golden test (`tests/prng-golden.test.mts`) against 1000 ROM outputs captured in MAME
-- Other tests are manual imports in main.ts
-- No linting/formatting tools currently set up
-- Build output goes to `dist/` directory
-
-## Architecture Overview
-
-### Dual Architecture (Transitional)
-
-**Legacy System** (`js/*.ts`):
-- Original IIFE-based modules converted to ES modules
-- Global state in `gameState.ts`
-- Direct PIXI container management in `main.ts`
-- Entity files: `player.ts`, `enemies.ts`, `projectiles.ts`, `humans.ts`, `obstacles.ts`
-- Game logic in `gameLogic.ts` (~700 lines)
-
-**New Core System** (`js/core/`):
-- Modern OOP architecture with interfaces (`interfaces.ts`)
-- Comprehensive systems: `GameEngine.ts`, `AssetManager.ts`, `ErrorHandler.ts`, `EventSystem.ts`
-- Advanced features: `CollisionSystem.ts` (spatial partitioning), `RenderSystem.ts` (WebGL optimizations)
-- State management: `GameStateManager.ts` with state pattern (`states/` directory)
-- Performance: Object pooling, visual effects system, save/load manager
-- Dual GameObject classes: Legacy `gameObject.ts` and new `core/GameObject.ts`
-
-### Key System Interactions
-
-1. **Game Loop**: Fixed timestep (60 FPS) in `main.ts` using `requestAnimationFrame`
-   - Physics update with accumulator for consistent timing
-   - Separate update/render phases
-   - Position interpolation for smooth rendering
-
-2. **Rendering Pipeline**:
-   - PixiJS v8 with WebGL + canvas fallback
-   - Container hierarchy: gameContentContainer > [playerContainer, enemiesContainer, etc.]
-   - Pixel-perfect scaling (no antialiasing for retro aesthetic)
-   - RenderSystem handles batching, culling, effects
-
-3. **Collision Detection**:
-   - Spatial grid/quadtree implementation in `SpatialGrid.ts`
-   - Collision layers using bit flags
-   - Integration with both legacy and new systems
-
-4. **State Management**:
-   - Legacy: String-based states in `gameState.currentGameState`
-   - New: State pattern with classes in `core/states/` (TitleState, PlayingState, etc.)
-   - Both systems currently active during migration
-
-5. **Input Handling**:
-   - Dual-stick arcade controls (movement + shooting)
-   - Support: Keyboard (WASD + arrows), Gamepad API, touch virtual joysticks
-   - `core/InputManager.ts` for unified input, legacy `inputManager.ts` being phased out
-
-## Code Structure Guidelines
-
-### Entity Creation Pattern
-
-All game entities should extend from base `GameObject` class:
-
-```typescript
-// New pattern (core/GameObject.ts)
-class Enemy extends GameObject {
-  constructor(position: Vector2, type: EntityType) {
-    super(type);
-    this.transform.position = position;
-    // Entity setup with proper lifecycle management
-  }
-}
-```
-
-Legacy entities use PIXI sprites directly - these are being migrated.
-
-### Module Pattern (New Systems)
-
-Core systems use IIFE pattern for encapsulation:
-
-```typescript
-export const SystemName = (() => {
-  // Private state
-  let privateVar = 0;
-
-  // Public interface
-  return {
-    publicMethod() { /* ... */ }
-  };
-})();
-```
-
-### Event-Driven Communication
-
-Use `EventSystem` for decoupled communication:
-
-```typescript
-import { gameEvents } from './core/EventSystem';
-
-// Emit events
-gameEvents.emit('enemy:destroyed', { enemyType, score });
-
-// Subscribe to events
-gameEvents.subscribe('player:hit', (data) => {
-  // Handle player damage
-});
-```
-
-## Performance Considerations
-
-1. **Object Pooling**: Use for frequently created/destroyed entities (projectiles, effects)
-   - Prevents garbage collection stutters
-   - Pool implementations in progress for projectile/effect systems
-
-2. **Spatial Partitioning**: Collision detection uses grid-based optimization
-   - Reduces O(n²) collision checks to O(n)
-   - Configurable grid size in `SpatialGrid.ts`
-
-3. **Rendering Optimization**:
-   - Off-screen culling for entities outside viewport
-   - Sprite batching to minimize draw calls
-   - Texture atlases for related sprites
-
-4. **Memory Management**:
-   - Proper cleanup of PIXI resources (sprites, textures)
-   - Event listener cleanup on entity destruction
-   - Use `destroy()` methods consistently
-
-## Important File Locations
-
-### Configuration
-- `js/config.ts` - Game constants (dimensions, speeds, scoring)
-- `tsconfig.json` - TypeScript config (strict mode, ES modules)
-- `vite.config.ts` - Build tool configuration
-
-### Core Systems
-- `js/core/interfaces.ts` - TypeScript interfaces for all major systems
-- `js/core/GameEngine.ts` - Main game loop and engine
-- `js/core/GameStateManager.ts` - State machine implementation
-- `js/core/InputManager.ts` - Unified input system (keyboard, gamepad, touch)
-- `js/core/OperatorSettings.ts` / `OperatorMenu.ts` - Arcade GAME ADJUSTMENT settings (F2 / `?` / pad Select+Start on the title screens)
-- `js/core/WaveParams.ts` - ROM per-wave timer tables + DIFFICULTY OF PLAY (generated from the ROM; do not hand-edit)
-- `js/waveTable.ts` - ROM per-wave counts for all 40 waves (generated from the ROM; do not hand-edit)
-- `js/core/ElectrodeShapes.ts` - ROM electrode bitmaps + palette entry per wave (generated; do not hand-edit)
-- `js/core/SpawnPlacement.ts` - ROM wave-start spawn positions (safe-zone boxes, edge bands)
-- `js/core/ColorCycles.ts` - the ROM's colour-cycling palette entries A/B/D/E/F (electrodes, progs, HUD)
-- `js/core/DeathBeat.ts` - the ROM's player-death flash and fade (playerHit, game over)
-- `js/core/AttractStory.ts` - attract-mode story pages about the reverse-engineering and rebuild (title → story → heroes → demo)
-- `js/core/ArcadeHud.ts` - in-canvas HUD for both players, laid out from MAME
-- `js/core/HeroesScreen.ts` - the arcade heroes screen (ROBOTRON HEROES + ALL TIME HEROES) and the rectangle wipe that opens it, pixel-matched to MAME; tables live in `HighScoreEntry.ts`
-- `js/core/WavePacing.ts` - Live enemy pacing: ROM grunt cadence/ramp, mercy table, prng_le timers for the other enemies (wired in `enemies.ts`)
-- `js/core/CollisionSystem.ts` - Optimized collision detection
-- `js/core/RenderSystem.ts` - Rendering pipeline with effects
-- `js/core/EventSystem.ts` - Event-driven communication between systems
-
-### Game Logic
-- `js/main.ts` - Entry point, PIXI initialization, main game loop
-- `js/gameLogic.ts` - Legacy game logic (being refactored)
-- `js/gameState.ts` - Central game state object
-
-### Entities
-- `js/player.ts` - Player class with movement and shooting
-- `js/enemies.ts`, `js/enemiesClasses.ts` - Enemy types and AI
-- `js/projectiles.ts`, `js/projectile.ts` - Projectile management
-- `js/humans.ts`, `js/humanClasses.ts` - Human NPCs
-
-## Refactoring Progress
-
-**Phase 1 - COMPLETE**: Code organization, ES modules, TypeScript setup
-**Phase 2 - COMPLETE**: Class-based architecture for entities
-**Phase 3 - COMPLETE**: Core systems implementation, state management, unified input, difficulty scaling
-**Phase 4 - PLANNED**: Performance optimization (pooling, spatial partitioning)
-**Phase 5 - PLANNED**: Testing setup, production optimization
-
-See `GEMINI.md`, `PHASE3_COMPLETION.md`, and `.kiro/specs/robotron-refactoring/` for detailed refactoring plans.
-
-## Release History & Versions
-
-### Release 3.1 (Current) - October 2026
-**Status**: Arcade fidelity, part 2 — ARCADE_FIDELITY_PLAN M1–M5 complete
-
-- Bit-exact ROM PRNG with a MAME golden test (`npm test`)
-- Operator GAME ADJUSTMENT menu; enemy pacing from the ROM's per-wave timer tables
-- ROM wave table (40 waves), electrodes, spawn positions, progs, walk animations, enforcers, sparks, cruise missiles
-- Arcade player death, game over flow, two-player HUD, sound priorities, scoring
-- Attract story pages about the reverse-engineering and rebuild
-- Reverse-engineering notes and MAME probes live in the sibling `robotron-re` repo (REVERSE.md Phase 21)
-
-**Git Tags**: `v3.1.0` on main
-
-### Release 3.0 - July 2026
-**Status**: Arcade fidelity — ROM sprite atlas, ROM fonts, ROM-traced AI
-
-**Git Tags**: `v3.0` on main
-
-### Release 2.0 - January 2026
-**Status**: Production - Complete Phase 3 Refactoring
-
-Complete architectural overhaul with modern design patterns:
-
-- **State Pattern**: GameStateManager with clean state transitions (Title, Playing, Paused, GameOver)
-- **Progressive Difficulty**: 5 difficulty levels + adaptive AI that responds to player performance
-- **Unified Input**: Single InputManager supporting keyboard, gamepad, and touch with input buffering
-- **Bug Fixes**: Game scaling, sprite flickering, enemy spawning, pause/resume, Spheroid AI
-- **Testing**: 43 automated tests (88% pass rate), browser-verified with Playwright
-- **Performance**: Optimized rendering, spatial partitioning collision detection
-- **Quality**: Comprehensive error handling, debug interfaces, save/load system
-
-**Git Tags**: `v2.0` on main branch
-**Demo**: https://robotron.hatch.org/
-
-### Release 1.0 - Original Implementation
-**Status**: Legacy - Preserved for reference
-
-Original working version before refactoring:
-
-- All classic enemy types and gameplay mechanics
-- Basic state management with string-based states
-- Simple input handling
-- Working attract mode and demo play
-- Sound effects and visual feedback
-
-**Git Tags**: `v1.0` at commit `ff6da40`
-
-## Common Patterns
-
-### Using the Unified Input System
-
-```typescript
-import { UnifiedInputManager, InputAction } from './core/InputManager';
-
-const inputManager = UnifiedInputManager.getInstance();
-inputManager.initialize();
-
-// In update loop
-inputManager.update();
-const movement = inputManager.getMovementVector();  // Returns Vector2
-const shooting = inputManager.getShootingVector();  // Returns Vector2
-
-// Check specific actions
-if (inputManager.isActionPressed(InputAction.PAUSE)) {
-  // Handle pause
-}
-```
-
-### Difficulty (arcade DIFFICULTY OF PLAY)
-
-The operator setting 0-10 (5 = recommended) lives in `Operator.get().difficulty`.
-As in the ROM it never changes enemy counts; it nudges per-wave timers. Read them
-through `WavePacing`, which `startNextWave()` primes each wave:
-
-```typescript
-import { WavePacing } from './core/WavePacing';
-
-WavePacing.params.hulkStepFrames;                         // ROM value for this wave + difficulty
-WavePacing.prngLe(WavePacing.params.enforcerShotTimer) * 3; // timers are drawn the ROM's way ($D6B6)
-```
-
-See `OPERATOR_SETTINGS_PLAN.md` and robotron-re REVERSE.md Phase 21.
-
-### Adding a New Enemy Type
-
-1. Create class in `enemiesClasses.ts` extending base enemy
-2. Add sprite loading in asset manager/main.ts
-3. Implement AI behavior (movement, shooting patterns)
-4. Add spawn logic in `startNextWave()`; counts come from `js/waveTable.ts` (generated from the ROM by robotron-re `tools/gen_wavetable_ts.py` — do not hand-edit); take timers from `WavePacing`
-5. Configure collision detection and scoring (award points via `addScore` in gameLogic)
-
-### Adding Visual Effects
-
-Use `VisualEffects.ts` system:
-- Screen shake, particle effects, flash effects
-- Preset configurations in `EffectPresets.ts`
-- Effects container in render hierarchy
-
-### Save/Load System
-
-`SaveLoadManager.ts` provides localStorage persistence:
-- Game state serialization
-- High scores tracking
-- Settings persistence (operator settings are separate: `OperatorSettings.ts`)
-- Version migration support
-
-## Technical Constraints
-
-- **Target Resolution**: 292x240 (original arcade resolution), upscaled via CSS
-- **Frame Rate**: 60 FPS target with fixed timestep physics
-- **Browser Support**: Modern browsers with WebGL support
-- **No Build Dependencies**: Assets loaded at runtime (sprites/, sounds/)
-
-## Testing Approach
-
-Currently no automated test framework. Test files exist as manual imports:
-- `core/milestone-test.ts`, `core/milestone2-test.ts`, `core/milestone3-test.ts`
-- `core/SaveLoadTest.ts`, `core/VisualEffectsTest.ts`
-- Tests are imported in `main.ts` and run via browser console
-
-Future: Vitest/Jest for unit tests, Playwright for E2E (per requirements).
-
-## MCP Integration Notes
-
-The `.kiro/settings/mcp.json` configuration enables:
-- **Context7**: Real-time documentation for PixiJS, TypeScript, Vite APIs
-- **Playwright**: Browser automation for testing game mechanics, performance monitoring
-
-Use these for library documentation lookups and automated testing when implementing new features.
-
-## Deployment (robotron.hatch.org)
-
-The game is served from **https://robotron.hatch.org/**: a private S3 bucket
-(us-east-1) read only by CloudFront through origin access control, with an ACM
-certificate and Route 53 alias records. GitHub Pages is not used. The bucket and
-distribution ID are only local: `deploy.sh` reads `DEPLOY_BUCKET` and
-`DEPLOY_DIST_ID` from the environment or from the git-ignored `.env.deploy`
-(template: `.env.deploy.example`). Never commit them.
+A native C11 / SDL2 port of Robotron: 2084 for Linux handhelds (aarch64:
+ArkOS, ROCKNIX, muOS, Knulli) and x86_64 (Steam Deck, desktops), ported from
+the web remake in this repo. **The plan, decisions and test plan live in
+[SDL2_PORT_PLAN.md](SDL2_PORT_PLAN.md)**; read it before larger changes and
+keep its phase table up to date.
+
+Work happens on the `sdl2-port` branch.
+
+## Ground Rules
+
+- **Do not modify the web project** (`js/`, `package.json`, the lockfile,
+  `sprites/`, `sounds/`, `tests/`, web docs). It is read-only reference: when
+  porting behaviour, read the TypeScript and match it.
+- **All new code and tooling is C** (built with CMake). The one exception is
+  MAME probe scripts, which must be Lua (MAME's scripting language); they only
+  dump RAM to text files, and C or CMake does the comparing.
+- New files go in `src/`, `CMakeLists.txt` or `SDL2_PORT_PLAN.md`. Ask before
+  adding files elsewhere (for example `.github/`).
+- **No ROM-derived data is compiled into the binary** (plan, decision 1). The
+  game reads sprites, fonts, sounds and the ROM tables from `assets/` at run time.
+- The user's ROM set lives in `robotron/` (git-ignored); never commit ROMs or
+  zips, and never send them anywhere.
+
+## Commands
 
 ```bash
-npm run deploy   # ./deploy.sh: build, check dist, sync to S3, invalidate CloudFront
+cmake -S . -B build && cmake --build build -j     # build (extracts ROM tables if robotron/ exists)
+ctest --test-dir build                            # all tests
+ctest --test-dir build -L rom                     # tests needing the ROM set
+ctest --test-dir build -L mame                    # tests needing MAME + the ROM set
+build/robotron --windowed                         # run
+SDL_VIDEODRIVER=dummy build/robotron --input src/tests/scripts/wave1.txt \
+    --frames 600 --screenshot out.png             # headless replay + screenshot
+build/robotron --extract robotron/ [assets_dir]   # ROM tables from a folder or robotron.zip
+cmake --build build --target package_linux package_portmaster   # release archives
+cmake -S . -B build-san -DROBOTRON_SANITIZE=ON    # ASan/UBSan build
 ```
 
-- Production builds use base `/`; the dev server keeps `/robotron/` (`vite.config.ts`).
-- Cache: hashed `assets/` 1 year (immutable), sprites/sounds 1 hour, `index.html` 60 s;
-  every deploy invalidates `/*`.
-- Verify with a cache-busted load (`https://robotron.hatch.org/?cb=<n>`).
+Release builds: `-DROBOTRON_DEV_ASSETS=OFF` (no source-tree asset fallback).
+The build dir is a runnable layout: `build/assets/` links to `sprites/` and
+`sounds/` and holds the extracted `data/`.
 
-## Release Process
+## Layout (`src/`)
 
-### Creating a New Release
+- `main.c` - SDL setup, fixed 60 Hz loop, mode switch (attract / play /
+  initials entry / operator menu), `--frames`, `--screenshot`, `--input`, `--extract`
+- `platform/` - the only code that includes SDL: `video.c` (292x240
+  framebuffer, integer scale), `input.c` (pads, ABXY fire, quit = hold
+  Select+Start 1 s, operator menu = Select+R1 / F2, 2P = L1+Start / key 2),
+  `audio.c` (mixer with the web build's priorities and crossfades)
+- `sim/` - pure C game simulation, no SDL, no drawing: `world.c` (all
+  entities, collisions, scoring, wave/death/game-over flow, demo play, 2P),
+  `pacing.c` (wave parameters, grunt pacing, mercy), `spawn.c` (ROM spawn
+  positions), `prng.c` (the ROM's prng_update), `sound.h` (sound table)
+- `gfx/` - draws into the framebuffer: `blit.c`, `font.c` (web BitmapFont
+  rules + synthesized glyphs), `palette.c` (colour cycles), `play.c`,
+  `title.c`, `story.c`, `heroes.c`
+- `game/` - `attract.c` (title, story, heroes, demo cycle), `entry.c`
+  (initials), `hiscore.c` (heroes tables), `opmenu.c` (GAME ADJUSTMENT),
+  `storage.c` (saved settings and scores)
+- `assets/` - `assets.c` (finds and loads `assets/`), `png.c`, `json.c`,
+  `inflate.c`, `zip.c`, `rom.c` + `extract.c` (the only code reading the ROM)
+- `tests/` - C tests, golden hashes, input scripts, MAME probes
+- `packaging/` - release layout script, PortMaster launcher and metadata
 
-1. **Update Version**:
-   ```bash
-   # Update package.json version
-   npm version [major|minor|patch]
-   ```
+## Conventions
 
-2. **Update Documentation**:
-   - Update README.md with release notes
-   - Update CLAUDE.md with new version info
-   - Update PHASE*_COMPLETION.md if applicable
+- C11, `-Wall -Wextra`, no warnings. Builds must also pass in Ubuntu 20.04
+  (GCC 9, SDL 2.0.10, the PortMaster base): use only the SDL 2.0.10 API.
+- The sim is deterministic: step once per frame, no wall clock. Gameplay
+  randomness uses the ROM PRNG in the web build's call order; the web's
+  untraced `Math.random` gameplay uses `World.aux`; cosmetics use `World.fx`.
+  Never draw randomness for cosmetics from the gameplay PRNG.
+- `sim/` must not include SDL or touch the framebuffer; `gfx/` only reads sim state.
+- Port behaviour from the web build faithfully (including its quirks), and cite
+  the TS file or ROM address in a short comment where it helps.
+- Match the surrounding code: comment density, naming, idiom.
 
-3. **Commit Changes**:
-   ```bash
-   git add .
-   git commit -m "chore: Release vX.Y.Z"
-   ```
+## Testing
 
-4. **Create Tag**:
-   ```bash
-   git tag -a vX.Y.Z -m "Release X.Y.Z - Description"
-   ```
+Every change keeps `ctest` green (plan section 3).
 
-5. **Push to GitHub**:
-   ```bash
-   git push origin main
-   git push origin --tags
-   ```
+- `prng_golden`, `assets`, `hiscore` - always run
+- `rom_extract`, `rom_zip_extract`, `world_flow`, `play_golden` - label `rom`
+  (need `robotron/`); `rom_extract` cross-checks the extracted tables against
+  the web build's generated TS tables
+- `mame_prng_golden` - label `mame`: MAME reproduces `tests/fixtures/prng_golden.txt`
+- `play_golden` compares screenshot hashes of scripted runs
+  (`src/tests/golden/play.txt`). After an intended behaviour change, regenerate:
+  `cmake -DGAME=build/robotron -DSCRIPTS=src/tests/scripts -DGOLDEN=src/tests/golden/play.txt -DWORKDIR=build/golden -DUPDATE=1 -P src/tests/run_golden.cmake`
+- Tests that run the game use their own save dir (`ROBOTRON_SAVE_DIR`); never
+  write to the user's `~/.local/share/robotron`.
 
-6. **Deploy to robotron.hatch.org**:
-   ```bash
-   npm run deploy
-   ```
+## Reference
 
-7. **Create GitHub Release**:
-   - Go to repository → Releases → New Release
-   - Select the tag
-   - Copy release notes from README.md
-   - Attach build artifacts if needed
-
-### Versioning Strategy
-
-- **Major (X.0.0)**: Complete refactoring, breaking API changes
-- **Minor (x.Y.0)**: New features, non-breaking changes
-- **Patch (x.y.Z)**: Bug fixes, small improvements
-
-Examples:
-- v1.0 → v2.0: Phase 3 refactoring (major architectural changes)
-- v2.0 → v2.1: Phase 4 performance optimizations (new features)
-- v2.1 → v2.1.1: Bug fixes (patches)
+- ROM: MAME `robotron` (Solid Blue); `prng_update` at `$D6CD`, direct page `$98`;
+  table addresses are listed in `src/assets/extract.h`.
+- MAME 0.289 runs it headless; see `src/tests/mame/run_probe.cmake` for the options.
+- Reverse-engineering notes are in the sibling `robotron-re` repo (REVERSE.md
+  Phase 21), cited by the web build's TS comments.
