@@ -1,7 +1,11 @@
 #include "assets/rom.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+
+#include "assets/zip.h"
 
 /* MAME `robotron` set: current name, old name, CRC32. */
 static const struct { const char *mame, *old; uint32_t crc; } files[12] = {
@@ -39,26 +43,53 @@ static int read_exact(const char *path, uint8_t *buf, size_t n)
     return got == n && !extra ? 0 : -2;
 }
 
-int rom_load(RomSet *rom, const char *dir, char *err, int errlen)
+/* One 4 KB ROM from a folder or a zip, by either of its names. 0 ok, -1 missing, -2 wrong size, -3 bad zip. */
+static int read_rom(const char *src, int is_zip, int i, uint8_t *buf, char *err, int errlen)
+{
+    for (int alt = 0; alt < 2; alt++) {
+        const char *name = alt ? files[i].old : files[i].mame;
+        if (is_zip) {
+            uint8_t *data;
+            size_t len;
+            int rc = zip_read(src, name, &data, &len, err, errlen);
+            if (rc == -1) return -3;
+            if (rc == -2) continue;
+            int ok = len == 4096;
+            if (ok) memcpy(buf, data, 4096);
+            free(data);
+            return ok ? 0 : -2;
+        }
+        char path[1100];
+        snprintf(path, sizeof path, "%s/%s", src, name);
+        int rc = read_exact(path, buf, 4096);
+        if (rc != -1) return rc;
+    }
+    return -1;
+}
+
+int rom_load(RomSet *rom, const char *src, char *err, int errlen)
 {
     memset(rom, 0, sizeof *rom);
+    struct stat st;
+    if (stat(src, &st) != 0) {
+        snprintf(err, (size_t)errlen, "%s: not found", src);
+        return -1;
+    }
+    int is_zip = S_ISREG(st.st_mode);
     for (int i = 0; i < 12; i++) {
-        char path[1100];
-        int rc = -1;
-        for (int alt = 0; alt < 2 && rc == -1; alt++) {
-            snprintf(path, sizeof path, "%s/%s", dir, alt ? files[i].old : files[i].mame);
-            rc = read_exact(path, rom->prog[i], sizeof rom->prog[i]);
-        }
+        int rc = read_rom(src, is_zip, i, rom->prog[i], err, errlen);
+        if (rc == -3) return -1;
         if (rc == -1) {
-            snprintf(err, (size_t)errlen, "%s: missing %s (or %s)", dir, files[i].mame, files[i].old);
+            snprintf(err, (size_t)errlen, "%s: missing %s (or %s)", src, files[i].mame, files[i].old);
             return -1;
         }
         if (rc == -2) {
-            snprintf(err, (size_t)errlen, "%s: not a 4096-byte ROM", path);
+            snprintf(err, (size_t)errlen, "%s: %s is not a 4096-byte ROM", src, files[i].mame);
             return -1;
         }
         if (crc32(rom->prog[i], sizeof rom->prog[i]) != files[i].crc) {
-            snprintf(err, (size_t)errlen, "%s: wrong ROM (CRC mismatch); the MAME 'robotron' set is required", path);
+            snprintf(err, (size_t)errlen, "%s: %s is the wrong ROM (CRC mismatch); the MAME 'robotron' set is required",
+                     src, files[i].mame);
             return -1;
         }
     }

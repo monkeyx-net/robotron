@@ -26,7 +26,9 @@ add_library(robotron_core STATIC
   src/sim/pacing.c
   src/sim/spawn.c
   src/sim/world.c
+  src/assets/inflate.c
   src/assets/png.c
+  src/assets/zip.c
   src/assets/json.c
   src/assets/assets.c
   src/assets/rom.c
@@ -34,6 +36,7 @@ add_library(robotron_core STATIC
   src/game/attract.c
   src/game/entry.c
   src/game/hiscore.c
+  src/game/opmenu.c
   src/game/storage.c
   src/gfx/fb.c
   src/gfx/palette.c
@@ -90,6 +93,10 @@ if(EXISTS "${ROBOTRON_ROM_DIR}")
   target_link_libraries(test_extract PRIVATE robotron_core)
   add_test(NAME rom_extract COMMAND test_extract ${ROBOTRON_ROM_DIR} ${CMAKE_SOURCE_DIR})
   set_tests_properties(rom_extract PROPERTIES LABELS rom)
+  add_test(NAME rom_zip_extract
+    COMMAND ${CMAKE_COMMAND} -DGAME=$<TARGET_FILE:robotron> -DROMS=${ROBOTRON_ROM_DIR}
+      -DWORKDIR=${CMAKE_BINARY_DIR}/zip_test -P ${CMAKE_SOURCE_DIR}/src/tests/zip_extract.cmake)
+  set_tests_properties(rom_zip_extract PROPERTIES LABELS rom)
 
   add_executable(test_world src/tests/test_world.c)
   target_link_libraries(test_world PRIVATE robotron_core)
