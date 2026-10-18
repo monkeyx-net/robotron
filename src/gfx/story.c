@@ -58,6 +58,33 @@ static const Page pages[STORY_PAGES] = {
     } },
 };
 
+/* Every control, under the first page's text (the port's addition; the web
+   build's page 1 has none). Shown whole, so the page timing is unchanged. */
+#define CONTROLS_Y 118
+#define CONTROLS_COLS 3
+static const int CONTROLS_X[CONTROLS_COLS] = { 16, 96, 196 };
+static const uint32_t CONTROLS_TINT[CONTROLS_COLS] = { CYAN, GREEN, YELLOW };
+static const char *const CONTROLS[][CONTROLS_COLS] = {
+    { "CONTROLS", "PAD", "KEYBOARD" },
+    { "MOVE", "LEFT STICK, D-PAD", "W A S D" },
+    { "FIRE", "RIGHT STICK, ABXY", "ARROWS" },
+    { "COIN", "SELECT", "SPACE, 5" },
+    { "1 PLAYER", "START", "ENTER, 1" },
+    { "2 PLAYERS", "L1+START", "2" },
+    { "GRAPHICS", "SELECT+L1", "F3" },
+    { "GLOW, SCANLINES", "", "F4, F5" },
+    { "OPERATOR MENU", "SELECT+R1", "F2" },
+    { "EXIT", "HOLD SELECT+START", "ESC" }, /* the ROM font's Q reads as a 9 */
+};
+
+static void controls_draw(Framebuffer *fb, const Assets *a)
+{
+    for (int r = 0; r < (int)(sizeof CONTROLS / sizeof CONTROLS[0]); r++)
+        for (int c = 0; c < CONTROLS_COLS; c++)
+            font_draw_t(fb, a, FONT_MAIN, CONTROLS[r][c], CONTROLS_X[c], CONTROLS_Y + r * LINE_H, 1, TRACKING,
+                        r ? CONTROLS_TINT[c] : ORANGE);
+}
+
 static unsigned page_chars(const Page *p)
 {
     unsigned n = 0;
@@ -118,4 +145,5 @@ void story_draw(Framebuffer *fb, const Assets *a, const Story *s, CycleA *cycle,
         }
         ly += PARA_GAP;
     }
+    if (s->page == 0) controls_draw(fb, a);
 }

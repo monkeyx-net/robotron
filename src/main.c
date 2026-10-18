@@ -3,13 +3,15 @@
  * See SDL2_PORT_PLAN.md. So far: the attract cycle (title, story, heroes)
  * and wave 1 of the game (START or coin from any attract screen).
  *
- *   robotron [--windowed] [--frames N] [--screenshot out.png] [--input script.txt]
+ *   robotron [--windowed] [--gfx preset] [--frames N] [--screenshot out.png] [--input script.txt]
  *   robotron --extract <rom dir> [<asset dir>]
  *
  * --frames N stops after N updates; with --screenshot the last frame is
  * written as a 292x240 PNG (use SDL_VIDEODRIVER=dummy to run headless).
  * --input replays scripted controls: lines of "<frame> [start] [start2] [coin]
  * [menu] [move:x,y] [fire:x,y]", each holding from that frame until the next line.
+ * --gfx picks an enhanced graphics preset for this run (gfx/enhance.h); in
+ * game, Select+L1 / F3 steps the presets, F4 toggles glow and F5 scanlines.
  * --extract reads the user's ROM set and writes the data tables to
  * <asset dir>/data (default: assets/ next to the program).
  */
@@ -28,7 +30,9 @@
 #include "game/storage.h"
 #include "gfx/play.h"
 #include "sim/world.h"
+#include "gfx/enhance.h"
 #include "gfx/fb.h"
+#include "gfx/font.h"
 #include "platform/audio.h"
 #include "platform/input.h"
 #include "platform/video.h"
@@ -42,10 +46,14 @@
 /* Cap catch-up after a stall (suspend/resume, SD card hiccup). */
 #define MAX_STEPS_PER_PRESENT 4
 
-static Framebuffer fb;
+static Framebuffer fb;     /* arcade resolution */
+static Framebuffer fb_big; /* enhanced modes: the frame at the render scale */
+static Framebuffer *shown; /* the frame last drawn */
 static Assets assets;
 
 #define GAME_OVER_HEROES_FRAMES 580 /* heroes screen after a game (MAME) */
+#define GFX_NOTICE_FRAMES 120        /* "GRAPHICS: ..." after a change */
+#define GFX_NOTICE_Y 24
 
 typedef enum { MODE_ATTRACT, MODE_PLAY, MODE_ENTRY, MODE_OPMENU } Mode;
 
@@ -59,6 +67,7 @@ typedef struct {
     Entry entry;
     OpMenu menu;
     SaveData save;
+    int gfx_notice;       /* frames left showing the graphics mode */
 } Game;
 
 static MenuInput menu_input(const InputFrame *in)
@@ -169,13 +178,49 @@ static void step(Game *g, const InputFrame *in)
     }
 }
 
-static void draw(Game *g)
+static void draw_scene(Game *g, Framebuffer *t)
 {
-    if (g->mode == MODE_PLAY) play_draw(&fb, &g->world, &g->cycle, g->clock);
-    else if (g->mode == MODE_ENTRY) entry_draw(&fb, &assets, &g->entry, g->world.border_color);
-    else if (g->mode == MODE_OPMENU) opmenu_draw(&fb, &assets, &g->menu);
-    else if (g->attract.screen == ATTRACT_DEMO) play_draw(&fb, &g->world, &g->cycle, g->clock);
-    else attract_draw(&fb, &assets, &g->attract);
+    if (g->mode == MODE_PLAY) play_draw(t, &g->world, &g->cycle, g->clock);
+    else if (g->mode == MODE_ENTRY) entry_draw(t, &assets, &g->entry, g->world.border_color);
+    else if (g->mode == MODE_OPMENU) opmenu_draw(t, &assets, &g->menu);
+    else if (g->attract.screen == ATTRACT_DEMO) play_draw(t, &g->world, &g->cycle, g->clock);
+    else attract_draw(t, &assets, &g->attract);
+    if (g->gfx_notice > 0) {
+        char text[80];
+        snprintf(text, sizeof text, "GRAPHICS: %s", gfx_describe(&g->save.gfx));
+        font_draw(t, &assets, FONT_MAIN, text, (FB_WIDTH - font_measure(&assets, FONT_MAIN, text)) / 2.0,
+                  GFX_NOTICE_Y, 1, 0xFFFFFF);
+    }
+}
+
+/* Classic: the arcade frame. HD: drawn at the render scale. FILTER: the arcade
+   frame upscaled whole. Glow goes over whichever is shown. */
+static void draw(Game *g, int display_scale)
+{
+    const GfxSettings *gs = &g->save.gfx;
+    const Scaler scaler = gs->smooth ? SCALER_SMOOTH : SCALER_CRISP;
+    const int s = gfx_render_scale(gs, display_scale);
+    shown = &fb;
+    if (gs->mode == GFX_HD && !fb_init(&fb_big, s) && !enhance_prepare(&assets, s, scaler)) {
+        draw_scene(g, &fb_big);
+        shown = &fb_big;
+    } else {
+        draw_scene(g, &fb);
+        if (gs->mode == GFX_FILTER && !fb_init(&fb_big, s) && !enhance_filter_frame(&fb, &fb_big, scaler))
+            shown = &fb_big;
+    }
+    if (gs->glow) enhance_glow(shown);
+}
+
+/* Graphics hotkeys: cosmetic only, never seen by the sim. */
+static void gfx_keys(Game *g, const InputFrame *in)
+{
+    if (!in->gfx_next && !in->gfx_glow && !in->gfx_scanlines) return;
+    if (in->gfx_next) gfx_next_preset(&g->save.gfx);
+    if (in->gfx_glow) g->save.gfx.glow = !g->save.gfx.glow;
+    if (in->gfx_scanlines) g->save.gfx.scanlines = !g->save.gfx.scanlines;
+    g->gfx_notice = GFX_NOTICE_FRAMES;
+    save_scores(g);
 }
 
 static int extract(const char *argv0, const char *rom_dir, const char *out_dir)
@@ -249,17 +294,18 @@ static void apply_script(InputFrame *in, long frame)
 
 static int save_screenshot(const char *path)
 {
-    static uint8_t rgba[FB_HEIGHT * FB_WIDTH * 4];
-    for (int y = 0; y < FB_HEIGHT; y++)
-        for (int x = 0; x < FB_WIDTH; x++) {
-            uint32_t p = fb.px[y][x];
-            uint8_t *o = rgba + (y * FB_WIDTH + x) * 4;
+    static uint8_t rgba[FB_HEIGHT * FB_MAX_SCALE * FB_WIDTH * FB_MAX_SCALE * 4];
+    const Framebuffer *f = shown ? shown : &fb;
+    for (int y = 0; y < f->h; y++)
+        for (int x = 0; x < f->w; x++) {
+            uint32_t p = fb_row(f, y)[x];
+            uint8_t *o = rgba + ((long)y * f->w + x) * 4;
             o[0] = (uint8_t)(p >> 16);
             o[1] = (uint8_t)(p >> 8);
             o[2] = (uint8_t)p;
             o[3] = 0xFF;
         }
-    if (png_write(path, rgba, FB_WIDTH, FB_HEIGHT)) {
+    if (png_write(path, rgba, f->w, f->h)) {
         fprintf(stderr, "robotron: cannot write %s\n", path);
         return -1;
     }
@@ -270,6 +316,7 @@ static int save_screenshot(const char *path)
 static Game g;
 static long max_frames = -1;
 static const char *screenshot;
+static const char *gfx_preset; /* --gfx */
 static Uint64 step_ticks, last, acc;
 static long frames;
 static int rc;
@@ -282,6 +329,7 @@ static void game_init(void)
     attract_init(&g.attract, &assets, &g.clock, &g.cycle);
     g.attract.demo_enabled = world_can_play(&assets);
     storage_load(&g.save);
+    if (gfx_preset) gfx_parse(gfx_preset, &g.save.gfx);
     hiscore_tables(&g.save, &assets, &g.attract.tables);
     g.attract.high_score = g.save.high_score;
     if (!world_can_play(&assets))
@@ -308,6 +356,8 @@ static bool run_once(void)
 #ifndef __EMSCRIPTEN__
         if (in.quit) return false; /* a browser tab has nothing to quit to */
 #endif
+        gfx_keys(&g, &in);
+        if (g.gfx_notice > 0) g.gfx_notice--;
         if (script_len) apply_script(&in, frames + 1);
         step(&g, &in);
         frames++;
@@ -315,8 +365,8 @@ static bool run_once(void)
         if (max_frames >= 0 && frames >= max_frames) break;
     }
     /* Headless runs (--frames) only need the last frame, and skip vsync pacing. */
-    if (max_frames < 0 || frames >= max_frames) draw(&g);
-    if (max_frames < 0) video_present(&fb); /* blocks on vsync */
+    if (max_frames < 0 || frames >= max_frames) draw(&g, video_display_scale());
+    if (max_frames < 0) video_present(shown, g.save.gfx.scanlines); /* blocks on vsync */
     if (max_frames >= 0 && frames >= max_frames) {
         if (screenshot && save_screenshot(screenshot)) rc = 1;
         return false;
@@ -346,17 +396,29 @@ int main(int argc, char **argv)
         if (!strcmp(argv[i], "--windowed")) windowed = true;
         else if (!strcmp(argv[i], "--frames") && i + 1 < argc) max_frames = strtol(argv[++i], NULL, 10);
         else if (!strcmp(argv[i], "--screenshot") && i + 1 < argc) screenshot = argv[++i];
+        else if (!strcmp(argv[i], "--gfx") && i + 1 < argc) {
+            GfxSettings probe;
+            gfx_preset = argv[++i];
+            if (gfx_parse(gfx_preset, &probe)) {
+                fprintf(stderr, "robotron: unknown --gfx preset '%s' (one of: %s)\n", gfx_preset, gfx_preset_names());
+                return 2;
+            }
+        }
         else if (!strcmp(argv[i], "--input") && i + 1 < argc) {
             if (load_script(argv[++i])) return 1;
         }
         else {
-            fprintf(stderr, "usage: %s [--windowed] [--frames N] [--screenshot out.png] [--input script.txt]\n"
+            fprintf(stderr, "usage: %s [--windowed] [--gfx preset] [--frames N] [--screenshot out.png] [--input script.txt]\n"
                             "       %s --extract <rom dir> [<asset dir>]\n", argv[0], argv[0]);
             return 2;
         }
     }
 
     char err[512];
+    if (fb_init(&fb, 1)) {
+        fprintf(stderr, "robotron: out of memory\n");
+        return 1;
+    }
     if (assets_load(&assets, argv[0], err, sizeof err)) {
         fprintf(stderr, "robotron: %s\n", err);
         return 1;
@@ -395,5 +457,7 @@ int main(int argc, char **argv)
     video_shutdown();
     SDL_Quit();
     assets_free(&assets);
+    fb_free(&fb_big);
+    fb_free(&fb);
     return rc;
 }

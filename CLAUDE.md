@@ -38,6 +38,7 @@ ctest --test-dir build                            # all tests
 ctest --test-dir build -L rom                     # tests needing the ROM set
 ctest --test-dir build -L mame                    # tests needing MAME + the ROM set
 build/robotron --windowed                         # run
+build/robotron --windowed --gfx hd-glow           # enhanced graphics (presets: classic ... hd-glow-crt)
 SDL_VIDEODRIVER=dummy build/robotron --input src/tests/scripts/wave1.txt \
     --frames 600 --screenshot out.png             # headless replay + screenshot
 build/robotron --extract robotron/ [assets_dir]   # ROM tables from a folder or robotron.zip
@@ -65,9 +66,11 @@ The build dir is a runnable layout: `build/assets/` links to `sprites/` and
   entities, collisions, scoring, wave/death/game-over flow, demo play, 2P),
   `pacing.c` (wave parameters, grunt pacing, mercy), `spawn.c` (ROM spawn
   positions), `prng.c` (the ROM's prng_update), `sound.h` (sound table)
-- `gfx/` - draws into the framebuffer: `blit.c`, `font.c` (web BitmapFont
-  rules + synthesized glyphs), `palette.c` (colour cycles), `play.c`,
-  `title.c`, `story.c`, `heroes.c`
+- `gfx/` - draws into the framebuffer (arcade coordinates; `fb.scale` > 1 for
+  enhanced HD rendering): `blit.c`, `font.c` (web BitmapFont rules +
+  synthesized glyphs), `palette.c` (colour cycles), `play.c`, `title.c`,
+  `story.c`, `heroes.c`, `enhance.c` (graphics presets, HD assets, whole-frame
+  filter, glow), `scale.c` (Scale2x/3x, xBR)
 - `game/` - `attract.c` (title, story, heroes, demo cycle), `entry.c`
   (initials), `hiscore.c` (heroes tables), `opmenu.c` (GAME ADJUSTMENT),
   `storage.c` (saved settings and scores)
@@ -93,14 +96,15 @@ The build dir is a runnable layout: `build/assets/` links to `sprites/` and
 
 Every change keeps `ctest` green (plan section 3).
 
-- `prng_golden`, `assets`, `hiscore` - always run
+- `prng_golden`, `assets`, `hiscore`, `enhance` - always run
 - `rom_extract`, `rom_zip_extract`, `world_flow`, `play_golden` - label `rom`
   (need `robotron/`); `rom_extract` checks the extracted tables against hashes
   recorded when they matched the web build's generated TS tables byte for byte
   (`src/tests/golden/extract.txt`)
 - `mame_prng_golden` - label `mame`: MAME reproduces `src/tests/fixtures/prng_golden.txt`
 - `play_golden` compares screenshot hashes of scripted runs
-  (`src/tests/golden/play.txt`). After an intended behaviour change, regenerate:
+  (`src/tests/golden/play.txt`), classic and some `--gfx` presets. Enhanced
+  modes must never change a classic hash. After an intended behaviour change, regenerate:
   `cmake -DGAME=build/robotron -DSCRIPTS=src/tests/scripts -DGOLDEN=src/tests/golden/play.txt -DWORKDIR=build/golden -DUPDATE=1 -P src/tests/run_golden.cmake`
 - Tests that run the game use their own save dir (`ROBOTRON_SAVE_DIR`); never
   write to the user's `~/.local/share/robotron`.

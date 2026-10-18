@@ -3,6 +3,9 @@
  * coverage as the web build's GPU path: a pixel is drawn when its centre
  * falls inside the (possibly fractional, scaled) destination rectangle, and
  * samples the nearest texel. Tint multiplies like PixiJS (white * tint = tint).
+ * Coordinates are arcade pixels; on a framebuffer with scale > 1 the same
+ * rule runs per device pixel, and images with an upscaled copy registered
+ * for that scale (blit_set_hires) sample the copy instead.
  */
 #ifndef ROBOTRON_BLIT_H
 #define ROBOTRON_BLIT_H
@@ -24,7 +27,13 @@ void blit_ex(Framebuffer *fb, const Image *img, int sx, int sy, int sw, int sh,
 void fill_rectf(Framebuffer *fb, double x, double y, double w, double h, uint32_t rgb);
 /* The same blended at alpha (0..1). */
 void fill_rectf_alpha(Framebuffer *fb, double x, double y, double w, double h, uint32_t rgb, double alpha);
-/* Blend one pixel. */
+/* Blend one arcade pixel. */
 void blend_pixel(Framebuffer *fb, int x, int y, uint32_t rgb, double alpha);
+/* Blend one device pixel. */
+void blend_device(Framebuffer *fb, int x, int y, uint32_t rgb, double alpha);
+
+/* Enhanced rendering: `hi` is `lo` upscaled by `factor`; blits of `lo` into a
+   framebuffer of that scale sample it. hi = NULL drops the copy. */
+void blit_set_hires(const Image *lo, const Image *hi, int factor);
 
 #endif

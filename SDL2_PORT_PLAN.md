@@ -95,6 +95,9 @@ from the user's ROM set running in MAME (section 3.0).
    diagonal, optional fire-lock (hold R1). See 2.4.
 4. **Location**: the C code lives in `src/` in this repo, with tests in
    `src/tests/`. The web build stays in `js/`.
+5. **Enhanced graphics** (2026-10-18): optional, off by default, cosmetic
+   only (the sim never sees it). Classic stays the arcade frame, pixel for
+   pixel; see 2.3.
 
 ### Remaining risks
 
@@ -151,6 +154,19 @@ reads sim state. That makes the sim headless-testable and replayable.
 - `SDL_WINDOW_FULLSCREEN_DESKTOP`; honour `SDL_VIDEODRIVER` (kmsdrm, wayland, x11).
 - Tint/alpha are done in the blitter, which is also where palette colour cycling
   happens, as on the arcade.
+- Enhanced graphics (decision 5, `gfx/enhance.c`, `gfx/scale.c`), presets
+  stepped with Select+L1 / F3 or set with `--gfx`, saved with the scores:
+  - FILTER (`crisp`, `smooth`): the arcade frame upscaled whole to the
+    display's integer scale (2-4x) with Scale2x/3x or 2xBR/3xBR.
+  - HD (`hd-crisp`, `hd-smooth`): everything drawn at that scale. Coordinates
+    stay arcade pixels; the blitter maps them to device pixels, sprites and
+    fonts sample copies upscaled per frame when the assets load (fonts always
+    crisp), electrodes become upscaled images, and particles, the shield and
+    shells are drawn per device pixel.
+  - Glow (F4): a blurred copy (2x2-pixel cells, box blur) added back.
+    Scanlines (F5): an SDL texture overlay in `SDL_BLENDMODE_MOD`, no CPU cost.
+  - Cost per frame on a desktop CPU: HD 0.1 ms (2x) to 0.8 ms (4x), smooth
+    filter 1.1-4.8 ms, glow 1.2-4 ms; budget roughly 5x that on handhelds.
 
 ### 2.4 Input
 - `SDL_GameController`, loading `SDL_GAMECONTROLLERCONFIG` / `gamecontrollerdb.txt`
@@ -314,6 +330,7 @@ GitHub release `v<version>` with all archives.
 | P2b | Hulks, spheroids, enforcers and sparks (waves 2-4 complete) (done 2026-10-18) | Waves 1-4 play with every enemy the ROM table spawns; `world_flow` covers them |
 | P3 | Remaining enemies (brains/progs/cruise missiles, quarks/tanks/shells), all 40 waves, pacing, mercy (done 2026-10-18) | `world_flow` lays out and plays every wave 1-41 |
 | P4 | Presentation: HUD, 2P, death beat, wave transition, attract story, heroes + wipe, initials entry, operator menu, sound priorities, demo play (done 2026-10-18) | `world_flow`, `hiscore`, `play_golden` pass; render goldens against MAME still to do |
+| P4b | Enhanced graphics: FILTER and HD modes, Scale2x/3x and xBR sprite upscaling, glow, scanlines, presets (done 2026-10-18) | `enhance` and `play_golden` (classic hashes unchanged, enhanced cases added) pass |
 | P5 | Handheld polish: control schemes, scaling options, quit/operator combos, persistence paths, both packages, graphics/table extractor (`--extract`) | Device matrix checklist passes on ≥ 3 aarch64 devices + Steam Deck; extractor output matches full-release `assets/` |
 | P5b | Sound extraction: 6808 + DAC sound-board emulator renders the WAVs from the user's sound ROM | Rendered WAVs match the shipped ones (sample-exact, or within a tolerance for the MAME-captured ones) |
 | P6 | Release: CI artifacts, docs, PortMaster submission and GitHub release `v4.0-native` | Published |

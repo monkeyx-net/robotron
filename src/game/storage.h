@@ -10,12 +10,14 @@
 #define ROBOTRON_STORAGE_H
 
 #include "assets/assets.h"
+#include "gfx/enhance.h"
 #include "sim/world.h"
 
 #define SAVE_MAX_ROWS 64
 
 typedef struct {
     OperatorSettings op;  /* factory settings when none are saved */
+    GfxSettings gfx;      /* classic when none are saved */
     unsigned high_score;
     HeroRow heroes[SAVE_MAX_ROWS];
     int hero_count;

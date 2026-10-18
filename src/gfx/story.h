@@ -2,6 +2,7 @@
  * Attract-mode story pages, as js/core/AttractStory.ts: a bordered page under
  * the ROBOTRON: 2084 header, paragraphs typed out one letter every 2 frames,
  * held 240 frames, five pages. The last line cycles like palette entry A.
+ * The first page also lists the controls.
  */
 #ifndef ROBOTRON_STORY_H
 #define ROBOTRON_STORY_H

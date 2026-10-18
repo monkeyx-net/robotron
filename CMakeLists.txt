@@ -47,6 +47,8 @@ add_library(robotron_core STATIC
   src/game/opmenu.c
   src/game/storage.c
   src/gfx/fb.c
+  src/gfx/scale.c
+  src/gfx/enhance.c
   src/gfx/palette.c
   src/gfx/story.c
   src/gfx/heroes.c
@@ -155,6 +157,10 @@ add_test(NAME assets COMMAND test_assets ${CMAKE_SOURCE_DIR})
 add_executable(test_hiscore src/tests/test_hiscore.c)
 target_link_libraries(test_hiscore PRIVATE robotron_core)
 add_test(NAME hiscore COMMAND test_hiscore)
+
+add_executable(test_enhance src/tests/test_enhance.c)
+target_link_libraries(test_enhance PRIVATE robotron_core)
+add_test(NAME enhance COMMAND test_enhance)
 
 # The user's ROM set (never committed; see .gitignore) enables the extractor
 # steps; MAME as well enables the reference checks against the arcade.

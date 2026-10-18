@@ -146,7 +146,7 @@ static void ring(Framebuffer *fb, int k, uint32_t rgb)
         for (int x = x0; x <= x1; x++) {
             if ((x + y) % 2) continue;
             if (edge_row || x < x0 + RING_W || x > x1 - RING_W)
-                if (x >= 0 && x < FB_WIDTH && y >= 0 && y < FB_HEIGHT) fb->px[y][x] = c;
+                fb_fill_rect(fb, x, y, 1, 1, c);
         }
     }
 }

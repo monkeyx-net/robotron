@@ -1,13 +1,15 @@
 # Replay input scripts headless and compare screenshot hashes with the golden list.
 #   cmake -DGAME=robotron -DSCRIPTS=dir -DGOLDEN=file -DWORKDIR=dir [-DUPDATE=1] -P run_golden.cmake
-# Golden lines: <script> <frames> <sha256 of the 292x240 PNG>
+# Golden lines: <script> <frames> [<--gfx preset>] <sha256 of the PNG (292x240, or the
+# dummy video driver's 3x for enhanced presets)>
 foreach(v GAME SCRIPTS GOLDEN WORKDIR)
   if(NOT DEFINED ${v})
     message(FATAL_ERROR "run_golden.cmake: ${v} not set")
   endif()
 endforeach()
 
-set(cases "wave1 60" "wave1 300" "wave1 600" "wave1 1200" "idle 2300" "idle 2500")
+set(cases "wave1 60" "wave1 300" "wave1 600" "wave1 1200" "idle 2300" "idle 2500"
+    "wave1 600 crisp" "wave1 600 smooth" "wave1 600 hd-crisp" "wave1 600 hd-glow" "idle 2300 hd-smooth")
 set(ENV{SDL_VIDEODRIVER} dummy)
 file(MAKE_DIRECTORY "${WORKDIR}")
 if(EXISTS "${GOLDEN}")
@@ -20,21 +22,30 @@ foreach(c ${cases})
   separate_arguments(parts UNIX_COMMAND "${c}")
   list(GET parts 0 script)
   list(GET parts 1 frames)
+  set(gfx_args "")
+  set(name "${script} ${frames}")
   set(png "${WORKDIR}/${script}_${frames}.png")
+  list(LENGTH parts nparts)
+  if(nparts GREATER 2)
+    list(GET parts 2 preset)
+    set(gfx_args --gfx ${preset})
+    set(name "${script} ${frames} ${preset}")
+    set(png "${WORKDIR}/${script}_${frames}_${preset}.png")
+  endif()
   # each run starts from no saved scores, and never touches the user's own
   file(REMOVE_RECURSE "${WORKDIR}/save")
   set(ENV{ROBOTRON_SAVE_DIR} "${WORKDIR}/save")
-  execute_process(COMMAND "${GAME}" --input "${SCRIPTS}/${script}.txt" --frames ${frames} --screenshot "${png}"
+  execute_process(COMMAND "${GAME}" --input "${SCRIPTS}/${script}.txt" --frames ${frames} ${gfx_args} --screenshot "${png}"
                   RESULT_VARIABLE rc OUTPUT_QUIET ERROR_QUIET)
   if(NOT rc EQUAL 0)
-    message(FATAL_ERROR "${script} ${frames}: robotron exited with ${rc}")
+    message(FATAL_ERROR "${name}: robotron exited with ${rc}")
   endif()
   file(SHA256 "${png}" hash)
-  string(APPEND out "${script} ${frames} ${hash}\n")
+  string(APPEND out "${name} ${hash}\n")
   if(NOT UPDATE)
-    list(FIND golden_lines "${script} ${frames} ${hash}" found)
+    list(FIND golden_lines "${name} ${hash}" found)
     if(found EQUAL -1)
-      message(SEND_ERROR "${script} at frame ${frames} differs from the golden hash (${png})")
+      message(SEND_ERROR "${name} differs from the golden hash (${png})")
       set(failed 1)
     endif()
   endif()

@@ -8,6 +8,7 @@
 static SDL_GameController *pads[MAX_PADS];
 static int quit_hold;
 static bool menu_was_held;
+static bool gfx_was_held[3];
 static bool quit_requested;
 
 static void open_pad(int index)
@@ -116,7 +117,7 @@ void input_poll(InputFrame *out)
         quit_hold++;
     } else {
         quit_hold = 0;
-        in.coin |= select_held && !r1_held;
+        in.coin |= select_held && !r1_held && !l1_held;
         if (start_held && l1_held) in.start2 = true;
         else in.start |= start_held;
     }
@@ -125,6 +126,12 @@ void input_poll(InputFrame *out)
     in.operator_menu = menu_held && !menu_was_held;
     in.menu_held = menu_held;
     menu_was_held = menu_held;
+
+    bool gfx_held[3] = { (select_held && l1_held) || k[SDL_SCANCODE_F3], k[SDL_SCANCODE_F4], k[SDL_SCANCODE_F5] };
+    in.gfx_next = gfx_held[0] && !gfx_was_held[0];
+    in.gfx_glow = gfx_held[1] && !gfx_was_held[1];
+    in.gfx_scanlines = gfx_held[2] && !gfx_was_held[2];
+    for (int i = 0; i < 3; i++) gfx_was_held[i] = gfx_held[i];
 
     in.quit = quit_requested || quit_hold >= QUIT_HOLD_FRAMES || k[SDL_SCANCODE_ESCAPE];
     *out = in;

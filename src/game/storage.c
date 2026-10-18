@@ -79,7 +79,12 @@ void storage_load(SaveData *d)
     char line[256];
     while (fgets(line, sizeof line, f)) {
         int e, t, df, l;
-        if (sscanf(line, "operator %d %d %d %d", &e, &t, &df, &l) == 4) {
+        if (sscanf(line, "graphics %d %d %d %d", &e, &t, &df, &l) == 4) {
+            d->gfx.mode = clampi(e, GFX_CLASSIC, GFX_HD);
+            d->gfx.smooth = t != 0;
+            d->gfx.glow = df != 0;
+            d->gfx.scanlines = l != 0;
+        } else if (sscanf(line, "operator %d %d %d %d", &e, &t, &df, &l) == 4) {
             /* sanitize, as OperatorSettings.ts does with old or corrupt storage */
             d->op.extra_man_every = e == 0 || e == 20000 || e == 25000 || e == 30000 || e == 50000 ? e : 25000;
             d->op.turns = clampi(t, 1, 20);
@@ -106,6 +111,7 @@ int storage_save(const SaveData *d)
     if (!f) return -1;
     int bad = fprintf(f, "# Robotron: 2084 saved settings and scores\noperator %d %d %d %d\nhighscore %u\n",
                       d->op.extra_man_every, d->op.turns, d->op.difficulty, d->op.letters, d->high_score) < 0;
+    bad |= fprintf(f, "graphics %d %d %d %d\n", d->gfx.mode, d->gfx.smooth, d->gfx.glow, d->gfx.scanlines) < 0;
     for (int i = 0; i < d->hero_count; i++) bad |= fprintf(f, "hero %u %s\n", d->heroes[i].score, d->heroes[i].initials) < 0;
     for (int i = 0; i < d->all_time_count; i++)
         bad |= fprintf(f, "alltime %u %s\n", d->all_time[i].score, d->all_time[i].initials) < 0;

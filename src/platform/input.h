@@ -1,7 +1,8 @@
 /*
  * Controls, sampled once per 60 Hz frame. Pads go through SDL_GameController
  * (SDL_GAMECONTROLLERCONFIG / gamecontrollerdb.txt), with a keyboard fallback
- * matching the web build (WASD move, arrows fire).
+ * matching the web build (WASD move, arrows fire). Graphics modes: Select+L1
+ * or F3 steps the presets, F4 toggles glow, F5 scanlines.
  */
 #ifndef ROBOTRON_INPUT_H
 #define ROBOTRON_INPUT_H
@@ -20,6 +21,9 @@ typedef struct {
     bool operator_menu;  /* Select+R1 or F2, edge-triggered */
     bool menu_held;      /* the same, while held */
     bool quit;           /* Select+Start held QUIT_HOLD_FRAMES, Esc, or window close */
+    bool gfx_next;       /* Select+L1 or F3, edge-triggered: next graphics preset */
+    bool gfx_glow;       /* F4, edge-triggered */
+    bool gfx_scanlines;  /* F5, edge-triggered */
 } InputFrame;
 
 void input_init(void);

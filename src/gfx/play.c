@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "gfx/blit.h"
+#include "gfx/enhance.h"
 #include "gfx/font.h"
 #include "gfx/title.h"
 
@@ -100,20 +101,27 @@ static void beam_sprite(Framebuffer *fb, const Assets *a, const AtlasFrame *f, d
 
 static void electrode(Framebuffer *fb, const ElectrodeFrame *f, double cx, double cy, uint32_t tint)
 {
+    const Image *img = enhance_electrode_image(f, fb->scale); /* enhanced mode: upscaled shape */
+    if (img) {
+        blit(fb, img, 0, 0, f->w, f->h, cx - f->w / 2.0, cy - f->h / 2.0, 1, tint);
+        return;
+    }
     for (int y = 0; y < f->h; y++)
         for (int x = 0; x < f->w; x++)
             if (f->rows[y][x] == '#') fill_rectf(fb, cx - f->w / 2.0 + x, cy - f->h / 2.0 + y, 1, 1, tint);
 }
 
+/* per device pixel, so enhanced mode draws smooth shapes */
 static void particle(Framebuffer *fb, const Particle *p)
 {
+    const int k = fb->scale;
     double r = p->size * p->scale;
-    int x0 = (int)floor(p->x - r - 1), x1 = (int)ceil(p->x + r + 1);
-    int y0 = (int)floor(p->y - r - 1), y1 = (int)ceil(p->y + r + 1);
+    int x0 = (int)floor((p->x - r - 1) * k), x1 = (int)ceil((p->x + r + 1) * k);
+    int y0 = (int)floor((p->y - r - 1) * k), y1 = (int)ceil((p->y + r + 1) * k);
     double c = cos(-p->rotation), s = sin(-p->rotation);
     for (int y = y0; y <= y1; y++)
         for (int x = x0; x <= x1; x++) {
-            double lx = x + 0.5 - p->x, ly = y + 0.5 - p->y;
+            double lx = (x + 0.5) / k - p->x, ly = (y + 0.5) / k - p->y;
             int inside;
             if (p->ring == 0) { /* diamond, rotated */
                 double rx = lx * c - ly * s, ry = lx * s + ly * c;
@@ -121,7 +129,7 @@ static void particle(Framebuffer *fb, const Particle *p)
             } else {
                 inside = lx * lx + ly * ly <= r * r;
             }
-            if (inside) blend_pixel(fb, x, y, p->color, p->alpha);
+            if (inside) blend_device(fb, x, y, p->color, p->alpha);
         }
 }
 
@@ -273,12 +281,13 @@ void play_draw(Framebuffer *fb, const World *w, CycleA *cycle, unsigned long clo
             for (int t = 0; t < es->trail_len; t++) fill_rectf(fb, es->trail[t][0], es->trail[t][1], 2, 2, d_color);
             fill_rectf(fb, es->x, es->y, 2, 2, a_color);
         } else {
-            for (int y = -5; y <= 5; y++)
-                for (int x = -5; x <= 5; x++) {
-                    int px = (int)floor(es->x) + x, py = (int)floor(es->y) + y;
-                    double dx = px + 0.5 - es->x, dy = py + 0.5 - es->y;
-                    if (dx * dx + dy * dy <= 16 && px >= 0 && py >= 0 && px < FB_WIDTH && py < FB_HEIGHT)
-                        fb->px[py][px] = 0xFF888888u;
+            const int k = fb->scale;
+            const int bx = (int)floor(es->x), by = (int)floor(es->y);
+            for (int py = (by - 5) * k; py < (by + 6) * k; py++)
+                for (int px = (bx - 5) * k; px < (bx + 6) * k; px++) {
+                    double dx = (px + 0.5) / k - es->x, dy = (py + 0.5) / k - es->y;
+                    if (dx * dx + dy * dy <= 16 && px >= 0 && py >= 0 && px < fb->w && py < fb->h)
+                        fb_row(fb, py)[px] = 0xFF888888u;
                 }
         }
     }
@@ -289,11 +298,13 @@ void play_draw(Framebuffer *fb, const World *w, CycleA *cycle, unsigned long clo
     if (pl->visible) {
         sprite(fb, a, pf, pl->x, pl->y, 0xFFFFFF, pl->alpha, 0);
         if (pl->shield) {
+            const int k = fb->scale;
+            const int bx = (int)floor(pl->x), by = (int)floor(pl->y);
             double al = 0.25 * pl->alpha;
-            for (int y = -11; y <= 11; y++)
-                for (int x = -11; x <= 11; x++) {
-                    double px = floor(pl->x) + x + 0.5 - pl->x, py = floor(pl->y) + y + 0.5 - pl->y;
-                    if (px * px + py * py <= 100) blend_pixel(fb, (int)floor(pl->x) + x, (int)floor(pl->y) + y, SHIELD_COLOR, al);
+            for (int y = (by - 11) * k; y < (by + 12) * k; y++)
+                for (int x = (bx - 11) * k; x < (bx + 12) * k; x++) {
+                    double px = (x + 0.5) / k - pl->x, py = (y + 0.5) / k - pl->y;
+                    if (px * px + py * py <= 100) blend_device(fb, x, y, SHIELD_COLOR, al);
                 }
         }
     } else if (w->state == W_BEAM_IN && w->star_start >= 0) {
