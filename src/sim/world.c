@@ -30,6 +30,34 @@
 #define SPARK_PASS_FRAMES 4
 #define MAX_ENFORCERS 8
 #define MAX_SPARKS 20
+#define POINTS_BRAIN 500
+#define POINTS_TANK 200
+#define POINTS_QUARK 1000
+#define POINTS_PROG 100
+#define POINTS_MISSILE 25
+#define POINTS_SHELL 25
+#define QUARK_CYCLE_FRAMES 15
+#define QUARK_PASS_FRAMES 3
+#define QUARK_EXIT_SPEED 2
+#define TANK_PASS_FRAMES 2
+#define TANK_MATERIALIZE_FRAMES 48
+#define TANK_SHELL_BOUNCES 2
+#define MAX_MISSILES 8
+#define MAX_TANKS 20
+#define MAX_SHELLS 21
+#define MISSILE_PASS_FRAMES 2
+#define MISSILE_TRAIL 8
+/* $20C7 bounds on the missile head's top-left: x bytes 7..$8E, y $18..$EA */
+#define MISSILE_X0 (2 * 0x07 - 6)
+#define MISSILE_X1 (2 * 0x8E - 6)
+#define MISSILE_Y0 (0x18 - 7)
+#define MISSILE_Y1 (0xEA - 7)
+#define PROG_PASS_FRAMES 3
+#define PROG_STEP 4
+#define PROG_TRAIL 6
+static const int PROG_WALK[4] = { 0, 1, 0, 2 };
+/* Brain frames ($1CA2-$1CBA): left, right, down, up */
+static const int BRAIN_WALK[4][4] = { { 0, 1, 0, 2 }, { 3, 4, 3, 5 }, { 6, 7, 6, 8 }, { 9, 10, 9, 11 } };
 
 /* Hulk direction tables ($01CC-$01F3): [record, dx px, dy lines]; up reuses the down frames */
 static const int HULK_WALK[4][4][3] = {
@@ -158,6 +186,11 @@ static void human_size(const World *w, HumanKind k, double *hw, double *hh)
     *hh = w->human_h[k] / 2.0;
 }
 
+static void human_extent(const World *w, const Human *h, double *hw, double *hh)
+{
+    human_size(w, h->kind, hw, hh);
+}
+
 /* ---- effects -------------------------------------------------------------- */
 
 static void explosion(World *w, double x, double y, uint32_t color)
@@ -263,7 +296,7 @@ static void add_score(World *w, unsigned points)
 static void clear_entities(World *w, int clear_humans)
 {
     w->shot_count = 0;
-    w->spark_count = 0;
+    w->eshot_count = 0;
     w->enemy_count = 0;
     if (clear_humans) w->human_count = 0;
     w->electrode_count = 0;
@@ -331,6 +364,38 @@ static Enemy *create_enforcer(World *w, double x, double y)
     e->y = y;
     e->frame = 1;
     e->shoot_passes = prng_le(w->prng, w->pacing.params[P_ENFORCER_SHOT]);
+    return e;
+}
+
+/* createBrain: first cruise missile after prng_le($BE62) steps */
+static Enemy *create_brain(World *w)
+{
+    Enemy *e = create_enemy(w, EN_BRAIN, 3, POINTS_BRAIN);
+    if (!e) return NULL;
+    e->frame = 6;
+    e->missile_steps = prng_le(w->prng, w->pacing.params[P_BRAIN_MISSILE]);
+    return e;
+}
+
+/* createQuark: ceil(prng_le($BE5E)/2) tanks; first drop after prng_le($BE66) 15-frame cycles */
+static Enemy *create_quark(World *w)
+{
+    Enemy *e = create_enemy(w, EN_QUARK, 2, POINTS_QUARK);
+    if (!e) return NULL;
+    e->drops_left = pacing_child_count(&w->pacing, w->prng);
+    e->drop_timer = prng_le(w->prng, w->pacing.params[P_QUARK_DROP]) * QUARK_CYCLE_FRAMES;
+    return e;
+}
+
+/* createTank: first shell $BE64 passes after materializing */
+static Enemy *create_tank(World *w, double x, double y)
+{
+    Enemy *e = create_enemy(w, EN_TANK, 4, POINTS_TANK);
+    if (!e) return NULL;
+    e->x = x;
+    e->y = y;
+    e->materialize = TANK_MATERIALIZE_FRAMES;
+    e->shoot_passes = w->pacing.params[P_TANK_SHOT];
     return e;
 }
 
@@ -408,7 +473,20 @@ static void lay_wave(World *w, const WaveCounts *c)
         e->x = p.x;
         e->y = p.y;
     }
-    /* brains and quarks come with P3 */
+    for (int i = 0; i < c->counts[W_BRAINS]; i++) {
+        Enemy *e = create_brain(w);
+        if (!e) break;
+        Point p = spawn_brain(w->prng, w->enemy_w[EN_BRAIN], w->enemy_h[EN_BRAIN]);
+        e->x = p.x;
+        e->y = p.y;
+    }
+    for (int i = 0; i < c->counts[W_QUARKS]; i++) {
+        Enemy *e = create_quark(w);
+        if (!e) break;
+        Point p = spawn_quark(w->prng, w->enemy_w[EN_QUARK], w->enemy_h[EN_QUARK]);
+        e->x = p.x;
+        e->y = p.y;
+    }
 
     static const int family[3][2] = { { HU_MOMMY, W_MOMMIES }, { HU_DADDY, W_DADDIES }, { HU_MIKEY, W_MIKEYS } };
     for (int f = 0; f < 3; f++) {
@@ -434,7 +512,7 @@ static void start_next_wave(World *w)
     w->bonus = INITIAL_BONUS;
     w->electrode_count = 0;
     w->dying_count = 0;
-    w->spark_count = 0;
+    w->eshot_count = 0;
     w->enemy_count = 0;
     w->human_count = 0;
     player_center(w);
@@ -459,11 +537,13 @@ static void relay_wave(World *w)
         if (k == EN_GRUNT) c.counts[W_GRUNTS]++;
         else if (k == EN_HULK) c.counts[W_HULKS]++;
         else if (k == EN_SPHEROID) c.counts[W_SPHEROIDS]++;
+        else if (k == EN_BRAIN) c.counts[W_BRAINS]++;
+        else if (k == EN_QUARK) c.counts[W_QUARKS]++;
     }
     c.counts[W_ELECTRODES] = w->electrode_count;
     for (int i = 0; i < w->human_count; i++) {
         const Human *h = &w->humans[i];
-        if (h->rescued) continue;
+        if (h->rescued || h->prog) continue;
         c.counts[h->kind == HU_MOMMY ? W_MOMMIES : h->kind == HU_DADDY ? W_DADDIES : W_MIKEYS]++;
     }
     clear_entities(w, 1);
@@ -700,7 +780,7 @@ static void move_blocked(double *x, double *y, double hw, double hh, double dx, 
 static Human *human_by_id(World *w, int id)
 {
     for (int i = 0; i < w->human_count; i++)
-        if (w->humans[i].id == id) return &w->humans[i];
+        if (w->humans[i].id == id && !w->humans[i].prog) return &w->humans[i];
     return NULL;
 }
 
@@ -709,11 +789,11 @@ static int pick_hulk_target(World *w)
 {
     if (prng_step(w->prng) > 0xC0) return 0;
     int n = 0;
-    for (int i = 0; i < w->human_count; i++) n += !w->humans[i].rescued;
+    for (int i = 0; i < w->human_count; i++) n += !w->humans[i].rescued && !w->humans[i].prog;
     if (!n) return 0;
     unsigned k = w->hulk_cursor++ % (unsigned)n;
     for (int i = 0; i < w->human_count; i++) {
-        if (w->humans[i].rescued) continue;
+        if (w->humans[i].rescued || w->humans[i].prog) continue;
         if (k-- == 0) return w->humans[i].id;
     }
     return 0;
@@ -807,6 +887,13 @@ static int update_spheroid(World *w, Enemy *e, int *live_enforcers)
     return 0;
 }
 
+static int count_eshots(const World *w, EnemyShotKind k)
+{
+    int n = 0;
+    for (int i = 0; i < w->eshot_count; i++) n += w->eshots[i].kind == k;
+    return n;
+}
+
 /* $53B5: aim at the player + (rand >> 3) on each axis; next aim in (rand & $1F) passes */
 static void aim_enforcer(World *w, Enemy *e)
 {
@@ -831,8 +918,10 @@ static void create_spark(World *w, double x, double y, double tx, double ty)
     double ix = 2 * ((prng_step(w->prng) & 0x1F) - 16) / 256.0;
     double iy = ((prng_step(w->prng) & 0x1F) - 16) / 256.0;
     int life = (prng_step(w->prng) & 0x0F) + 0x14;
-    if (w->spark_count == MAX_ENEMY_SHOTS) return;
-    Spark *sp = &w->sparks[w->spark_count++];
+    if (w->eshot_count == MAX_ENEMY_SHOTS) return;
+    EnemyShot *sp = &w->eshots[w->eshot_count++];
+    memset(sp, 0, sizeof *sp);
+    sp->kind = ES_SPARK;
     sp->x = x;
     sp->y = y;
     sp->dx = vx;
@@ -863,7 +952,7 @@ static void update_enforcer(World *w, Enemy *e)
         if (--e->aim_passes <= 0) aim_enforcer(w, e);
         if (--e->shoot_passes <= 0) {
             e->shoot_passes = prng_le(w->prng, w->pacing.params[P_ENFORCER_SHOT]);
-            if (w->player.alive && w->spark_count < MAX_SPARKS) create_spark(w, e->x, e->y, w->player.x, w->player.y);
+            if (w->player.alive && count_eshots(w, ES_SPARK) < MAX_SPARKS) create_spark(w, e->x, e->y, w->player.x, w->player.y);
         }
     }
     double hw, hh;
@@ -871,33 +960,321 @@ static void update_enforcer(World *w, Enemy *e)
     move_blocked(&e->x, &e->y, hw, hh, e->dx, e->dy);
 }
 
-static void update_sparks(World *w)
+/* $207B: aim a cruise missile at the player (8 directions) */
+static void aim_missile(World *w, EnemyShot *m, double tx, double ty)
 {
-    for (int i = w->spark_count - 1; i >= 0; i--) {
-        Spark *sp = &w->sparks[i];
-        int gone = 0;
-        sp->pass_timer -= 1;
-        while (sp->pass_timer <= 0) {
-            sp->pass_timer += SPARK_PASS_FRAMES;
-            sp->dx += sp->ix;
-            sp->dy += sp->iy;
-            sp->frame = (sp->frame + 1) % 4;
-            if (--sp->life <= 0) { gone = 1; break; }
-        }
-        if (gone) {
-            REMOVE_AT(w->sparks, w->spark_count, i);
-            continue;
-        }
-        move_blocked(&sp->x, &sp->y, w->spark_w / 2.0, w->spark_h / 2.0, sp->dx, sp->dy);
+    m->step_x = m->step_y = 0;
+    int do_y = 1;
+    if (prng_step(w->prng) & 0x80) {
+        int jx = (prng_step(w->prng) & 0x0F) - 6;
+        m->step_x = tx + 2 * jx >= m->x ? 2 : -2;
+        do_y = !(prng_step(w->prng) & 0x80);
     }
+    if (do_y) {
+        int jy = (prng_step(w->prng) & 0x0F) - 6;
+        m->step_y = ty + jy >= m->y ? 1 : -1;
+    }
+    m->aim_passes = prng_le(w->prng, 7);
+}
+
+static double clampd(double v, double lo, double hi) { return v < lo ? lo : v > hi ? hi : v; }
+
+/* $6006 */
+static void create_missile(World *w, double x, double y, double tx, double ty)
+{
+    if (w->eshot_count == MAX_ENEMY_SHOTS) return;
+    EnemyShot *m = &w->eshots[w->eshot_count++];
+    memset(m, 0, sizeof *m);
+    m->kind = ES_MISSILE;
+    m->x = clampd(js_round(x), MISSILE_X0, MISSILE_X1);
+    m->y = clampd(js_round(y), MISSILE_Y0, MISSILE_Y1);
+    m->pass_timer = MISSILE_PASS_FRAMES;
+    aim_missile(w, m, tx, ty);
+}
+
+/* $20C7: one move, reversing an axis that would leave the playfield */
+static void move_missile(EnemyShot *m)
+{
+    if (m->trail_len == MISSILE_TRAIL) {
+        memmove(m->trail[0], m->trail[1], sizeof m->trail[0] * (MISSILE_TRAIL - 1));
+        m->trail_len--;
+    }
+    m->trail[m->trail_len][0] = m->x;
+    m->trail[m->trail_len][1] = m->y;
+    m->trail_len++;
+    double nx = m->x + m->step_x;
+    if (nx < MISSILE_X0 || nx > MISSILE_X1) { m->step_x = -m->step_x; nx = m->x + m->step_x; }
+    double ny = m->y + m->step_y;
+    if (ny < MISSILE_Y0 || ny > MISSILE_Y1) { m->step_y = -m->step_y; ny = m->y + m->step_y; }
+    m->x = nx;
+    m->y = ny;
+}
+
+/* Tank shell: reaches the aim point in 8192 / $BE65 frames, bounces twice ($8E98) */
+static void create_shell(World *w, double x, double y, double tx, double ty)
+{
+    if (w->eshot_count == MAX_ENEMY_SHOTS) return;
+    EnemyShot *sh = &w->eshots[w->eshot_count++];
+    memset(sh, 0, sizeof *sh);
+    sh->kind = ES_SHELL;
+    double frames = 8192.0 / w->pacing.params[P_TANK_SHELL_SPEED];
+    sh->x = x;
+    sh->y = y;
+    sh->dx = (tx - x) / frames;
+    sh->dy = (ty - y) / frames;
+    if (!sh->dx && !sh->dy) sh->dy = 1;
+    sh->bounces = TANK_SHELL_BOUNCES;
+}
+
+static void update_enemy_shots(World *w)
+{
+    for (int i = w->eshot_count - 1; i >= 0; i--) {
+        EnemyShot *sp = &w->eshots[i];
+        if (sp->kind == ES_SPARK) {
+            int gone = 0;
+            sp->pass_timer -= 1;
+            while (sp->pass_timer <= 0) {
+                sp->pass_timer += SPARK_PASS_FRAMES;
+                sp->dx += sp->ix;
+                sp->dy += sp->iy;
+                sp->frame = (sp->frame + 1) % 4;
+                if (--sp->life <= 0) { gone = 1; break; }
+            }
+            if (gone) REMOVE_AT(w->eshots, w->eshot_count, i);
+            else move_blocked(&sp->x, &sp->y, w->spark_w / 2.0, w->spark_h / 2.0, sp->dx, sp->dy);
+        } else if (sp->kind == ES_MISSILE) {
+            sp->pass_timer -= 1;
+            while (sp->pass_timer <= 0) {
+                sp->pass_timer += MISSILE_PASS_FRAMES;
+                if (--sp->aim_passes <= 0) aim_missile(w, sp, w->player.x, w->player.y);
+                move_missile(sp);
+                move_missile(sp);
+            }
+        } else {
+            sp->x += sp->dx;
+            sp->y += sp->dy;
+            if (sp->x <= PF_LEFT || sp->x >= PF_RIGHT) {
+                if (sp->bounces > 0) {
+                    sp->dx = -sp->dx;
+                    sp->bounces--;
+                    sp->x = clampd(sp->x, PF_LEFT + 1, PF_RIGHT - 1);
+                } else {
+                    REMOVE_AT(w->eshots, w->eshot_count, i);
+                    continue;
+                }
+            }
+            if (sp->y <= PF_TOP || sp->y >= PF_BOTTOM) {
+                if (sp->bounces > 0) {
+                    sp->dy = -sp->dy;
+                    sp->bounces--;
+                    sp->y = clampd(sp->y, PF_TOP + 1, PF_BOTTOM - 1);
+                } else {
+                    REMOVE_AT(w->eshots, w->eshot_count, i);
+                    continue;
+                }
+            }
+        }
+    }
+}
+
+static void human_extent(const World *w, const Human *h, double *hw, double *hh);
+
+/* convertToProg: the human, reprogrammed, walks at the player */
+static void prog_offsets(World *w, Human *p)
+{
+    p->offset_x = 2 * (32 - 4 * prng_le(w->prng, 0x0F));
+    p->offset_y = 20 - 2 * prng_le(w->prng, 0x12);
+}
+
+static void prog_home(World *w, Human *p)
+{
+    if (prng_step(w->prng) & 0x80) {
+        int up = w->player.y + p->offset_y <= p->y;
+        p->dir_base = up ? 9 : 6;
+        p->step_x = 0;
+        p->step_y = up ? -PROG_STEP : PROG_STEP;
+    } else {
+        int left = w->player.x + p->offset_x <= p->x;
+        p->dir_base = left ? 0 : 3;
+        p->step_x = left ? -PROG_STEP : PROG_STEP;
+        p->step_y = 0;
+    }
+}
+
+static void convert_to_prog(World *w, Human *h)
+{
+    h->prog = 1;
+    h->frame = 0;
+    h->walk = 3;
+    h->pass_timer = 0;
+    h->trail_len = 0;
+    prog_offsets(w, h);
+    prog_home(w, h);
+}
+
+/* One 3-frame pass of $5EAB */
+static void prog_pass(World *w, Human *p)
+{
+    p->walk = (p->walk + 1) % 4;
+    int tex = p->dir_base + PROG_WALK[p->walk];
+    double nx = p->x + p->step_x, ny = p->y + p->step_y, hw, hh;
+    human_extent(w, p, &hw, &hh);
+    if (nx < PF_LEFT + hw || nx > PF_RIGHT - hw || ny < PF_TOP + hh || ny > PF_BOTTOM - hh) {
+        prog_home(w, p); /* walked into a wall */
+        return;
+    }
+    if (p->trail_len == PROG_TRAIL) {
+        memmove(&p->trail[0], &p->trail[1], sizeof p->trail[0] * (PROG_TRAIL - 1));
+        p->trail_len--;
+    }
+    p->trail[p->trail_len].x = p->x;
+    p->trail[p->trail_len].y = p->y;
+    p->trail[p->trail_len].frame = p->frame;
+    p->trail_len++;
+    p->frame = tex;
+    p->x = nx;
+    p->y = ny;
+    if (prng_step(w->prng) > 0xF8) prog_offsets(w, p);
+    if (prng_step(w->prng) > 0xE4) prog_home(w, p);
+}
+
+/* brain_move_ctrl ($5BEE) with brain_find_nearest_human ($5B95) */
+static void update_brain(World *w, Enemy *e)
+{
+    double tx = w->player.x, ty = w->player.y, best = 1e30;
+    Human *target = NULL;
+    for (int i = 0; i < w->human_count; i++) {
+        Human *h = &w->humans[i];
+        if (h->prog || h->rescued) continue;
+        double d = fabs(h->x - e->x) + fabs(h->y - e->y);
+        if (d < best) {
+            best = d;
+            tx = h->x;
+            ty = h->y;
+            target = h;
+        }
+    }
+    /* a brain converts a human on contact */
+    if (target && best < 7) convert_to_prog(w, target);
+
+    e->step_timer -= 1;
+    while (e->step_timer <= 0) {
+        e->step_timer += w->pacing.params[P_BRAIN_STEP];
+        double dx_bytes = js_round((tx - e->x) / 2);
+        int sx = fabs(dx_bytes) > 2 ? (dx_bytes > 0) - (dx_bytes < 0) : 0;
+        int sy = ty >= e->y ? 1 : -1;
+        e->x += 2 * sx;
+        e->y += sy;
+        int seq = sx > 0 ? 1 : sx < 0 ? 0 : sy >= 0 ? 2 : 3;
+        if (seq != e->walk_table) {
+            e->walk_table = seq;
+            e->walk_idx = 0;
+        } else {
+            e->walk_idx = (e->walk_idx + 1) % 4;
+        }
+        e->frame = BRAIN_WALK[seq][e->walk_idx];
+        if (--e->missile_steps <= 0) {
+            e->missile_steps = prng_le(w->prng, w->pacing.params[P_BRAIN_MISSILE]);
+            if (w->player.alive && count_eshots(w, ES_MISSILE) < MAX_MISSILES) {
+                double hw, hh;
+                enemy_extent(w, e, &hw, &hh);
+                /* $6041: from the brain's top-left + 3 bytes, 4 lines */
+                create_missile(w, e->x - hw + 6, e->y - hh + 4, w->player.x, w->player.y);
+            }
+        }
+    }
+    double hw, hh;
+    enemy_extent(w, e, &hw, &hh);
+    clamp_to_playfield(&e->x, &e->y, hw, hh);
+}
+
+/* Tank ($8D63/$8D99) */
+static void update_tank(World *w, Enemy *e)
+{
+    if (e->materialize > 0) {
+        e->materialize -= 1;
+        return;
+    }
+    e->pass_timer -= 1;
+    while (e->pass_timer <= 0) {
+        e->pass_timer += TANK_PASS_FRAMES;
+        if (--e->retarget <= 0) {
+            int aim_player = prng_step(w->prng) <= 0x60;
+            double tx = aim_player ? w->player.x : PF_LEFT + prng_bounded(w->prng, PF_RIGHT - PF_LEFT + 1);
+            double ty = aim_player ? w->player.y : PF_TOP + prng_bounded(w->prng, PF_BOTTOM - PF_TOP + 1);
+            e->step_x = tx >= e->x ? 1 : -1;
+            e->step_y = fabs(ty - e->y) < 16 ? 0 : ty >= e->y ? 1 : -1;
+            e->retarget = (prng_step(w->prng) & 31) + 1;
+        }
+        e->x += e->step_x;
+        e->y += e->step_y;
+        if (--e->shoot_passes <= 0) {
+            e->shoot_passes = w->pacing.params[P_TANK_SHOT];
+            if (w->player.alive && count_eshots(w, ES_SHELL) < MAX_SHELLS) {
+                double ax = w->player.x + ((prng_step(w->prng) & 31) - 16) * 2;
+                double ay = w->player.y + (prng_step(w->prng) & 31) - 16;
+                create_shell(w, e->x, e->y, ax, ay);
+            }
+        }
+    }
+    double bx = e->x, by = e->y, hw, hh;
+    enemy_extent(w, e, &hw, &hh);
+    clamp_to_playfield(&e->x, &e->y, hw, hh);
+    if (e->x != bx || e->y != by) e->retarget = 0; /* hit a wall: re-aim */
+}
+
+/* Quark ($8B36). Returns 1 when it has left the playfield. */
+static int update_quark(World *w, Enemy *e, int *live_tanks)
+{
+    if (!e->leaving) {
+        e->move_timer -= 1;
+        if (e->move_timer <= 0) {
+            e->move_timer = ((prng_step(w->prng) & 31) + 1) * QUARK_PASS_FRAMES;
+            double sp = prng_le(w->prng, w->pacing.params[P_QUARK_SPEED]) / 32.0;
+            e->dx = sp * (prng_step(w->prng) & 0x80 ? -1 : 1);
+            sp = prng_le(w->prng, w->pacing.params[P_QUARK_SPEED]) / 32.0;
+            e->dy = sp * (prng_step(w->prng) & 0x80 ? -1 : 1);
+        }
+        e->drop_timer -= 1;
+        if (e->drop_timer <= 0) {
+            if (!e->dropping) {
+                e->dropping = 1;
+            } else if (*live_tanks < MAX_TANKS) {
+                create_tank(w, e->x, e->y);
+                (*live_tanks)++;
+                if (--e->drops_left <= 0) {
+                    e->leaving = 1;
+                    e->dx = 0;
+                    e->dy = prng_step(w->prng) & 0x80 ? -QUARK_EXIT_SPEED : QUARK_EXIT_SPEED;
+                }
+            }
+            e->drop_timer = prng_le(w->prng, (w->pacing.params[P_QUARK_DROP] >> 1) + 1) * QUARK_PASS_FRAMES;
+        }
+    }
+    e->x += e->dx;
+    e->y += e->dy;
+    double hw, hh;
+    enemy_extent(w, e, &hw, &hh);
+    if (e->leaving)
+        return e->x < PF_LEFT + hw || e->x > PF_RIGHT - hw || e->y < PF_TOP + hh || e->y > PF_BOTTOM - hh;
+    if (e->x < PF_LEFT + hw || e->x > PF_RIGHT - hw) {
+        e->dx = -e->dx;
+        e->x = clampd(e->x, PF_LEFT + hw, PF_RIGHT - hw);
+    }
+    if (e->y < PF_TOP + hh || e->y > PF_BOTTOM - hh) {
+        e->dy = -e->dy;
+        e->y = clampd(e->y, PF_TOP + hh, PF_BOTTOM - hh);
+    }
+    return 0;
 }
 
 static void update_enemies(World *w)
 {
-    int live_grunts = 0, live_enforcers = 0;
+    int live_grunts = 0, live_enforcers = 0, live_tanks = 0;
     for (int i = 0; i < w->enemy_count; i++) {
         if (w->enemies[i].kind == EN_GRUNT) live_grunts++;
         else if (w->enemies[i].kind == EN_ENFORCER) live_enforcers++;
+        else if (w->enemies[i].kind == EN_TANK) live_tanks++;
     }
     int ticks = pacing_update(&w->pacing, live_grunts);
     const Player *pl = &w->player;
@@ -924,6 +1301,12 @@ static void update_enemies(World *w)
             if (update_spheroid(w, e, &live_enforcers)) REMOVE_AT(w->enemies, w->enemy_count, i);
         } else if (e->kind == EN_ENFORCER) {
             update_enforcer(w, e);
+        } else if (e->kind == EN_BRAIN) {
+            update_brain(w, e);
+        } else if (e->kind == EN_TANK) {
+            update_tank(w, e);
+        } else if (e->kind == EN_QUARK) {
+            if (update_quark(w, e, &live_tanks)) REMOVE_AT(w->enemies, w->enemy_count, i);
         }
     }
 }
@@ -964,10 +1347,18 @@ static void update_humans(World *w)
             i--;
             continue;
         }
-        h->step_timer -= 1;
-        while (h->step_timer <= 0) {
-            h->step_timer += HUMAN_STEP_FRAMES;
-            human_step(w, h);
+        if (h->prog) {
+            h->pass_timer -= 1;
+            while (h->pass_timer <= 0) {
+                h->pass_timer += PROG_PASS_FRAMES;
+                prog_pass(w, h);
+            }
+        } else {
+            h->step_timer -= 1;
+            while (h->step_timer <= 0) {
+                h->step_timer += HUMAN_STEP_FRAMES;
+                human_step(w, h);
+            }
         }
         double hw, hh;
         human_size(w, h->kind, &hw, &hh);
@@ -1004,15 +1395,27 @@ static void update_electrodes(World *w)
     }
 }
 
+/* Where an enemy shot is tested: sparks and shells at their centre, a missile at its head's top-left. */
+static uint32_t enemy_color(EnemyKind k)
+{
+    switch (k) {
+    case EN_ENFORCER: return 0x00AAFF;
+    case EN_BRAIN: return 0xFF88FF;
+    case EN_TANK: return 0xAAAAAA;
+    case EN_QUARK: return 0xF0F0F0;
+    default: return 0xFF0000;
+    }
+}
+
 /* checkCollisions (PLAYING), in the web build's order */
 static void check_collisions(World *w)
 {
     Player *pl = &w->player;
 
-    /* player shot vs enemy */
     for (int i = w->shot_count - 1; i >= 0; i--) {
         Shot *s = &w->shots[i];
         int spent = 0;
+        /* player shot vs enemy */
         for (int j = w->enemy_count - 1; j >= 0; j--) {
             Enemy *e = &w->enemies[j];
             if (!e->visible) continue;
@@ -1035,7 +1438,7 @@ static void check_collisions(World *w)
                 unsigned points = (unsigned)e->points;
                 double ex = e->x, ey = e->y;
                 if (k == EN_SPHEROID) popup(w, ex, ey, points); /* the 1000 shows instead of an explosion */
-                else explosion(w, ex, ey, k == EN_ENFORCER ? 0x00AAFF : 0xFF0000);
+                else explosion(w, ex, ey, enemy_color(k));
                 REMOVE_AT(w->enemies, w->enemy_count, j);
                 if (k == EN_GRUNT) pacing_grunt_killed(&w->pacing);
                 if (w->state == W_PLAYING) add_score(w, points);
@@ -1044,15 +1447,26 @@ static void check_collisions(World *w)
         }
         /* the web build leaves checkCollisions once a shot is spent on an enemy */
         if (spent) return;
+
+        /* player shot vs prog */
+        for (int k = w->human_count - 1; k >= 0; k--) {
+            Human *h = &w->humans[k];
+            if (!h->prog || !near(s->x, s->y, h->x, h->y, 5)) continue;
+            REMOVE_AT(w->shots, w->shot_count, i);
+            explosion(w, h->x, h->y, 0xFF55FF);
+            REMOVE_AT(w->humans, w->human_count, k);
+            if (w->state == W_PLAYING) add_score(w, POINTS_PROG);
+            break;
+        }
     }
 
     if (pl->alive && pl->visible) {
         int invulnerable = pl->invuln_ms > 0;
 
         /* enemy shot vs player */
-        for (int i = w->spark_count - 1; i >= 0; i--) {
-            if (!invulnerable && near(w->sparks[i].x, w->sparks[i].y, pl->x, pl->y, 5)) {
-                REMOVE_AT(w->sparks, w->spark_count, i);
+        for (int i = w->eshot_count - 1; i >= 0; i--) {
+            if (!invulnerable && near(w->eshots[i].x, w->eshots[i].y, pl->x, pl->y, 5)) {
+                REMOVE_AT(w->eshots, w->eshot_count, i);
                 player_hit(w);
                 break;
             }
@@ -1062,6 +1476,13 @@ static void check_collisions(World *w)
             for (int i = w->enemy_count - 1; i >= 0; i--) {
                 const Enemy *e = &w->enemies[i];
                 if (e->visible && near(pl->x, pl->y, e->x, e->y, 8)) {
+                    player_hit(w);
+                    break;
+                }
+            }
+            for (int i = w->human_count - 1; i >= 0; i--) {
+                const Human *h = &w->humans[i];
+                if (h->prog && near(pl->x, pl->y, h->x, h->y, 8)) {
                     player_hit(w);
                     break;
                 }
@@ -1101,13 +1522,15 @@ static void check_collisions(World *w)
             }
         }
 
-        /* player shot vs enemy shot: sparks die for 25 points */
+        /* player shot vs enemy shot: sparks, missiles and shells die for 25 points */
         for (int pi = w->shot_count - 1; pi >= 0; pi--) {
-            for (int ei = w->spark_count - 1; ei >= 0; ei--) {
-                if (near(w->shots[pi].x, w->shots[pi].y, w->sparks[ei].x, w->sparks[ei].y, 5)) {
+            for (int ei = w->eshot_count - 1; ei >= 0; ei--) {
+                if (near(w->shots[pi].x, w->shots[pi].y, w->eshots[ei].x, w->eshots[ei].y, 5)) {
+                    EnemyShotKind k = w->eshots[ei].kind;
                     REMOVE_AT(w->shots, w->shot_count, pi);
-                    REMOVE_AT(w->sparks, w->spark_count, ei);
-                    if (w->state == W_PLAYING) add_score(w, POINTS_SPARK);
+                    REMOVE_AT(w->eshots, w->eshot_count, ei);
+                    if (w->state == W_PLAYING)
+                        add_score(w, k == ES_SPARK ? POINTS_SPARK : k == ES_MISSILE ? POINTS_MISSILE : POINTS_SHELL);
                     break;
                 }
             }
@@ -1116,7 +1539,7 @@ static void check_collisions(World *w)
         /* rescue */
         for (int i = w->human_count - 1; i >= 0; i--) {
             Human *h = &w->humans[i];
-            if (h->rescued || !near(pl->x, pl->y, h->x, h->y, 18)) continue;
+            if (h->prog || h->rescued || !near(pl->x, pl->y, h->x, h->y, 18)) continue;
             h->rescued = 1;
             popup(w, h->x, h->y, w->bonus);
             if (w->state == W_PLAYING) {
@@ -1126,13 +1549,26 @@ static void check_collisions(World *w)
         }
     }
 
+    /* tank shell vs human */
+    for (int i = w->eshot_count - 1; i >= 0; i--) {
+        if (w->eshots[i].kind != ES_SHELL) continue;
+        for (int j = w->human_count - 1; j >= 0; j--) {
+            const Human *h = &w->humans[j];
+            if (h->prog || !near(w->eshots[i].x, w->eshots[i].y, h->x, h->y, 5)) continue;
+            explosion(w, h->x, h->y, 0xCCCCCC);
+            REMOVE_AT(w->eshots, w->eshot_count, i);
+            REMOVE_AT(w->humans, w->human_count, j);
+            break;
+        }
+    }
+
     /* hulk vs human: trampled (the rescue bonus is not reset) */
     for (int i = w->enemy_count - 1; i >= 0; i--) {
         const Enemy *e = &w->enemies[i];
         if (e->kind != EN_HULK) continue;
         for (int j = w->human_count - 1; j >= 0; j--) {
             const Human *h = &w->humans[j];
-            if (h->rescued || !near(e->x, e->y, h->x, h->y, 10)) continue;
+            if (h->prog || h->rescued || !near(e->x, e->y, h->x, h->y, 10)) continue;
             explosion(w, h->x, h->y, 0xCCCCCC);
             REMOVE_AT(w->humans, w->human_count, j);
         }
@@ -1152,9 +1588,16 @@ static void ticker(World *w)
 {
     for (int i = 0; i < w->enemy_count; i++) {
         Enemy *e = &w->enemies[i];
+        /* AnimatedSprites: animationSpeed 0.2 / 0.1 / 0.2 over 8 / 4 / 3 frames */
         if (e->kind == EN_SPHEROID) {
-            e->anim += 0.2; /* AnimatedSprite, animationSpeed 0.2, 8 frames */
+            e->anim += 0.2;
             e->frame = (int)e->anim % 8;
+        } else if (e->kind == EN_TANK) {
+            e->anim += 0.1;
+            e->frame = (int)e->anim % 4;
+        } else if (e->kind == EN_QUARK) {
+            e->anim += 0.2;
+            e->frame = (int)e->anim % 3;
         }
     }
 }
@@ -1192,6 +1635,9 @@ void world_start(World *w, const Assets *a, Prng *prng, const unsigned long *clo
     atlas_size(a, "spheroid_0", &w->enemy_w[EN_SPHEROID], &w->enemy_h[EN_SPHEROID], 16, 15);
     atlas_size(a, "enforcer_spawn_0", &w->enemy_w[EN_ENFORCER], &w->enemy_h[EN_ENFORCER], 10, 11);
     atlas_size(a, "spark_0", &w->spark_w, &w->spark_h, 8, 7);
+    atlas_size(a, "brain_0", &w->enemy_w[EN_BRAIN], &w->enemy_h[EN_BRAIN], 14, 16);
+    atlas_size(a, "tank_0", &w->enemy_w[EN_TANK], &w->enemy_h[EN_TANK], 14, 16);
+    atlas_size(a, "quark_0", &w->enemy_w[EN_QUARK], &w->enemy_h[EN_QUARK], 10, 10);
     atlas_size(a, "mommy_0", &w->human_w[HU_MOMMY], &w->human_h[HU_MOMMY], 8, 14);
     atlas_size(a, "daddy_0", &w->human_w[HU_DADDY], &w->human_h[HU_DADDY], 10, 13);
     atlas_size(a, "mikey_0", &w->human_w[HU_MIKEY], &w->human_h[HU_MIKEY], 6, 11);
@@ -1233,7 +1679,7 @@ void world_step(World *w, const PlayInput *in)
         }
         player_input_and_update(w, in);
         update_shots(w);
-        update_sparks(w);
+        update_enemy_shots(w);
         update_enemies(w);
         update_humans(w);
         update_electrodes(w);

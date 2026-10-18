@@ -94,7 +94,7 @@ int main(int argc, char **argv)
         clk++;
         world_step(&w, &idle);
         for (int i = 0; i < w.enemy_count; i++) enforcers |= w.enemies[i].kind == EN_ENFORCER;
-        sparks |= w.spark_count > 0;
+        sparks |= w.eshot_count > 0;
         w.player.invuln_ms = 1e9;
     }
     CHECK(w.state == W_PLAYING, "still playing");
@@ -128,8 +128,71 @@ int main(int argc, char **argv)
     CHECK(w.state == W_DEATH && w.lives == 2 && w.bonus == 1000, "hit: state %d lives %d", w.state, w.lives);
     n = run_until(W_BEAM_IN, 200);
     CHECK(n == 104, "re-lay after %d frames (DeathBeat: 104)", n);
-    CHECK(w.enemy_count == grunts && w.spark_count == 0 && w.wave == 2, "same wave, %d of %d survivors", w.enemy_count, grunts);
+    CHECK(w.enemy_count == grunts && w.eshot_count == 0 && w.wave == 2, "same wave, %d of %d survivors", w.enemy_count, grunts);
     CHECK(run_until(W_PLAYING, 200) > 0, "plays again");
+
+    /* jump to a wave: clear this one with the wave counter set just below */
+    #define GOTO_WAVE(n)                                                     \
+        do {                                                                 \
+            w.wave = (n) - 1;                                                \
+            w.enemy_count = 0;                                               \
+            run_until(W_WAVE_CLEAR, 5);                                      \
+            run_until(W_PLAYING, 400);                                       \
+        } while (0)
+
+    /* wave 5: brains turn humans into progs and fire cruise missiles */
+    GOTO_WAVE(5);
+    CHECK(w.wave == 5 && w.state == W_PLAYING, "wave 5");
+    int brains = 0;
+    for (int i = 0; i < w.enemy_count; i++) brains += w.enemies[i].kind == EN_BRAIN;
+    CHECK(brains == assets.waves[4][W_BRAINS], "brains %d", brains);
+    int progs = 0, missiles = 0;
+    for (int f = 0; f < 1500 && w.state == W_PLAYING; f++) {
+        w.player.invuln_ms = 1e9;
+        clk++;
+        world_step(&w, &idle);
+        for (int i = 0; i < w.human_count; i++) progs |= w.humans[i].prog;
+        for (int i = 0; i < w.eshot_count; i++) missiles |= w.eshots[i].kind == ES_MISSILE;
+    }
+    CHECK(progs, "a human was reprogrammed");
+    CHECK(missiles, "a brain fired a cruise missile");
+
+    /* wave 7: quarks drop tanks, which fire shells */
+    GOTO_WAVE(7);
+    CHECK(w.wave == 7 && w.state == W_PLAYING, "wave 7");
+    int quarks = 0, tanks = 0, shells = 0;
+    for (int i = 0; i < w.enemy_count; i++) quarks += w.enemies[i].kind == EN_QUARK;
+    CHECK(quarks == assets.waves[6][W_QUARKS], "quarks %d", quarks);
+    for (int f = 0; f < 2000 && w.state == W_PLAYING; f++) {
+        w.player.invuln_ms = 1e9;
+        clk++;
+        world_step(&w, &idle);
+        for (int i = 0; i < w.enemy_count; i++) tanks |= w.enemies[i].kind == EN_TANK;
+        for (int i = 0; i < w.eshot_count; i++) shells |= w.eshots[i].kind == ES_SHELL;
+    }
+    CHECK(tanks, "a quark dropped a tank");
+    CHECK(shells, "a tank fired a shell");
+    /* every wave lays out and plays (waves past 40 cycle 21-40) */
+    for (int wave = 8; wave <= 41; wave++) {
+        GOTO_WAVE(wave);
+        int idx = wave > 40 ? wave - 20 : wave;
+        int expect = 0;
+        for (int k = W_GRUNTS; k <= W_QUARKS; k++)
+            if (k == W_GRUNTS || k == W_HULKS || k == W_BRAINS || k == W_SPHEROIDS || k == W_QUARKS)
+                expect += assets.waves[idx - 1][k];
+        CHECK(w.wave == wave && w.enemy_count == expect, "wave %d: %d of %d enemies", wave, w.enemy_count, expect);
+        for (int f = 0; f < 120 && w.state == W_PLAYING; f++) {
+            w.player.invuln_ms = 1e9;
+            clk++;
+            world_step(&w, &idle);
+        }
+        for (int i = 0; i < w.enemy_count; i++) {
+            const Enemy *e = &w.enemies[i];
+            CHECK(e->x >= PF_LEFT - 8 && e->x <= PF_RIGHT + 8 && e->y >= PF_TOP - 8 && e->y <= PF_BOTTOM + 8,
+                  "wave %d enemy %d (kind %d) at %.0f,%.0f", wave, i, e->kind, e->x, e->y);
+        }
+    }
+    w.player.invuln_ms = 0;
 
     /* last man: game over, then done */
     w.lives = 1;
@@ -146,6 +209,6 @@ int main(int argc, char **argv)
         fprintf(stderr, "world tests FAILED: %d\n", failures);
         return 1;
     }
-    printf("world tests passed: start, beam-in, wave clear, death re-lay, game over\n");
+    printf("world tests passed: start, beam-in, wave clear, death re-lay, waves 2/5/7 enemies, game over\n");
     return 0;
 }

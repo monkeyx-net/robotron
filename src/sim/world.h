@@ -1,6 +1,7 @@
 /*
- * The gameplay simulation (waves 1-4): player, shots, grunts, hulks,
- * spheroids, enforcers and their sparks, electrodes and the family, wave start and clear, death and game over,
+ * The gameplay simulation (all 40 waves): player, shots, grunts, hulks,
+ * spheroids, enforcers and sparks, brains with progs and cruise missiles,
+ * quarks with tanks and shells, electrodes and the family, wave start and clear, death and game over,
  * scoring. A port of the web build's gameLogic.ts, player.ts, projectiles.ts,
  * enemies.ts, humans.ts, obstacles.ts, WaveTransition.ts and DeathBeat.ts,
  * stepping once per 60 Hz frame. Pure C: no SDL, no drawing (gfx/play.c).
@@ -42,7 +43,7 @@ typedef enum {
     W_DONE              /* game finished: the caller shows the heroes screen */
 } WorldState;
 
-typedef enum { EN_GRUNT, EN_HULK, EN_SPHEROID, EN_ENFORCER, EN_KINDS } EnemyKind;
+typedef enum { EN_GRUNT, EN_HULK, EN_SPHEROID, EN_ENFORCER, EN_BRAIN, EN_TANK, EN_QUARK, EN_KINDS } EnemyKind;
 typedef enum { HU_MOMMY, HU_DADDY, HU_MIKEY } HumanKind;
 
 typedef struct {
@@ -75,6 +76,13 @@ typedef struct {
     /* enforcer */
     double age, pass_timer;
     int aim_passes, shoot_passes, active;
+    /* brain */
+    int missile_steps;
+    /* tank */
+    double materialize;
+    int retarget, step_x, step_y;
+    /* quark */
+    double move_timer;
 } Enemy;
 
 typedef struct {
@@ -85,6 +93,13 @@ typedef struct {
     int walk_table, walk_idx, walk_steps;
     double step_timer;
     int rescued;
+    /* a reprogrammed human (prog): walks at the player, trailing afterimages */
+    int prog;
+    int dir_base, step_x, step_y, walk;
+    double pass_timer;
+    int offset_x, offset_y;
+    int trail_len;
+    struct { double x, y; int frame; } trail[6];
 } Human;
 
 typedef struct {
@@ -101,11 +116,21 @@ typedef struct {
     double x, y, dx, dy;
 } Shot;
 
-/* Enforcer spark ($5404 / $54A8) */
+/* Enemy shots, one list in creation order as in the web build:
+   enforcer sparks ($5404), brain cruise missiles ($6006), tank shells ($8E46). */
+typedef enum { ES_SPARK, ES_MISSILE, ES_SHELL } EnemyShotKind;
 typedef struct {
-    double x, y, dx, dy, ix, iy, pass_timer;
+    EnemyShotKind kind;
+    double x, y, dx, dy;
+    /* spark */
+    double ix, iy, pass_timer;
     int life, frame;
-} Spark;
+    /* missile: x, y is the head's top-left */
+    int step_x, step_y, aim_passes, trail_len;
+    double trail[8][2];
+    /* shell */
+    int bounces;
+} EnemyShot;
 
 typedef struct {
     double x, y, vx, vy, life, max_life, rotation, rotation_speed, size;
@@ -159,8 +184,8 @@ typedef struct {
     int dying_count;
     Shot shots[MAX_PLAYER_SHOTS];
     int shot_count;
-    Spark sparks[MAX_ENEMY_SHOTS];
-    int spark_count;
+    EnemyShot eshots[MAX_ENEMY_SHOTS];
+    int eshot_count;
     int next_human_id;
     unsigned hulk_cursor; /* round-robin hulk targets; persists across games, as in the web build */
     Particle particles[MAX_PARTICLES];

@@ -37,7 +37,7 @@ static const char *const LIFE_ICON[7] = { ".ooo.", "BB.BB", "BB.BB", "..o..", "g
 
 typedef struct {
     const AtlasFrame *player[12], *grunt[3], *human[3][12];
-    const AtlasFrame *hulk[9], *spheroid[8], *enforcer[6], *spark[4];
+    const AtlasFrame *hulk[9], *spheroid[8], *enforcer[6], *spark[4], *brain[12], *tank[4], *quark[3];
     const Assets *assets;
 } Frames;
 
@@ -64,6 +64,9 @@ static void load_frames(const Assets *a)
     for (int i = 0; i < 8; i++) frames.spheroid[i] = frame_named(a, "spheroid", i);
     for (int i = 0; i < 6; i++) frames.enforcer[i] = frame_named(a, "enforcer_spawn", i);
     for (int i = 0; i < 4; i++) frames.spark[i] = frame_named(a, "spark", i);
+    for (int i = 0; i < 12; i++) frames.brain[i] = frame_named(a, "brain", i);
+    for (int i = 0; i < 4; i++) frames.tank[i] = frame_named(a, "tank", i);
+    for (int i = 0; i < 3; i++) frames.quark[i] = frame_named(a, "quark", i);
 }
 
 /* A centre-anchored sprite. */
@@ -205,10 +208,19 @@ void play_draw(Framebuffer *fb, const World *w, CycleA *cycle, unsigned long clo
         electrode(fb, &look->frames[d->frame < look->nframes ? d->frame : 0], d->x, d->y, w->electrode_tint);
     }
 
-    /* humans */
+    /* humans; progs as silhouettes in entry A over afterimages in entry E */
+    uint32_t a_color = cycle_a_color(cycle, clock);
+    long e_cycle = palette_cycle(0xE, clock, cycle);
+    uint32_t e_color = e_cycle >= 0 ? (uint32_t)e_cycle : 0xFF00FF;
     for (int i = 0; i < w->human_count; i++) {
         const Human *h = &w->humans[i];
-        sprite(fb, a, frames.human[h->kind][h->frame], h->x, h->y, 0xFFFFFF, 1, 0);
+        if (!h->prog) {
+            sprite(fb, a, frames.human[h->kind][h->frame], h->x, h->y, 0xFFFFFF, 1, 0);
+            continue;
+        }
+        for (int t = 0; t < h->trail_len; t++)
+            sprite(fb, a, frames.human[h->kind][h->trail[t].frame], h->trail[t].x, h->trail[t].y, e_color, 1, 1);
+        sprite(fb, a, frames.human[h->kind][h->frame], h->x, h->y, a_color, 1, 1);
     }
 
     /* enemies, with any beam-in in progress */
@@ -225,6 +237,9 @@ void play_draw(Framebuffer *fb, const World *w, CycleA *cycle, unsigned long clo
             tint = SHIMMER[(int)floor(e->pulse * 4) % 4];
             break;
         case EN_ENFORCER: f = frames.enforcer[e->frame % 6]; break;
+        case EN_BRAIN: f = frames.brain[e->frame % 12]; break;
+        case EN_TANK: f = frames.tank[e->frame % 4]; break;
+        case EN_QUARK: f = frames.quark[e->frame % 3]; break;
         default: f = frames.grunt[e->frame % 3]; break;
         }
         if (e->visible) {
@@ -239,8 +254,25 @@ void play_draw(Framebuffer *fb, const World *w, CycleA *cycle, unsigned long clo
 
     /* player shots: 2 x 4 yellow */
     for (int i = 0; i < w->shot_count; i++) fill_rectf(fb, w->shots[i].x - 1, w->shots[i].y - 2, 2, 4, SHOT_COLOR);
-    for (int i = 0; i < w->spark_count; i++)
-        sprite(fb, a, frames.spark[w->sparks[i].frame % 4], w->sparks[i].x, w->sparks[i].y, 0xFFFFFF, 1, 0);
+    long d_cycle = palette_cycle(0xD, clock, cycle);
+    uint32_t d_color = d_cycle >= 0 ? (uint32_t)d_cycle : 0xFFFFFF;
+    for (int i = 0; i < w->eshot_count; i++) {
+        const EnemyShot *es = &w->eshots[i];
+        if (es->kind == ES_SPARK) {
+            sprite(fb, a, frames.spark[es->frame % 4], es->x, es->y, 0xFFFFFF, 1, 0);
+        } else if (es->kind == ES_MISSILE) {
+            for (int t = 0; t < es->trail_len; t++) fill_rectf(fb, es->trail[t][0], es->trail[t][1], 2, 2, d_color);
+            fill_rectf(fb, es->x, es->y, 2, 2, a_color);
+        } else {
+            for (int y = -5; y <= 5; y++)
+                for (int x = -5; x <= 5; x++) {
+                    int px = (int)floor(es->x) + x, py = (int)floor(es->y) + y;
+                    double dx = px + 0.5 - es->x, dy = py + 0.5 - es->y;
+                    if (dx * dx + dy * dy <= 16 && px >= 0 && py >= 0 && px < FB_WIDTH && py < FB_HEIGHT)
+                        fb->px[py][px] = 0xFF888888u;
+                }
+        }
+    }
 
     /* player, its shield, the starburst and the death beat */
     const Player *pl = &w->player;
@@ -277,9 +309,8 @@ void play_draw(Framebuffer *fb, const World *w, CycleA *cycle, unsigned long clo
     if (w->border_visible) playfield_border(fb, w->border_color);
 
     if (w->hud_visible) {
-        uint32_t ac = cycle_a_color(cycle, clock);
         long bc = palette_cycle(0xB, clock, cycle);
-        hud(fb, w, ac, bc >= 0 ? (uint32_t)bc : 0x0000FF);
+        hud(fb, w, a_color, bc >= 0 ? (uint32_t)bc : 0x0000FF);
     }
 
     if (w->state == W_WAVE_CLEAR) wave_clear_fx(fb, w->t_frame);
