@@ -73,8 +73,8 @@ void input_poll(InputFrame *out)
     in.move_y = k[SDL_SCANCODE_S] - k[SDL_SCANCODE_W];
     in.fire_x = k[SDL_SCANCODE_RIGHT] - k[SDL_SCANCODE_LEFT];
     in.fire_y = k[SDL_SCANCODE_DOWN] - k[SDL_SCANCODE_UP];
-    in.coin = k[SDL_SCANCODE_5];
-    in.start = k[SDL_SCANCODE_1];
+    in.coin = k[SDL_SCANCODE_5] || k[SDL_SCANCODE_SPACE];
+    in.start = k[SDL_SCANCODE_1] || k[SDL_SCANCODE_RETURN] || k[SDL_SCANCODE_KP_ENTER];
     bool select_held = false, start_held = false, r1_held = false;
 
     for (int i = 0; i < MAX_PADS; i++) {

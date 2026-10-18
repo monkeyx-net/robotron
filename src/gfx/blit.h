@@ -16,7 +16,15 @@
 void blit(Framebuffer *fb, const Image *img, int sx, int sy, int sw, int sh,
           double dx, double dy, int scale, uint32_t tint);
 
+/* blit with sprite alpha (0..1) and, if `silhouette`, every opaque pixel drawn as tint. */
+void blit_ex(Framebuffer *fb, const Image *img, int sx, int sy, int sw, int sh,
+             double dx, double dy, int scale, uint32_t tint, double alpha, int silhouette);
+
 /* Solid rectangle with fractional coordinates; colour 0xRRGGBB. */
 void fill_rectf(Framebuffer *fb, double x, double y, double w, double h, uint32_t rgb);
+/* The same blended at alpha (0..1). */
+void fill_rectf_alpha(Framebuffer *fb, double x, double y, double w, double h, uint32_t rgb, double alpha);
+/* Blend one pixel. */
+void blend_pixel(Framebuffer *fb, int x, int y, uint32_t rgb, double alpha);
 
 #endif

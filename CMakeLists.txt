@@ -23,6 +23,9 @@ pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
 # Pure C, no SDL: deterministic simulation, asset loading and framebuffer drawing.
 add_library(robotron_core STATIC
   src/sim/prng.c
+  src/sim/pacing.c
+  src/sim/spawn.c
+  src/sim/world.c
   src/assets/png.c
   src/assets/json.c
   src/assets/assets.c
@@ -33,6 +36,7 @@ add_library(robotron_core STATIC
   src/gfx/palette.c
   src/gfx/story.c
   src/gfx/heroes.c
+  src/gfx/play.c
   src/gfx/blit.c
   src/gfx/font.c
   src/gfx/title.c
@@ -78,6 +82,18 @@ if(EXISTS "${ROBOTRON_ROM_DIR}")
   target_link_libraries(test_extract PRIVATE robotron_core)
   add_test(NAME rom_extract COMMAND test_extract ${ROBOTRON_ROM_DIR} ${CMAKE_SOURCE_DIR})
   set_tests_properties(rom_extract PROPERTIES LABELS rom)
+
+  add_executable(test_world src/tests/test_world.c)
+  target_link_libraries(test_world PRIVATE robotron_core)
+  add_test(NAME world_flow COMMAND test_world ${CMAKE_BINARY_DIR}/robotron)
+  set_tests_properties(world_flow PROPERTIES LABELS rom)
+
+  # Scripted gameplay against committed screenshot hashes (the port's own regression goldens).
+  add_test(NAME play_golden
+    COMMAND ${CMAKE_COMMAND} -DGAME=$<TARGET_FILE:robotron> -DSCRIPTS=${CMAKE_SOURCE_DIR}/src/tests/scripts
+      -DGOLDEN=${CMAKE_SOURCE_DIR}/src/tests/golden/play.txt -DWORKDIR=${CMAKE_BINARY_DIR}/golden
+      -P ${CMAKE_SOURCE_DIR}/src/tests/run_golden.cmake)
+  set_tests_properties(play_golden PROPERTIES LABELS rom)
   message(STATUS "ROM set found in ${ROBOTRON_ROM_DIR}: extractor steps enabled")
 else()
   message(STATUS "No ROM set in ${ROBOTRON_ROM_DIR}: extractor steps and ROM tests disabled")

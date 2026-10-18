@@ -23,10 +23,25 @@ static void show_heroes(Attract *at)
     at->timer = HIGH_SCORE_DURATION + HEROES_WIPE_FRAMES;
 }
 
-void attract_init(Attract *at, const Assets *a)
+void attract_show_heroes(Attract *at, int frames)
+{
+    show_heroes(at);
+    at->timer = frames + HEROES_WIPE_FRAMES;
+}
+
+unsigned attract_qualify_min(const Attract *at)
+{
+    unsigned m = at->tables.all_time[ALL_TIME_ROWS - 1].score;
+    if (at->tables.hero_count == HEROES_ROWS && at->tables.heroes[HEROES_ROWS - 1].score < m)
+        m = at->tables.heroes[HEROES_ROWS - 1].score;
+    return m;
+}
+
+void attract_init(Attract *at, const Assets *a, const unsigned long *clock, CycleA *cycle)
 {
     memset(at, 0, sizeof *at);
-    cycle_a_init(&at->cycle);
+    at->clock = clock;
+    at->cycle = cycle;
     /* ROBOTRON HEROES: the ROM's factory list when extracted; ALL TIME HEROES: 37 x 10000.
        Saved scores come with persistent storage. */
     if (a->have_heroes) {
@@ -39,7 +54,6 @@ void attract_init(Attract *at, const Assets *a)
 
 void attract_step(Attract *at)
 {
-    at->clock++;
     switch (at->screen) {
     case ATTRACT_TITLE:
         at->flash++;
@@ -64,7 +78,7 @@ void attract_draw(Framebuffer *fb, const Assets *a, Attract *at)
     case ATTRACT_STORY:
         fb_clear(fb, 0xFF000000u);
         playfield_border(fb, BORDER_WAVE1);
-        story_draw(fb, a, &at->story, &at->cycle, at->clock);
+        story_draw(fb, a, &at->story, at->cycle, *at->clock);
         break;
     case ATTRACT_HEROES:
         heroes_draw(fb, a, &at->tables, at->heroes_frame);

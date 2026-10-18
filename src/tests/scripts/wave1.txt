@@ -1,0 +1,12 @@
+# Start a game, move about and fire in all directions on wave 1.
+1 start
+2
+140 move:-1,0 fire:-1,0
+200 move:0,-1 fire:0,-1
+260 move:1,0 fire:1,0
+320 move:0,1 fire:0,1
+380 move:-1,-1 fire:1,1
+440 fire:-1,1
+500 move:1,1 fire:1,-1
+560 fire:-1,-1
+620 move:0,0 fire:1,0

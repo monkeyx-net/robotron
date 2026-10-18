@@ -65,6 +65,63 @@ static int hero_row(Assets *a, int i, const char *line)
     return sscanf(line, "%3s %u", r->initials, &r->score) == 2 ? 0 : -1;
 }
 
+/* waveparams.txt: 12 "name v*43" lines, then "mercy w a b c d" lines */
+static int param_row(Assets *a, int i, const char *line)
+{
+    if (!strncmp(line, "mercy", 5)) {
+        int w, v[4];
+        if (sscanf(line, "mercy %d %d %d %d %d", &w, &v[0], &v[1], &v[2], &v[3]) != 5 || w < 1 || w > 4) return -1;
+        for (int k = 0; k < 4; k++) a->mercy[w - 1][k] = (unsigned char)v[k];
+        return 0;
+    }
+    if (i >= PARAM_TABLES) return -1;
+    const char *p = strchr(line, ' ');
+    for (int k = 0; k < PARAM_BYTES; k++) {
+        int v, off;
+        if (!p || sscanf(p, " %d%n", &v, &off) != 1 || v < 0 || v > 255) return -1;
+        a->params[i][k] = (unsigned char)v;
+        p += off;
+    }
+    return 0;
+}
+
+/* electrodes.txt: "look w entry", "frame hold w h", then h rows */
+static int load_electrodes(Assets *a, const char *dir)
+{
+    char path[1100], line[512];
+    snprintf(path, sizeof path, "%s/data/electrodes.txt", dir);
+    FILE *f = fopen(path, "r");
+    if (!f) return -1;
+    ElectrodeLook *look = NULL;
+    ElectrodeFrame *fr = NULL;
+    int looks = 0, row = 0, bad = 0;
+    while (!bad && fgets(line, sizeof line, f)) {
+        int w, e, hold, fw, fh;
+        line[strcspn(line, "\n")] = '\0';
+        if (line[0] == '#' && line[1] == ' ') continue;
+        if (sscanf(line, "look %d %d", &w, &e) == 2) {
+            if (w != looks + 1 || w > 10) { bad = 1; break; }
+            look = &a->electrodes[looks++];
+            look->entry = e;
+            look->nframes = 0;
+            fr = NULL;
+        } else if (sscanf(line, "frame %d %d %d", &hold, &fw, &fh) == 3) {
+            if (!look || look->nframes == 3 || fw < 1 || fw > 24 || fh < 1 || fh > 24) { bad = 1; break; }
+            fr = &look->frames[look->nframes++];
+            fr->hold = hold;
+            fr->w = fw;
+            fr->h = fh;
+            row = 0;
+        } else if (fr && row < fr->h && (int)strlen(line) == fr->w) {
+            memcpy(fr->rows[row++], line, (size_t)fr->w + 1);
+        } else if (line[0]) {
+            bad = 1;
+        }
+    }
+    fclose(f);
+    return bad || looks != 10 ? -1 : 0;
+}
+
 static int wave_row(Assets *a, int i, const char *line)
 {
     int w, v[WAVE_FIELDS];
@@ -195,6 +252,8 @@ int assets_load(Assets *a, const char *argv0, char *err, int errlen)
     if (!find_dir(a->data_dir, sizeof a->data_dir, argv0, "data/heroes.txt")) {
         a->have_heroes = read_table(a->data_dir, "heroes.txt", hero_row, a) == HEROES_ROWS;
         a->have_waves = read_table(a->data_dir, "waves.txt", wave_row, a) == WAVES;
+        a->have_params = read_table(a->data_dir, "waveparams.txt", param_row, a) == PARAM_TABLES + 4;
+        a->have_electrodes = load_electrodes(a, a->data_dir) == 0;
     }
     return 0;
 }

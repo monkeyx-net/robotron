@@ -20,8 +20,8 @@ typedef struct {
     unsigned flash;          /* insertCoinFlashTimer: counts title frames, never reset */
     unsigned heroes_frame;   /* frames since the heroes screen opened */
     Story story;
-    CycleA cycle;
-    unsigned long clock;     /* global frame clock (colour cycling) */
+    CycleA *cycle;           /* shared palette entry A */
+    const unsigned long *clock; /* global frame clock (colour cycling) */
     unsigned high_score;
     HeroTables tables;
 } Attract;
@@ -29,7 +29,11 @@ typedef struct {
 #define TITLE_SCREEN_DURATION 300
 #define HIGH_SCORE_DURATION 603
 
-void attract_init(Attract *at, const Assets *a);
+void attract_init(Attract *at, const Assets *a, const unsigned long *clock, CycleA *cycle);
+/* After a game: the heroes screen for `frames` (plus the wipe), then on with the cycle. */
+void attract_show_heroes(Attract *at, int frames);
+/* A score above this earns initials (either table's last row). */
+unsigned attract_qualify_min(const Attract *at);
 void attract_step(Attract *at);
 void attract_draw(Framebuffer *fb, const Assets *a, Attract *at);
 

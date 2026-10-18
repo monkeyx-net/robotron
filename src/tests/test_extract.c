@@ -2,7 +2,9 @@
  * Extractor check (needs the user's ROM set, so it runs only when CMake finds
  * one): extract into a temp dir, then compare
  *   - heroes.txt with the ROM's factory list as the web build has it, and
- *   - waves.txt with js/waveTable.ts, all 40 waves x 9 counts.
+ *   - waves.txt with js/waveTable.ts, all 40 waves x 9 counts,
+ *   - waveparams.txt with js/core/WaveParams.ts (12 tables x 43 bytes), and
+ *   - electrodes.txt with js/core/ElectrodeShapes.ts (10 looks, every row).
  *
  *   test_extract <rom dir> <repo root>
  */
@@ -116,8 +118,78 @@ int main(int argc, char **argv)
     CHECK(waves == 40, "waves: %d", waves);
     free(web);
 
+    /* wave parameter tables: every number after "hdr:" in WaveParams.ts, in order */
+    snprintf(path, sizeof path, "%s/js/core/WaveParams.ts", argv[2]);
+    char *wp = slurp(path);
+    snprintf(path, sizeof path, "%s/data/waveparams.txt", dir);
+    char *mine = slurp(path);
+    CHECK(wp && mine, "cannot read WaveParams.ts or waveparams.txt");
+    if (wp && mine) {
+        const char *p = wp, *m = mine;
+        for (int t = 0; t < 12; t++) {
+            p = strstr(p, "{ hdr: 0x");
+            CHECK(p != NULL, "WaveParams.ts table %d", t);
+            if (!p) break;
+            int web_v[43], n = 0;
+            const char *end = strchr(p, '}');
+            for (const char *q = p; q < end && n < 43; q++)
+                if (q[0] == '0' && q[1] == 'x') web_v[n++] = (int)strtol(q, (char **)&q, 16);
+            p = end;
+            while (*m == '#') m = strchr(m, '\n') + 1;
+            char name[32];
+            int off = 0, v;
+            sscanf(m, "%31s%n", name, &off);
+            m += off;
+            for (int i = 0; i < 43; i++) {
+                if (sscanf(m, " %d%n", &v, &off) != 1) { CHECK(0, "waveparams.txt %s short", name); break; }
+                m += off;
+                CHECK(i < n && v == web_v[i], "param %s byte %d: %d, web %d", name, i, v, i < n ? web_v[i] : -1);
+            }
+            m = strchr(m, '\n') + 1;
+        }
+        CHECK(strstr(mine, "mercy 1 38 96 30 15") && strstr(mine, "mercy 4 30 30 15 7"), "mercy table");
+    }
+    free(wp);
+    free(mine);
+
+    /* electrodes: palette entries, holds and rows in the same order as ElectrodeShapes.ts */
+    snprintf(path, sizeof path, "%s/js/core/ElectrodeShapes.ts", argv[2]);
+    char *es = slurp(path);
+    snprintf(path, sizeof path, "%s/data/electrodes.txt", dir);
+    mine = slurp(path);
+    CHECK(es && mine, "cannot read ElectrodeShapes.ts or electrodes.txt");
+    if (es && mine) {
+        /* flatten both into "E<entry> H<hold> <row> ..." token streams and compare */
+        static char a[32768], b[32768];
+        size_t na = 0, nb = 0;
+        for (const char *q = strstr(es, "const LOOKS"); q && *q; q++) {
+            if (!strncmp(q, "entry: 0x", 9)) na += (size_t)snprintf(a + na, sizeof a - na, "E%ld ", strtol(q + 9, NULL, 16));
+            else if (!strncmp(q, "hold: ", 6)) na += (size_t)snprintf(a + na, sizeof a - na, "H%ld ", strtol(q + 6, NULL, 10));
+            else if (*q == '\'' && (q[1] == '.' || q[1] == '#')) {
+                const char *e = strchr(q + 1, '\'');
+                na += (size_t)snprintf(a + na, sizeof a - na, "%.*s ", (int)(e - q - 1), q + 1);
+                q = e;
+            } else if (!strncmp(q, "export function", 15)) break;
+        }
+        for (const char *q = mine; *q;) {
+            const char *e = strchr(q, '\n');
+            if (!e) e = q + strlen(q);
+            int ent, hold;
+            if (q[0] == '#' && q[1] == ' ') {
+            } else if (sscanf(q, "look %*d %d", &ent) == 1) nb += (size_t)snprintf(b + nb, sizeof b - nb, "E%d ", ent);
+            else if (sscanf(q, "frame %d", &hold) == 1) nb += (size_t)snprintf(b + nb, sizeof b - nb, "H%d ", hold);
+            else if (e > q) nb += (size_t)snprintf(b + nb, sizeof b - nb, "%.*s ", (int)(e - q), q);
+            q = *e ? e + 1 : e;
+        }
+        CHECK(na > 1000 && !strcmp(a, b), "electrode looks differ from ElectrodeShapes.ts");
+    }
+    free(es);
+    free(mine);
+
     snprintf(path, sizeof path, "%s/data/heroes.txt", dir); remove(path);
     snprintf(path, sizeof path, "%s/data/waves.txt", dir); remove(path);
+    snprintf(path, sizeof path, "%s/data/waveparams.txt", dir); remove(path);
+    snprintf(path, sizeof path, "%s/data/electrodes.txt", dir); remove(path);
     snprintf(path, sizeof path, "%s/data", dir); remove(path);
     remove(dir);
 
@@ -125,6 +197,6 @@ int main(int argc, char **argv)
         fprintf(stderr, "extract tests FAILED: %d\n", failures);
         return 1;
     }
-    printf("extract tests passed: heroes and 40 waves x 9 counts match\n");
+    printf("extract tests passed: heroes, waves, wave params, mercy and electrodes match the web build\n");
     return 0;
 }

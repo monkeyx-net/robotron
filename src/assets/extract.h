@@ -8,6 +8,9 @@
  *   waves.txt   per-wave counts, $2E24: 9 tables x 40 waves (grunts,
  *               electrodes, mommies, daddies, mikeys, hulks, brains,
  *               spheroids, quarks)
+ *   waveparams.txt  12 per-wave timer tables ($2C20, header/min/max/40 waves)
+ *                   and the waves 1-4 mercy table ($2B59)
+ *   electrodes.txt  electrode look per wave ($2A4B, shapes from [$3886])
  */
 #ifndef ROBOTRON_EXTRACT_H
 #define ROBOTRON_EXTRACT_H
