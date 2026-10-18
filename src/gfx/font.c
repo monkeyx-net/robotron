@@ -26,6 +26,8 @@ static const Synth synth_alt[] = {
 };
 
 static const Synth synth_main[] = {
+    /* the sheet's ':' cell is blank; dots in the alt font's style, same 2 px advance */
+    { ':', { ".", "#", ".", "#", "." } },
     { ')', { ".#.", "..#", "..#", "..#", ".#." } },
     { '(', { ".#", "#.", "#.", "#.", ".#" } },
     { '.', { ".", ".", ".", ".", "#" } },

@@ -90,6 +90,7 @@ int main(int argc, char **argv)
         CHECK(font_measure(&a, FONT_MAIN, "a b") == wa + 1 + 4 + 1 + wb, "measure 'a b'");
         CHECK(font_measure(&a, FONT_MAIN, "-") == 3, "measure '-'");
         CHECK(font_measure(&a, FONT_ALT, "(") == 4, "measure synth '('");
+        CHECK(font_measure(&a, FONT_MAIN, ":") == 2, "main ':' (synthesized) keeps the sheet's 2 px advance");
         assets_free(&a);
     }
 
