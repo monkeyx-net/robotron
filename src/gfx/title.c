@@ -6,16 +6,10 @@
 
 #define FLASH_FRAMES 30          /* GameConfig.INSERT_COIN_FLASH_INTERVAL */
 
-/* Playfield (GameConfig.PLAYFIELD) and the 2 px border 3 px outside it. */
-#define PF_LEFT 7
-#define PF_TOP 17
-#define PF_RIGHT 285
-#define PF_BOTTOM 229
-
 void playfield_border(Framebuffer *fb, uint32_t rgb)
 {
     const uint32_t c = 0xFF000000u | rgb;
-    const int x0 = PF_LEFT - 3, y0 = PF_TOP - 3, x1 = PF_RIGHT + 3, y1 = PF_BOTTOM + 3;
+    const int x0 = BORDER_X0, y0 = BORDER_Y0, x1 = BORDER_X1, y1 = BORDER_Y1;
     fb_fill_rect(fb, x0, y0, x1 - x0, 2, c);
     fb_fill_rect(fb, x0, y1 - 2, x1 - x0, 2, c);
     fb_fill_rect(fb, x0, y0, 2, y1 - y0, c);

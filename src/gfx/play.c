@@ -184,7 +184,7 @@ static void stroke_rect(Framebuffer *fb, double x, double y, double w, double h,
 
 static void wave_clear_fx(Framebuffer *fb, int frame)
 {
-    const double x0 = PF_LEFT - 3, y0 = PF_TOP - 3, x1 = PF_RIGHT + 3, y1 = PF_BOTTOM + 3;
+    const double x0 = BORDER_X0, y0 = BORDER_Y0, x1 = BORDER_X1, y1 = BORDER_Y1;
     const double cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, max_hw = (x1 - x0) / 2, max_hh = (y1 - y0) / 2;
     if (frame < FLASH_START) {
         int end = frame + 1 < RING_SPAWN_END ? frame + 1 : RING_SPAWN_END;
