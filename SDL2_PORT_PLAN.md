@@ -175,10 +175,11 @@ powered off mid-write).
 
 ### 2.7 Build and packaging
 - CMake; `-O2`, `-ffast-math` off (the sim must stay exact).
-- aarch64: Docker `debian:buster` (glibc 2.28, SDL 2.0.9 headers), native on
-  GitHub `ubuntu-24.04-arm` runners. x86_64: same base image. Stick to the
-  SDL 2.0.9 API (newer calls only through `SDL_VERSION_ATLEAST` + runtime
-  checks). CI checks `objdump -T | grep GLIBC_` ≤ 2.30.
+- Build base: Ubuntu 20.04 (glibc 2.31, GCC 9, SDL 2.0.10), as the porter's
+  PortMaster-Build-Templates pipeline does; aarch64 in the same image under
+  QEMU or on native arm runners. Checked 2026-10-18: the x86_64 build passes
+  every non-MAME test there with identical golden hashes, and needs only
+  GLIBC_2.14 symbols. Stick to the SDL 2.0.10 API.
 - Two artifacts per release (decision 1):
   - `robotron-<ver>-portmaster.zip`: `Robotron 2084.sh` (sources
     `control.txt`, sets `SDL_GAMECONTROLLERCONFIG`, runs the extractor if

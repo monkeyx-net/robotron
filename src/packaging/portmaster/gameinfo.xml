@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gameList>
+  <game>
+    <path>./Robotron 2084.sh</path>
+    <name>Robotron: 2084</name>
+    <desc>Save the last human family! A native SDL2 rebuild of the 1982 Williams arcade game, with its waves, enemy pacing and spawn positions taken from the arcade ROM. Needs your MAME robotron.zip ROM set in ports/robotron/.</desc>
+    <releasedate>19820101T000000</releasedate>
+    <developer>Eugene Jarvis, Larry DeMar</developer>
+    <publisher>Williams Electronics</publisher>
+    <genre>Shooter</genre>
+    <image>./robotron/screenshot.png</image>
+  </game>
+</gameList>

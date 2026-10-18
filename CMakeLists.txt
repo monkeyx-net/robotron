@@ -1,7 +1,7 @@
 # Native SDL2 build for Linux handhelds and desktops (aarch64, x86_64).
 # See SDL2_PORT_PLAN.md. The web build (js/, Vite) is unaffected.
 cmake_minimum_required(VERSION 3.13)
-project(robotron C)
+project(robotron VERSION 0.1.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -62,6 +62,26 @@ add_executable(robotron
   src/platform/audio.c
 )
 target_link_libraries(robotron PRIVATE robotron_core PkgConfig::SDL2 m)
+
+# The build dir is a runnable layout: <build>/assets holds links to the repo's
+# sprites and sounds, and the extracted ROM tables (below), next to the binary.
+file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/assets")
+foreach(d sprites sounds)
+  if(NOT EXISTS "${CMAKE_BINARY_DIR}/assets/${d}")
+    file(CREATE_LINK "${CMAKE_SOURCE_DIR}/${d}" "${CMAKE_BINARY_DIR}/assets/${d}" SYMBOLIC)
+  endif()
+endforeach()
+
+# Release archives: cmake --build build --target package_linux / package_portmaster
+# (configure release builds with -DROBOTRON_DEV_ASSETS=OFF)
+foreach(kind linux portmaster)
+  add_custom_target(package_${kind}
+    COMMAND ${CMAKE_COMMAND} -DKIND=${kind} -DSRC=${CMAKE_SOURCE_DIR} -DBIN=${CMAKE_BINARY_DIR}
+      -DGAME=$<TARGET_FILE:robotron> -DARCH=${CMAKE_SYSTEM_PROCESSOR} -DVERSION=${PROJECT_VERSION}
+      -P ${CMAKE_SOURCE_DIR}/src/packaging/package.cmake
+    DEPENDS robotron
+    COMMENT "Packaging ${kind} release")
+endforeach()
 
 enable_testing()
 add_executable(test_prng src/tests/test_prng.c)
