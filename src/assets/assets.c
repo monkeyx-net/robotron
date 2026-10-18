@@ -235,6 +235,11 @@ done:
     return rc;
 }
 
+int assets_find(const char *argv0, const char *rel, char *out, size_t outlen)
+{
+    return find_dir(out, outlen, argv0, rel);
+}
+
 int assets_load(Assets *a, const char *argv0, char *err, int errlen)
 {
     memset(a, 0, sizeof *a);

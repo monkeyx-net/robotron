@@ -10,6 +10,7 @@
 #ifndef ROBOTRON_ASSETS_H
 #define ROBOTRON_ASSETS_H
 
+#include <stddef.h>
 #include <stdint.h>
 #include "assets/png.h"
 
@@ -82,6 +83,9 @@ typedef struct {
 /* Find the asset dir and load everything. Returns 0, or -1 with a message in err (size errlen). */
 int assets_load(Assets *a, const char *argv0, char *err, int errlen);
 void assets_free(Assets *a);
+
+/* First asset dir (same search order) holding `rel`, e.g. "sounds/shoot.wav". Returns 0 if found. */
+int assets_find(const char *argv0, const char *rel, char *out, size_t outlen);
 
 /* Frame by name (e.g. "logo2084_0"), or NULL. */
 const AtlasFrame *atlas_frame(const Atlas *atlas, const char *name);

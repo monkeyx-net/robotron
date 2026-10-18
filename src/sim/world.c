@@ -131,6 +131,11 @@ static const BorderStyle BORDER_STYLES[10] = {
 
 /* ---- helpers ------------------------------------------------------------ */
 
+static void sfx(World *w, SoundId id)
+{
+    if (w->sound_count < (int)(sizeof w->sounds / sizeof w->sounds[0])) w->sounds[w->sound_count++] = id;
+}
+
 static double fx_float(World *w)
 {
     int hi = prng_step(&w->fx), lo = prng_step(&w->fx);
@@ -281,6 +286,7 @@ static void check_extra_life(World *w)
     if (w->score >= w->next_extra) {
         w->lives++;
         w->next_extra += (unsigned)w->extra_man_every;
+        sfx(w, SND_EXTRA_LIFE);
     }
 }
 
@@ -594,6 +600,7 @@ static void start_wave_clear(World *w)
 {
     w->state = W_WAVE_CLEAR;
     w->t_frame = 0;
+    sfx(w, SND_WAVE_COMPLETE);
     clear_entities(w, 1);
     w->player.visible = 0;
     w->border_visible = 0;
@@ -653,6 +660,7 @@ static void player_hit(World *w)
 {
     Player *pl = &w->player;
     if (!pl->alive || pl->invuln_ms > 0) return;
+    sfx(w, SND_PLAYER_DEATH);
     w->lives--;
     pl->alive = 0;
     pl->dx = pl->dy = 0;
@@ -730,6 +738,7 @@ static void player_input_and_update(World *w, const PlayInput *in)
     p->dy = my * 2;
     if ((fxv != 0 || fyv != 0) && p->alive && w->shot_count < MAX_PLAYER_SHOTS) {
         Shot *s = &w->shots[w->shot_count++];
+        sfx(w, SND_SHOOT);
         s->x = p->x;
         s->y = p->y;
         s->dx = fxv * PROJECTILE_SPEED;
@@ -855,6 +864,7 @@ static int update_spheroid(World *w, Enemy *e, int *live_enforcers)
                 e->dropping = 1;
             } else if (*live_enforcers < MAX_ENFORCERS) {
                 create_enforcer(w, e->x, e->y); /* appended: the fixed array keeps `e` valid */
+                sfx(w, SND_ENFORCER_SPAWN);
                 (*live_enforcers)++;
                 if (--e->drops_left <= 0) {
                     e->leaving = 1;
@@ -922,6 +932,7 @@ static void create_spark(World *w, double x, double y, double tx, double ty)
     EnemyShot *sp = &w->eshots[w->eshot_count++];
     memset(sp, 0, sizeof *sp);
     sp->kind = ES_SPARK;
+    sfx(w, SND_ENFORCER_FIRE);
     sp->x = x;
     sp->y = y;
     sp->dx = vx;
@@ -986,6 +997,7 @@ static void create_missile(World *w, double x, double y, double tx, double ty)
     EnemyShot *m = &w->eshots[w->eshot_count++];
     memset(m, 0, sizeof *m);
     m->kind = ES_MISSILE;
+    sfx(w, SND_BRAIN_FIRE);
     m->x = clampd(js_round(x), MISSILE_X0, MISSILE_X1);
     m->y = clampd(js_round(y), MISSILE_Y0, MISSILE_Y1);
     m->pass_timer = MISSILE_PASS_FRAMES;
@@ -1017,6 +1029,7 @@ static void create_shell(World *w, double x, double y, double tx, double ty)
     EnemyShot *sh = &w->eshots[w->eshot_count++];
     memset(sh, 0, sizeof *sh);
     sh->kind = ES_SHELL;
+    sfx(w, SND_TANK_FIRE);
     double frames = 8192.0 / w->pacing.params[P_TANK_SHELL_SPEED];
     sh->x = x;
     sh->y = y;
@@ -1051,10 +1064,12 @@ static void update_enemy_shots(World *w)
                 move_missile(sp);
             }
         } else {
+            int bounced = 0;
             sp->x += sp->dx;
             sp->y += sp->dy;
             if (sp->x <= PF_LEFT || sp->x >= PF_RIGHT) {
                 if (sp->bounces > 0) {
+                    bounced = 1;
                     sp->dx = -sp->dx;
                     sp->bounces--;
                     sp->x = clampd(sp->x, PF_LEFT + 1, PF_RIGHT - 1);
@@ -1065,6 +1080,7 @@ static void update_enemy_shots(World *w)
             }
             if (sp->y <= PF_TOP || sp->y >= PF_BOTTOM) {
                 if (sp->bounces > 0) {
+                    bounced = 1;
                     sp->dy = -sp->dy;
                     sp->bounces--;
                     sp->y = clampd(sp->y, PF_TOP + 1, PF_BOTTOM - 1);
@@ -1073,6 +1089,7 @@ static void update_enemy_shots(World *w)
                     continue;
                 }
             }
+            if (bounced) sfx(w, SND_SHELL_BOUNCE);
         }
     }
 }
@@ -1103,6 +1120,7 @@ static void prog_home(World *w, Human *p)
 
 static void convert_to_prog(World *w, Human *h)
 {
+    sfx(w, SND_HUMAN_TO_PROG);
     h->prog = 1;
     h->frame = 0;
     h->walk = 3;
@@ -1439,6 +1457,9 @@ static void check_collisions(World *w)
                 double ex = e->x, ey = e->y;
                 if (k == EN_SPHEROID) popup(w, ex, ey, points); /* the 1000 shows instead of an explosion */
                 else explosion(w, ex, ey, enemy_color(k));
+                static const SoundId pop[EN_KINDS] = { SND_GRUNT_POP, SND_GRUNT_POP, SND_SPHEROID_POP, SND_ENFORCER_POP,
+                                                       SND_BRAIN_POP, SND_TANK_POP, SND_QUARK_POP };
+                sfx(w, pop[k]);
                 REMOVE_AT(w->enemies, w->enemy_count, j);
                 if (k == EN_GRUNT) pacing_grunt_killed(&w->pacing);
                 if (w->state == W_PLAYING) add_score(w, points);
@@ -1454,6 +1475,7 @@ static void check_collisions(World *w)
             if (!h->prog || !near(s->x, s->y, h->x, h->y, 5)) continue;
             REMOVE_AT(w->shots, w->shot_count, i);
             explosion(w, h->x, h->y, 0xFF55FF);
+            sfx(w, SND_PROG_DESTROY);
             REMOVE_AT(w->humans, w->human_count, k);
             if (w->state == W_PLAYING) add_score(w, POINTS_PROG);
             break;
@@ -1502,6 +1524,7 @@ static void check_collisions(World *w)
                 if (e->kind != EN_GRUNT) continue;
                 if (near(w->electrodes[oi].x, w->electrodes[oi].y, e->x, e->y, 5)) {
                     explosion(w, e->x, e->y, 0xFF0000);
+                    sfx(w, SND_GRUNT_POP);
                     REMOVE_AT(w->enemies, w->enemy_count, ei);
                     pacing_grunt_killed(&w->pacing);
                     kill_electrode(w, oi);
@@ -1529,6 +1552,7 @@ static void check_collisions(World *w)
                     EnemyShotKind k = w->eshots[ei].kind;
                     REMOVE_AT(w->shots, w->shot_count, pi);
                     REMOVE_AT(w->eshots, w->eshot_count, ei);
+                    sfx(w, SND_SUB_QUARK_POP);
                     if (w->state == W_PLAYING)
                         add_score(w, k == ES_SPARK ? POINTS_SPARK : k == ES_MISSILE ? POINTS_MISSILE : POINTS_SHELL);
                     break;
@@ -1544,6 +1568,7 @@ static void check_collisions(World *w)
             popup(w, h->x, h->y, w->bonus);
             if (w->state == W_PLAYING) {
                 add_score(w, w->bonus);
+                sfx(w, SND_HUMAN_RESCUE);
                 if (w->bonus < MAX_BONUS) w->bonus += BONUS_STEP;
             }
         }
@@ -1556,6 +1581,7 @@ static void check_collisions(World *w)
             const Human *h = &w->humans[j];
             if (h->prog || !near(w->eshots[i].x, w->eshots[i].y, h->x, h->y, 5)) continue;
             explosion(w, h->x, h->y, 0xCCCCCC);
+            sfx(w, SND_HUMAN_DEATH);
             REMOVE_AT(w->eshots, w->eshot_count, i);
             REMOVE_AT(w->humans, w->human_count, j);
             break;
@@ -1570,6 +1596,7 @@ static void check_collisions(World *w)
             const Human *h = &w->humans[j];
             if (h->prog || h->rescued || !near(e->x, e->y, h->x, h->y, 10)) continue;
             explosion(w, h->x, h->y, 0xCCCCCC);
+            sfx(w, SND_HUMAN_DEATH);
             REMOVE_AT(w->humans, w->human_count, j);
         }
     }
@@ -1660,6 +1687,7 @@ void world_start(World *w, const Assets *a, Prng *prng, const unsigned long *clo
     w->player.alpha = 1;
     w->player.invuln_ms = RESPAWN_INVULNERABILITY_MS;
 
+    sfx(w, SND_WAVE_START); /* pressing start: the game-start sound */
     start_next_wave(w);
     start_beam_in(w);
 }

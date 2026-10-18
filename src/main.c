@@ -25,6 +25,7 @@
 #include "gfx/play.h"
 #include "sim/world.h"
 #include "gfx/fb.h"
+#include "platform/audio.h"
 #include "platform/input.h"
 #include "platform/video.h"
 #include "sim/prng.h"
@@ -49,6 +50,12 @@ typedef struct {
     World world;
 } Game;
 
+static void play_sounds(World *w)
+{
+    for (int i = 0; i < w->sound_count; i++) audio_play(w->sounds[i]);
+    w->sound_count = 0;
+}
+
 static void step(Game *g, const InputFrame *in)
 {
     g->clock++;
@@ -57,6 +64,7 @@ static void step(Game *g, const InputFrame *in)
             g->world.qualify_min = attract_qualify_min(&g->attract);
             world_start(&g->world, &assets, &g->prng, &g->clock, &g->cycle);
             g->mode = MODE_PLAY;
+            play_sounds(&g->world);
             return;
         }
         attract_step(&g->attract);
@@ -64,6 +72,7 @@ static void step(Game *g, const InputFrame *in)
     }
     PlayInput pin = { in->move_x, in->move_y, in->fire_x, in->fire_y };
     world_step(&g->world, &pin);
+    play_sounds(&g->world);
     if (g->world.state == W_DONE) {
         if (g->world.score > g->attract.high_score) g->attract.high_score = g->world.score;
         attract_show_heroes(&g->attract, GAME_OVER_HEROES_FRAMES);
@@ -197,6 +206,7 @@ int main(int argc, char **argv)
         return 1;
     }
     input_init();
+    if (max_frames < 0) audio_init(argv[0]); /* headless runs stay silent */
 
     static Game g;
     prng_reset(&g.prng);
@@ -242,6 +252,7 @@ int main(int argc, char **argv)
     }
 
 done:
+    audio_shutdown();
     input_shutdown();
     video_shutdown();
     SDL_Quit();

@@ -53,6 +53,7 @@ add_executable(robotron
   src/main.c
   src/platform/video.c
   src/platform/input.c
+  src/platform/audio.c
 )
 target_link_libraries(robotron PRIVATE robotron_core PkgConfig::SDL2 m)
 

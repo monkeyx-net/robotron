@@ -17,6 +17,7 @@
 #include "sim/pacing.h"
 #include "sim/prng.h"
 #include "gfx/palette.h"
+#include "sim/sound.h"
 
 /* GameConfig */
 #define PF_LEFT 7
@@ -215,6 +216,10 @@ typedef struct {
     int go_erase_x;           /* > 0: black from this x rightwards */
     int hud_visible;
     unsigned qualify_min; /* a score above this earns initials (set by the caller) */
+
+    /* sounds started this frame, for the caller to play and clear */
+    SoundId sounds[32];
+    int sound_count;
 
     /* sizes from the atlas */
     int player_w, player_h;
