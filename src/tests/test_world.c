@@ -78,11 +78,48 @@ int main(int argc, char **argv)
     CHECK(w.state == W_WAVE_CLEAR && w.human_count == 0 && !w.border_visible, "wave clear starts");
     n = run_until(W_BEAM_IN, 200);
     CHECK(n == 66, "next wave after %d frames (66 in WaveTransition.ts)", n);
-    CHECK(w.wave == 2 && w.enemy_count == assets.waves[1][W_GRUNTS] && w.border_visible, "wave 2 laid");
+    int expect2 = assets.waves[1][W_GRUNTS] + assets.waves[1][W_HULKS] + assets.waves[1][W_SPHEROIDS];
+    CHECK(w.wave == 2 && w.enemy_count == expect2 && w.border_visible, "wave 2 laid: %d of %d", w.enemy_count, expect2);
     CHECK(run_until(W_PLAYING, 200) > 0, "wave 2 plays");
 
-    /* a hit: the death beat, then the wave re-lays with what is left */
-    int grunts = w.enemy_count;
+    /* hulks walk and are only nudged by shots; the spheroid drops an enforcer, which fires sparks */
+    int hulk = -1;
+    for (int i = 0; i < w.enemy_count; i++)
+        if (w.enemies[i].kind == EN_HULK) { hulk = i; break; }
+    CHECK(hulk >= 0, "a hulk on wave 2");
+    double hx = w.enemies[hulk].x, hy = w.enemies[hulk].y;
+    w.player.invuln_ms = 1e9; /* keep the player alive while the wave runs */
+    int enforcers = 0, sparks = 0;
+    for (int f = 0; f < 1500 && w.state == W_PLAYING; f++) {
+        clk++;
+        world_step(&w, &idle);
+        for (int i = 0; i < w.enemy_count; i++) enforcers |= w.enemies[i].kind == EN_ENFORCER;
+        sparks |= w.spark_count > 0;
+        w.player.invuln_ms = 1e9;
+    }
+    CHECK(w.state == W_PLAYING, "still playing");
+    for (int i = 0; i < w.enemy_count; i++)
+        if (w.enemies[i].kind == EN_HULK) { hulk = i; break; }
+    CHECK(w.enemies[hulk].x != hx || w.enemies[hulk].y != hy, "hulk walked");
+    CHECK(enforcers, "spheroid dropped an enforcer");
+    CHECK(sparks, "enforcer fired sparks");
+    double nx = w.enemies[hulk].x;
+    w.shots[0].x = w.enemies[hulk].x - 3;
+    w.shots[0].y = w.enemies[hulk].y;
+    w.shots[0].dx = 4;
+    w.shots[0].dy = 0;
+    w.shot_count = 1;
+    int count = w.enemy_count;
+    w.player.invuln_ms = 1e9;
+    clk++;
+    world_step(&w, &idle);
+    CHECK(w.enemy_count >= count && w.shot_count == 0, "shot spent on the hulk, hulk alive");
+    CHECK(w.enemies[hulk].x > nx, "hulk nudged right (%.1f -> %.1f)", nx, w.enemies[hulk].x);
+    w.player.invuln_ms = 0;
+
+    /* a hit: the death beat, then the wave re-lays with what is left (enforcers and sparks go) */
+    int grunts = 0;
+    for (int i = 0; i < w.enemy_count; i++) grunts += w.enemies[i].kind != EN_ENFORCER;
     w.player.invuln_ms = 0;
     w.enemies[0].x = w.player.x;
     w.enemies[0].y = w.player.y;
@@ -91,7 +128,7 @@ int main(int argc, char **argv)
     CHECK(w.state == W_DEATH && w.lives == 2 && w.bonus == 1000, "hit: state %d lives %d", w.state, w.lives);
     n = run_until(W_BEAM_IN, 200);
     CHECK(n == 104, "re-lay after %d frames (DeathBeat: 104)", n);
-    CHECK(w.enemy_count == grunts && w.wave == 2, "same wave, %d of %d grunts", w.enemy_count, grunts);
+    CHECK(w.enemy_count == grunts && w.spark_count == 0 && w.wave == 2, "same wave, %d of %d survivors", w.enemy_count, grunts);
     CHECK(run_until(W_PLAYING, 200) > 0, "plays again");
 
     /* last man: game over, then done */

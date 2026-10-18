@@ -16,6 +16,31 @@
 #define EXTRA_MAN_EVERY 25000
 #define DIFFICULTY 5
 #define POINTS_GRUNT 100
+#define POINTS_SPHEROID 1000
+#define POINTS_ENFORCER 150
+#define POINTS_SPARK 25
+
+/* enemies.ts process cadences (MAME) */
+#define SPHEROID_CYCLE_FRAMES 10
+#define SPHEROID_DROP_CYCLE_FRAMES 16
+#define SPHEROID_EXIT_SPEED 2
+#define SPHEROID_SPEED 0.7
+#define ENFORCER_MATERIALIZE_FRAMES 40
+#define ENFORCER_PASS_FRAMES 3
+#define SPARK_PASS_FRAMES 4
+#define MAX_ENFORCERS 8
+#define MAX_SPARKS 20
+
+/* Hulk direction tables ($01CC-$01F3): [record, dx px, dy lines]; up reuses the down frames */
+static const int HULK_WALK[4][4][3] = {
+    { { 0, -3, 0 }, { 1, -4, 0 }, { 0, -3, 0 }, { 2, -4, 0 } },  /* left */
+    { { 3, 3, 0 }, { 4, 4, 0 }, { 3, 3, 0 }, { 5, 4, 0 } },      /* right */
+    { { 6, 0, 2 }, { 7, 0, 2 }, { 6, 0, 2 }, { 8, 0, 2 } },      /* down */
+    { { 6, 0, -2 }, { 7, 0, -2 }, { 6, 0, -2 }, { 8, 0, -2 } },  /* up */
+};
+enum { HW_LEFT, HW_RIGHT, HW_DOWN, HW_UP };
+/* records -> atlas frames (the atlas keeps source-address order) */
+static const int HULK_ATLAS[9] = { 0, 1, 2, 6, 7, 8, 3, 4, 5 };
 #define POPUP_FRAMES 90
 
 /* WaveTransition.ts */
@@ -238,6 +263,7 @@ static void add_score(World *w, unsigned points)
 static void clear_entities(World *w, int clear_humans)
 {
     w->shot_count = 0;
+    w->spark_count = 0;
     w->enemy_count = 0;
     if (clear_humans) w->human_count = 0;
     w->electrode_count = 0;
@@ -259,6 +285,7 @@ static Human *create_human(World *w, HumanKind k)
     if (w->human_count == MAX_HUMANS) return NULL;
     Human *h = &w->humans[w->human_count++];
     memset(h, 0, sizeof *h);
+    h->id = ++w->next_human_id;
     h->kind = k;
     h->frame = 6;
     /* ROM spawn ($42FD): first step after (rand & 7) + 1 frames, random heading */
@@ -267,23 +294,50 @@ static Human *create_human(World *w, HumanKind k)
     return h;
 }
 
-static Enemy *create_grunt(World *w)
+static Enemy *create_enemy(World *w, EnemyKind kind, int health, int points)
 {
     if (w->enemy_count == MAX_ENEMIES) return NULL;
     Enemy *e = &w->enemies[w->enemy_count++];
     memset(e, 0, sizeof *e);
-    e->kind = EN_GRUNT;
-    e->health = 1;
-    e->points = POINTS_GRUNT;
+    e->kind = kind;
+    e->health = health;
+    e->points = points;
     e->visible = 1;
+    e->walk_table = -1;
+    return e;
+}
+
+static Enemy *create_grunt(World *w)
+{
+    return create_enemy(w, EN_GRUNT, 1, POINTS_GRUNT);
+}
+
+/* createSpheroid: ceil(prng_le($BE5E)/2) enforcers; first drop after prng_le($BE60) 10-frame cycles */
+static Enemy *create_spheroid(World *w)
+{
+    Enemy *e = create_enemy(w, EN_SPHEROID, 2, POINTS_SPHEROID);
+    if (!e) return NULL;
+    e->drops_left = pacing_child_count(&w->pacing, w->prng);
+    e->drop_timer = prng_le(w->prng, w->pacing.params[P_SPHEROID_DROP]) * SPHEROID_CYCLE_FRAMES;
+    return e;
+}
+
+/* createEnforcer: first shot after the materialize plus prng_le($BE5F) 3-frame passes */
+static Enemy *create_enforcer(World *w, double x, double y)
+{
+    Enemy *e = create_enemy(w, EN_ENFORCER, 2, POINTS_ENFORCER);
+    if (!e) return NULL;
+    e->x = x;
+    e->y = y;
+    e->frame = 1;
+    e->shoot_passes = prng_le(w->prng, w->pacing.params[P_ENFORCER_SHOT]);
     return e;
 }
 
 static void enemy_extent(const World *w, const Enemy *e, double *hw, double *hh)
 {
-    (void)e;
-    *hw = w->grunt_w / 2.0;
-    *hh = w->grunt_h / 2.0;
+    *hw = w->enemy_w[e->kind] / 2.0;
+    *hh = w->enemy_h[e->kind] / 2.0;
 }
 
 typedef struct { World *w; const Enemy *self; } OverlapCtx;
@@ -336,11 +390,25 @@ static void lay_wave(World *w, const WaveCounts *c)
         Enemy *g = create_grunt(w);
         if (!g) break;
         OverlapCtx ctx = { w, g };
-        Point p = spawn_outside_box(w->prng, w->wave, w->grunt_w, w->grunt_h, overlaps, &ctx);
+        Point p = spawn_outside_box(w->prng, w->wave, w->enemy_w[EN_GRUNT], w->enemy_h[EN_GRUNT], overlaps, &ctx);
         g->x = p.x;
         g->y = p.y;
     }
-    /* hulks, spheroids, brains and quarks come with P2b/P3 */
+    for (int i = 0; i < c->counts[W_HULKS]; i++) {
+        Enemy *e = create_enemy(w, EN_HULK, 1 << 30, 0);
+        if (!e) break;
+        Point p = spawn_outside_box(w->prng, w->wave, w->enemy_w[EN_HULK], w->enemy_h[EN_HULK], NULL, NULL);
+        e->x = p.x;
+        e->y = p.y;
+    }
+    for (int i = 0; i < c->counts[W_SPHEROIDS]; i++) {
+        Enemy *e = create_spheroid(w);
+        if (!e) break;
+        Point p = spawn_spheroid(w->prng, w->enemy_w[EN_SPHEROID], w->enemy_h[EN_SPHEROID]);
+        e->x = p.x;
+        e->y = p.y;
+    }
+    /* brains and quarks come with P3 */
 
     static const int family[3][2] = { { HU_MOMMY, W_MOMMIES }, { HU_DADDY, W_DADDIES }, { HU_MIKEY, W_MIKEYS } };
     for (int f = 0; f < 3; f++) {
@@ -366,6 +434,7 @@ static void start_next_wave(World *w)
     w->bonus = INITIAL_BONUS;
     w->electrode_count = 0;
     w->dying_count = 0;
+    w->spark_count = 0;
     w->enemy_count = 0;
     w->human_count = 0;
     player_center(w);
@@ -385,8 +454,12 @@ static void relay_wave(World *w)
 {
     WaveCounts c;
     memset(&c, 0, sizeof c);
-    for (int i = 0; i < w->enemy_count; i++)
-        if (w->enemies[i].kind == EN_GRUNT) c.counts[W_GRUNTS]++;
+    for (int i = 0; i < w->enemy_count; i++) {
+        EnemyKind k = w->enemies[i].kind;
+        if (k == EN_GRUNT) c.counts[W_GRUNTS]++;
+        else if (k == EN_HULK) c.counts[W_HULKS]++;
+        else if (k == EN_SPHEROID) c.counts[W_SPHEROIDS]++;
+    }
     c.counts[W_ELECTRODES] = w->electrode_count;
     for (int i = 0; i < w->human_count; i++) {
         const Human *h = &w->humans[i];
@@ -610,11 +683,222 @@ static void update_shots(World *w)
     }
 }
 
+static double aux_float(World *w)
+{
+    int hi = prng_step(&w->aux), lo = prng_step(&w->aux);
+    return (double)(hi << 8 | lo) / 65536.0;
+}
+
+/* moveBlockedAtWalls ($DD09): each axis moves only if the sprite stays inside. */
+static void move_blocked(double *x, double *y, double hw, double hh, double dx, double dy)
+{
+    double nx = *x + dx, ny = *y + dy;
+    if (nx - hw >= PF_LEFT && nx + hw <= PF_RIGHT) *x = nx;
+    if (ny - hh >= PF_TOP && ny + hh <= PF_BOTTOM) *y = ny;
+}
+
+static Human *human_by_id(World *w, int id)
+{
+    for (int i = 0; i < w->human_count; i++)
+        if (w->humans[i].id == id) return &w->humans[i];
+    return NULL;
+}
+
+/* $41B3: one target for life: the player when rand > $C0, else the next human round-robin */
+static int pick_hulk_target(World *w)
+{
+    if (prng_step(w->prng) > 0xC0) return 0;
+    int n = 0;
+    for (int i = 0; i < w->human_count; i++) n += !w->humans[i].rescued;
+    if (!n) return 0;
+    unsigned k = w->hulk_cursor++ % (unsigned)n;
+    for (int i = 0; i < w->human_count; i++) {
+        if (w->humans[i].rescued) continue;
+        if (k-- == 0) return w->humans[i].id;
+    }
+    return 0;
+}
+
+/* $4106: (rand & $1F) + 1 steps on the other axis toward the target + -16..15 */
+static void hulk_rehome(World *w, Enemy *e)
+{
+    e->walk_steps = (prng_step(w->prng) & 0x1F) + 1;
+    const Human *t = e->target_id ? human_by_id(w, e->target_id) : NULL;
+    double tx, ty;
+    if (t && !t->rescued) { tx = t->x; ty = t->y; }
+    else { tx = w->player.x; ty = w->player.y; }
+    int jitter = (prng_step(w->prng) & 0x1F) - 16;
+    int horizontal = e->walk_table == HW_LEFT || e->walk_table == HW_RIGHT;
+    e->walk_table = horizontal ? (ty + jitter > e->y ? HW_DOWN : HW_UP) : (tx + 2 * jitter > e->x ? HW_RIGHT : HW_LEFT);
+    e->walk_idx = 0;
+    e->frame = HULK_ATLAS[HULK_WALK[e->walk_table][0][0]];
+}
+
+static void update_hulk(World *w, Enemy *e)
+{
+    if (e->walk_table < 0) {
+        e->walk_idx = 0;
+        e->step_timer = 0;
+        e->target_id = pick_hulk_target(w);
+        hulk_rehome(w, e);
+    }
+    e->step_timer -= 1;
+    while (e->step_timer <= 0) {
+        e->step_timer += w->pacing.params[P_HULK_STEP];
+        const int *st = HULK_WALK[e->walk_table][e->walk_idx];
+        e->walk_idx = (e->walk_idx + 1) % 4;
+        e->frame = HULK_ATLAS[st[0]];
+        double nx = e->x + st[1], ny = e->y + st[2], hw, hh;
+        enemy_extent(w, e, &hw, &hh);
+        if (nx < PF_LEFT + hw || nx > PF_RIGHT - hw || ny < PF_TOP + hh || ny > PF_BOTTOM - hh) {
+            hulk_rehome(w, e);
+            continue;
+        }
+        e->x = nx;
+        e->y = ny;
+        if (--e->walk_steps <= 0) hulk_rehome(w, e);
+    }
+}
+
+/* Returns 1 when the spheroid has left the playfield and is gone. */
+static int update_spheroid(World *w, Enemy *e, int *live_enforcers)
+{
+    if (!e->leaving) {
+        if (!e->dx || !e->dy || aux_float(w) < 0.01) {
+            double a = aux_float(w) * M_PI * 2;
+            e->dx = cos(a) * SPHEROID_SPEED;
+            e->dy = sin(a) * SPHEROID_SPEED;
+        }
+        e->drop_timer -= 1;
+        if (e->drop_timer <= 0) {
+            if (!e->dropping) {
+                e->dropping = 1;
+            } else if (*live_enforcers < MAX_ENFORCERS) {
+                create_enforcer(w, e->x, e->y); /* appended: the fixed array keeps `e` valid */
+                (*live_enforcers)++;
+                if (--e->drops_left <= 0) {
+                    e->leaving = 1;
+                    e->dx = prng_step(w->prng) & 0x80 ? -SPHEROID_EXIT_SPEED : SPHEROID_EXIT_SPEED;
+                    e->dy = 0;
+                }
+            }
+            e->drop_timer = prng_le(w->prng, w->pacing.params[P_SPHEROID_DROP] >> 2) * SPHEROID_DROP_CYCLE_FRAMES;
+        }
+    }
+    e->x += e->dx;
+    e->y += e->dy;
+    double hw, hh;
+    enemy_extent(w, e, &hw, &hh);
+    if (e->leaving) {
+        if (e->x < PF_LEFT + hw || e->x > PF_RIGHT - hw || e->y < PF_TOP + hh || e->y > PF_BOTTOM - hh) return 1;
+    } else {
+        if (e->x < PF_LEFT + hw || e->x > PF_RIGHT - hw) {
+            e->dx = -e->dx;
+            if (e->x < PF_LEFT + hw) e->x = PF_LEFT + hw;
+            if (e->x > PF_RIGHT - hw) e->x = PF_RIGHT - hw;
+        }
+        if (e->y < PF_TOP + hh || e->y > PF_BOTTOM - hh) {
+            e->dy = -e->dy;
+            if (e->y < PF_TOP + hh) e->y = PF_TOP + hh;
+            if (e->y > PF_BOTTOM - hh) e->y = PF_BOTTOM - hh;
+        }
+    }
+    e->pulse += 0.05;
+    return 0;
+}
+
+/* $53B5: aim at the player + (rand >> 3) on each axis; next aim in (rand & $1F) passes */
+static void aim_enforcer(World *w, Enemy *e)
+{
+    int pass = prng_step(w->prng) & 0x1F;
+    e->aim_passes = pass ? pass : 256;
+    int jx = (prng_step(w->prng) >> 3) - 16, jy = (prng_step(w->prng) >> 3) - 16;
+    double tx = w->player.x + 2 * jx, ty = w->player.y + jy;
+    if (tx < PF_LEFT) tx = PF_LEFT;
+    if (tx > PF_RIGHT) tx = PF_RIGHT;
+    if (ty < PF_TOP) ty = PF_TOP;
+    if (ty > PF_BOTTOM) ty = PF_BOTTOM;
+    e->dx = (tx - e->x) * 2 / 256;
+    e->dy = (ty - e->y) * 2 / 256;
+}
+
+/* $5404: aimed at the player + -16..15 (no x jitter near the left wall), then curving */
+static void create_spark(World *w, double x, double y, double tx, double ty)
+{
+    int jx = tx < 2 * 0x17 - 6 ? 0 : (prng_step(w->prng) & 0x1F) - 16;
+    int jy = (prng_step(w->prng) & 0x1F) - 16;
+    double vx = (tx + 2 * jx - x) * 4 / 256, vy = (ty + jy - y) * 4 / 256;
+    double ix = 2 * ((prng_step(w->prng) & 0x1F) - 16) / 256.0;
+    double iy = ((prng_step(w->prng) & 0x1F) - 16) / 256.0;
+    int life = (prng_step(w->prng) & 0x0F) + 0x14;
+    if (w->spark_count == MAX_ENEMY_SHOTS) return;
+    Spark *sp = &w->sparks[w->spark_count++];
+    sp->x = x;
+    sp->y = y;
+    sp->dx = vx;
+    sp->dy = vy;
+    sp->ix = ix;
+    sp->iy = iy;
+    sp->life = life;
+    sp->pass_timer = SPARK_PASS_FRAMES;
+    sp->frame = 0;
+}
+
+static void update_enforcer(World *w, Enemy *e)
+{
+    e->age += 1;
+    if (e->age < ENFORCER_MATERIALIZE_FRAMES) {
+        int f = (int)(e->age / 8);
+        e->frame = 1 + (f < 4 ? f : 4);
+        return;
+    }
+    if (!e->active) {
+        e->active = 1;
+        e->frame = 0;
+        aim_enforcer(w, e);
+    }
+    e->pass_timer -= 1;
+    while (e->pass_timer <= 0) {
+        e->pass_timer += ENFORCER_PASS_FRAMES;
+        if (--e->aim_passes <= 0) aim_enforcer(w, e);
+        if (--e->shoot_passes <= 0) {
+            e->shoot_passes = prng_le(w->prng, w->pacing.params[P_ENFORCER_SHOT]);
+            if (w->player.alive && w->spark_count < MAX_SPARKS) create_spark(w, e->x, e->y, w->player.x, w->player.y);
+        }
+    }
+    double hw, hh;
+    enemy_extent(w, e, &hw, &hh);
+    move_blocked(&e->x, &e->y, hw, hh, e->dx, e->dy);
+}
+
+static void update_sparks(World *w)
+{
+    for (int i = w->spark_count - 1; i >= 0; i--) {
+        Spark *sp = &w->sparks[i];
+        int gone = 0;
+        sp->pass_timer -= 1;
+        while (sp->pass_timer <= 0) {
+            sp->pass_timer += SPARK_PASS_FRAMES;
+            sp->dx += sp->ix;
+            sp->dy += sp->iy;
+            sp->frame = (sp->frame + 1) % 4;
+            if (--sp->life <= 0) { gone = 1; break; }
+        }
+        if (gone) {
+            REMOVE_AT(w->sparks, w->spark_count, i);
+            continue;
+        }
+        move_blocked(&sp->x, &sp->y, w->spark_w / 2.0, w->spark_h / 2.0, sp->dx, sp->dy);
+    }
+}
+
 static void update_enemies(World *w)
 {
-    int live_grunts = 0;
-    for (int i = 0; i < w->enemy_count; i++)
+    int live_grunts = 0, live_enforcers = 0;
+    for (int i = 0; i < w->enemy_count; i++) {
         if (w->enemies[i].kind == EN_GRUNT) live_grunts++;
+        else if (w->enemies[i].kind == EN_ENFORCER) live_enforcers++;
+    }
     int ticks = pacing_update(&w->pacing, live_grunts);
     const Player *pl = &w->player;
     for (int i = w->enemy_count - 1; i >= 0; i--) {
@@ -631,9 +915,15 @@ static void update_enemies(World *w)
                 else if (dy == 0 || dy <= -2) e->y += 4;
                 double dx_bytes = js_round((e->x - pl->x) / 2);
                 e->x += dx_bytes > 0 ? -4 : 4;
-                clamp_to_playfield(&e->x, &e->y, w->grunt_w / 2.0, w->grunt_h / 2.0);
+                clamp_to_playfield(&e->x, &e->y, w->enemy_w[EN_GRUNT] / 2.0, w->enemy_h[EN_GRUNT] / 2.0);
                 e->frame = (e->frame + 1) % 3;
             }
+        } else if (e->kind == EN_HULK) {
+            update_hulk(w, e);
+        } else if (e->kind == EN_SPHEROID) {
+            if (update_spheroid(w, e, &live_enforcers)) REMOVE_AT(w->enemies, w->enemy_count, i);
+        } else if (e->kind == EN_ENFORCER) {
+            update_enforcer(w, e);
         }
     }
 }
@@ -714,7 +1004,7 @@ static void update_electrodes(World *w)
     }
 }
 
-/* checkCollisions (PLAYING) */
+/* checkCollisions (PLAYING), in the web build's order */
 static void check_collisions(World *w)
 {
     Player *pl = &w->player;
@@ -722,81 +1012,129 @@ static void check_collisions(World *w)
     /* player shot vs enemy */
     for (int i = w->shot_count - 1; i >= 0; i--) {
         Shot *s = &w->shots[i];
-        int hit = 0;
+        int spent = 0;
         for (int j = w->enemy_count - 1; j >= 0; j--) {
             Enemy *e = &w->enemies[j];
-            if (!e->visible || !near(s->x, s->y, e->x, e->y, 5)) continue;
+            if (!e->visible) continue;
+            if (e->kind == EN_HULK) {
+                /* bullets don't kill a hulk: they nudge it 2 px along their travel */
+                if (!near(s->x, s->y, e->x, e->y, 6)) continue;
+                double mag = sqrt(s->dx * s->dx + s->dy * s->dy);
+                if (mag == 0) mag = 1;
+                e->x += s->dx / mag * 2;
+                e->y += s->dy / mag * 2;
+                REMOVE_AT(w->shots, w->shot_count, i);
+                spent = 1;
+                break;
+            }
+            if (!near(s->x, s->y, e->x, e->y, 5)) continue;
             REMOVE_AT(w->shots, w->shot_count, i);
-            hit = 1;
+            spent = 1;
             if (--e->health <= 0) {
-                explosion(w, e->x, e->y, 0xFF0000);
+                EnemyKind k = e->kind;
                 unsigned points = (unsigned)e->points;
-                int grunt = e->kind == EN_GRUNT;
+                double ex = e->x, ey = e->y;
+                if (k == EN_SPHEROID) popup(w, ex, ey, points); /* the 1000 shows instead of an explosion */
+                else explosion(w, ex, ey, k == EN_ENFORCER ? 0x00AAFF : 0xFF0000);
                 REMOVE_AT(w->enemies, w->enemy_count, j);
-                if (grunt) pacing_grunt_killed(&w->pacing);
+                if (k == EN_GRUNT) pacing_grunt_killed(&w->pacing);
                 if (w->state == W_PLAYING) add_score(w, points);
             }
             break;
         }
         /* the web build leaves checkCollisions once a shot is spent on an enemy */
-        if (hit) return;
+        if (spent) return;
     }
 
-    if (!pl->alive || !pl->visible) return;
-    int invulnerable = pl->invuln_ms > 0;
+    if (pl->alive && pl->visible) {
+        int invulnerable = pl->invuln_ms > 0;
 
-    if (!invulnerable) {
-        for (int i = w->enemy_count - 1; i >= 0; i--) {
-            const Enemy *e = &w->enemies[i];
-            if (e->visible && near(pl->x, pl->y, e->x, e->y, 8)) {
+        /* enemy shot vs player */
+        for (int i = w->spark_count - 1; i >= 0; i--) {
+            if (!invulnerable && near(w->sparks[i].x, w->sparks[i].y, pl->x, pl->y, 5)) {
+                REMOVE_AT(w->sparks, w->spark_count, i);
                 player_hit(w);
                 break;
             }
         }
-        for (int i = w->electrode_count - 1; i >= 0; i--) {
-            if (near(pl->x, pl->y, w->electrodes[i].x, w->electrodes[i].y, 6)) {
-                player_hit(w);
-                break;
+
+        if (!invulnerable) {
+            for (int i = w->enemy_count - 1; i >= 0; i--) {
+                const Enemy *e = &w->enemies[i];
+                if (e->visible && near(pl->x, pl->y, e->x, e->y, 8)) {
+                    player_hit(w);
+                    break;
+                }
+            }
+            for (int i = w->electrode_count - 1; i >= 0; i--) {
+                if (near(pl->x, pl->y, w->electrodes[i].x, w->electrodes[i].y, 6)) {
+                    player_hit(w);
+                    break;
+                }
             }
         }
-    }
 
-    /* grunt vs electrode: both die, 100 points */
-    for (int oi = w->electrode_count - 1; oi >= 0; oi--) {
-        for (int ei = w->enemy_count - 1; ei >= 0; ei--) {
-            Enemy *e = &w->enemies[ei];
-            if (e->kind != EN_GRUNT) continue;
-            if (near(w->electrodes[oi].x, w->electrodes[oi].y, e->x, e->y, 5)) {
-                explosion(w, e->x, e->y, 0xFF0000);
-                REMOVE_AT(w->enemies, w->enemy_count, ei);
-                pacing_grunt_killed(&w->pacing);
-                kill_electrode(w, oi);
-                if (w->state == W_PLAYING) add_score(w, POINTS_GRUNT);
-                break;
-            }
-        }
-    }
-
-    /* player shot vs electrode: one shot destroys it, no points */
-    for (int pi = w->shot_count - 1; pi >= 0; pi--) {
+        /* grunt vs electrode: both die, 100 points */
         for (int oi = w->electrode_count - 1; oi >= 0; oi--) {
-            if (near(w->shots[pi].x, w->shots[pi].y, w->electrodes[oi].x, w->electrodes[oi].y, 5)) {
-                REMOVE_AT(w->shots, w->shot_count, pi);
-                kill_electrode(w, oi);
-                break;
+            for (int ei = w->enemy_count - 1; ei >= 0; ei--) {
+                Enemy *e = &w->enemies[ei];
+                if (e->kind != EN_GRUNT) continue;
+                if (near(w->electrodes[oi].x, w->electrodes[oi].y, e->x, e->y, 5)) {
+                    explosion(w, e->x, e->y, 0xFF0000);
+                    REMOVE_AT(w->enemies, w->enemy_count, ei);
+                    pacing_grunt_killed(&w->pacing);
+                    kill_electrode(w, oi);
+                    if (w->state == W_PLAYING) add_score(w, POINTS_GRUNT);
+                    break;
+                }
+            }
+        }
+
+        /* player shot vs electrode: one shot destroys it, no points */
+        for (int pi = w->shot_count - 1; pi >= 0; pi--) {
+            for (int oi = w->electrode_count - 1; oi >= 0; oi--) {
+                if (near(w->shots[pi].x, w->shots[pi].y, w->electrodes[oi].x, w->electrodes[oi].y, 5)) {
+                    REMOVE_AT(w->shots, w->shot_count, pi);
+                    kill_electrode(w, oi);
+                    break;
+                }
+            }
+        }
+
+        /* player shot vs enemy shot: sparks die for 25 points */
+        for (int pi = w->shot_count - 1; pi >= 0; pi--) {
+            for (int ei = w->spark_count - 1; ei >= 0; ei--) {
+                if (near(w->shots[pi].x, w->shots[pi].y, w->sparks[ei].x, w->sparks[ei].y, 5)) {
+                    REMOVE_AT(w->shots, w->shot_count, pi);
+                    REMOVE_AT(w->sparks, w->spark_count, ei);
+                    if (w->state == W_PLAYING) add_score(w, POINTS_SPARK);
+                    break;
+                }
+            }
+        }
+
+        /* rescue */
+        for (int i = w->human_count - 1; i >= 0; i--) {
+            Human *h = &w->humans[i];
+            if (h->rescued || !near(pl->x, pl->y, h->x, h->y, 18)) continue;
+            h->rescued = 1;
+            popup(w, h->x, h->y, w->bonus);
+            if (w->state == W_PLAYING) {
+                add_score(w, w->bonus);
+                if (w->bonus < MAX_BONUS) w->bonus += BONUS_STEP;
             }
         }
     }
 
-    /* rescue */
-    for (int i = w->human_count - 1; i >= 0; i--) {
-        Human *h = &w->humans[i];
-        if (h->rescued || !near(pl->x, pl->y, h->x, h->y, 18)) continue;
-        h->rescued = 1;
-        popup(w, h->x, h->y, w->bonus);
-        if (w->state == W_PLAYING) {
-            add_score(w, w->bonus);
-            if (w->bonus < MAX_BONUS) w->bonus += BONUS_STEP;
+    /* hulk vs human: trampled (the rescue bonus is not reset) */
+    for (int i = w->enemy_count - 1; i >= 0; i--) {
+        const Enemy *e = &w->enemies[i];
+        if (e->kind != EN_HULK) continue;
+        for (int j = w->human_count - 1; j >= 0; j--) {
+            const Human *h = &w->humans[j];
+            if (h->rescued || !near(e->x, e->y, h->x, h->y, 10)) continue;
+            explosion(w, h->x, h->y, 0xCCCCCC);
+            REMOVE_AT(w->humans, w->human_count, j);
         }
     }
 }
@@ -804,7 +1142,21 @@ static void check_collisions(World *w)
 static void check_wave_completion(World *w)
 {
     if (w->state != W_PLAYING) return;
-    if (w->enemy_count == 0) start_wave_clear(w); /* hulks will not count (P2b) */
+    for (int i = 0; i < w->enemy_count; i++)
+        if (w->enemies[i].kind != EN_HULK) return;
+    start_wave_clear(w);
+}
+
+/* Things the web build animates on its ticker, every frame whatever the state. */
+static void ticker(World *w)
+{
+    for (int i = 0; i < w->enemy_count; i++) {
+        Enemy *e = &w->enemies[i];
+        if (e->kind == EN_SPHEROID) {
+            e->anim += 0.2; /* AnimatedSprite, animationSpeed 0.2, 8 frames */
+            e->frame = (int)e->anim % 8;
+        }
+    }
 }
 
 /* ---- public ------------------------------------------------------------------ */
@@ -823,17 +1175,23 @@ static void atlas_size(const Assets *a, const char *name, int *w, int *h, int dw
 
 void world_start(World *w, const Assets *a, Prng *prng, const unsigned long *clock, CycleA *cycle)
 {
-    unsigned qualify = w->qualify_min;
+    unsigned qualify = w->qualify_min, cursor = w->hulk_cursor;
     memset(w, 0, sizeof *w);
     w->qualify_min = qualify;
+    w->hulk_cursor = cursor;
     w->assets = a;
     w->prng = prng;
     w->clock = clock;
     w->cycle = cycle;
     prng_reset(&w->fx);
+    prng_seed(&w->aux, 0x00, 0x13, 0x37);
     pacing_init(&w->pacing, a, DIFFICULTY, TURNS_PER_PLAYER);
     atlas_size(a, "player_0", &w->player_w, &w->player_h, 8, 12);
-    atlas_size(a, "grunt_0", &w->grunt_w, &w->grunt_h, 10, 13);
+    atlas_size(a, "grunt_0", &w->enemy_w[EN_GRUNT], &w->enemy_h[EN_GRUNT], 10, 13);
+    atlas_size(a, "hulk_0", &w->enemy_w[EN_HULK], &w->enemy_h[EN_HULK], 14, 16);
+    atlas_size(a, "spheroid_0", &w->enemy_w[EN_SPHEROID], &w->enemy_h[EN_SPHEROID], 16, 15);
+    atlas_size(a, "enforcer_spawn_0", &w->enemy_w[EN_ENFORCER], &w->enemy_h[EN_ENFORCER], 10, 11);
+    atlas_size(a, "spark_0", &w->spark_w, &w->spark_h, 8, 7);
     atlas_size(a, "mommy_0", &w->human_w[HU_MOMMY], &w->human_h[HU_MOMMY], 8, 14);
     atlas_size(a, "daddy_0", &w->human_w[HU_DADDY], &w->human_h[HU_DADDY], 10, 13);
     atlas_size(a, "mikey_0", &w->human_w[HU_MIKEY], &w->human_h[HU_MIKEY], 6, 11);
@@ -865,6 +1223,7 @@ void world_step(World *w, const PlayInput *in)
     w->frame++;
     border_tick(w);
     update_popups(w);
+    ticker(w);
 
     switch (w->state) {
     case W_PLAYING:
@@ -874,6 +1233,7 @@ void world_step(World *w, const PlayInput *in)
         }
         player_input_and_update(w, in);
         update_shots(w);
+        update_sparks(w);
         update_enemies(w);
         update_humans(w);
         update_electrodes(w);

@@ -37,6 +37,7 @@ static const char *const LIFE_ICON[7] = { ".ooo.", "BB.BB", "BB.BB", "..o..", "g
 
 typedef struct {
     const AtlasFrame *player[12], *grunt[3], *human[3][12];
+    const AtlasFrame *hulk[9], *spheroid[8], *enforcer[6], *spark[4];
     const Assets *assets;
 } Frames;
 
@@ -59,6 +60,10 @@ static void load_frames(const Assets *a)
         for (int k = 0; k < 3; k++) frames.human[k][i] = frame_named(a, fam[k], i);
     }
     for (int i = 0; i < 3; i++) frames.grunt[i] = frame_named(a, "grunt", i);
+    for (int i = 0; i < 9; i++) frames.hulk[i] = frame_named(a, "hulk", i);
+    for (int i = 0; i < 8; i++) frames.spheroid[i] = frame_named(a, "spheroid", i);
+    for (int i = 0; i < 6; i++) frames.enforcer[i] = frame_named(a, "enforcer_spawn", i);
+    for (int i = 0; i < 4; i++) frames.spark[i] = frame_named(a, "spark", i);
 }
 
 /* A centre-anchored sprite. */
@@ -207,11 +212,23 @@ void play_draw(Framebuffer *fb, const World *w, CycleA *cycle, unsigned long clo
     }
 
     /* enemies, with any beam-in in progress */
+    /* the spheroid's shimmer: the atlas bakes its cycling pixels near-white */
+    static const uint32_t SHIMMER[4] = { 0xFF2222, 0xFF8822, 0xFFFF44, 0xFFFFFF };
     for (int i = 0; i < w->enemy_count; i++) {
         const Enemy *e = &w->enemies[i];
-        const AtlasFrame *f = frames.grunt[e->frame % 3];
+        const AtlasFrame *f;
+        uint32_t tint = 0xFFFFFF;
+        switch (e->kind) {
+        case EN_HULK: f = frames.hulk[e->frame % 9]; break;
+        case EN_SPHEROID:
+            f = frames.spheroid[e->frame % 8];
+            tint = SHIMMER[(int)floor(e->pulse * 4) % 4];
+            break;
+        case EN_ENFORCER: f = frames.enforcer[e->frame % 6]; break;
+        default: f = frames.grunt[e->frame % 3]; break;
+        }
         if (e->visible) {
-            sprite(fb, a, f, e->x, e->y, 0xFFFFFF, 1, 0);
+            sprite(fb, a, f, e->x, e->y, tint, 1, 0);
         } else if (w->state == W_BEAM_IN && !w->beams[i].done) {
             const Beam *b = &w->beams[i];
             double p = (w->t_frame - b->delay) / b->dur;
@@ -222,6 +239,8 @@ void play_draw(Framebuffer *fb, const World *w, CycleA *cycle, unsigned long clo
 
     /* player shots: 2 x 4 yellow */
     for (int i = 0; i < w->shot_count; i++) fill_rectf(fb, w->shots[i].x - 1, w->shots[i].y - 2, 2, 4, SHOT_COLOR);
+    for (int i = 0; i < w->spark_count; i++)
+        sprite(fb, a, frames.spark[w->sparks[i].frame % 4], w->sparks[i].x, w->sparks[i].y, 0xFFFFFF, 1, 0);
 
     /* player, its shield, the starburst and the death beat */
     const Player *pl = &w->player;

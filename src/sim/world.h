@@ -1,11 +1,12 @@
 /*
- * The gameplay simulation (P2a: wave 1 complete): player, shots, grunts,
- * electrodes and the family, wave start and clear, death and game over,
+ * The gameplay simulation (waves 1-4): player, shots, grunts, hulks,
+ * spheroids, enforcers and their sparks, electrodes and the family, wave start and clear, death and game over,
  * scoring. A port of the web build's gameLogic.ts, player.ts, projectiles.ts,
  * enemies.ts, humans.ts, obstacles.ts, WaveTransition.ts and DeathBeat.ts,
  * stepping once per 60 Hz frame. Pure C: no SDL, no drawing (gfx/play.c).
  *
  * Gameplay randomness comes from the ROM PRNG in the web build's call order;
+ * the web build's untraced Math.random gameplay (spheroid wander) from `aux`;
  * cosmetic randomness (explosions, beam-in, death flashes) from `fx`.
  */
 #ifndef ROBOTRON_WORLD_H
@@ -28,6 +29,7 @@
 #define MAX_HUMANS 64
 #define MAX_ELECTRODES 64
 #define MAX_PLAYER_SHOTS 10
+#define MAX_ENEMY_SHOTS 64
 #define MAX_PARTICLES 1024
 #define MAX_POPUPS 16
 
@@ -40,7 +42,7 @@ typedef enum {
     W_DONE              /* game finished: the caller shows the heroes screen */
 } WorldState;
 
-typedef enum { EN_GRUNT } EnemyKind;
+typedef enum { EN_GRUNT, EN_HULK, EN_SPHEROID, EN_ENFORCER, EN_KINDS } EnemyKind;
 typedef enum { HU_MOMMY, HU_DADDY, HU_MIKEY } HumanKind;
 
 typedef struct {
@@ -59,13 +61,24 @@ typedef struct {
 typedef struct {
     EnemyKind kind;
     double x, y;
-    int frame;
-    int step_countdown;   /* grunts: 0 = not armed yet */
+    double dx, dy;        /* spheroid / enforcer velocity */
+    int frame;            /* atlas frame within the family */
     int health, points;
     int visible;
+    int step_countdown;   /* grunt: 0 = not armed yet */
+    /* hulk */
+    int walk_table, walk_idx, walk_steps, target_id; /* walk_table -1 = not started; target 0 = player */
+    double step_timer;
+    /* spheroid */
+    int drops_left, dropping, leaving;
+    double drop_timer, pulse, anim;
+    /* enforcer */
+    double age, pass_timer;
+    int aim_passes, shoot_passes, active;
 } Enemy;
 
 typedef struct {
+    int id;               /* unique per human, for hulk targets */
     HumanKind kind;
     double x, y;
     int frame;
@@ -87,6 +100,12 @@ typedef struct {
 typedef struct {
     double x, y, dx, dy;
 } Shot;
+
+/* Enforcer spark ($5404 / $54A8) */
+typedef struct {
+    double x, y, dx, dy, ix, iy, pass_timer;
+    int life, frame;
+} Spark;
 
 typedef struct {
     double x, y, vx, vy, life, max_life, rotation, rotation_speed, size;
@@ -119,6 +138,7 @@ typedef struct {
     const unsigned long *clock; /* global frame clock (colour cycling) */
     CycleA *cycle;        /* palette entry A, shared with the HUD */
     Prng fx;              /* cosmetic */
+    Prng aux;             /* untraced gameplay randomness (web Math.random) */
     Pacing pacing;
 
     WorldState state;
@@ -139,6 +159,10 @@ typedef struct {
     int dying_count;
     Shot shots[MAX_PLAYER_SHOTS];
     int shot_count;
+    Spark sparks[MAX_ENEMY_SHOTS];
+    int spark_count;
+    int next_human_id;
+    unsigned hulk_cursor; /* round-robin hulk targets; persists across games, as in the web build */
     Particle particles[MAX_PARTICLES];
     int particle_count;
     Popup popups[MAX_POPUPS];
@@ -168,7 +192,9 @@ typedef struct {
     unsigned qualify_min; /* a score above this earns initials (set by the caller) */
 
     /* sizes from the atlas */
-    int player_w, player_h, grunt_w, grunt_h;
+    int player_w, player_h;
+    int enemy_w[EN_KINDS], enemy_h[EN_KINDS];
+    int spark_w, spark_h;
     int human_w[3], human_h[3];
 } World;
 

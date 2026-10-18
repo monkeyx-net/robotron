@@ -16,6 +16,9 @@ typedef struct {
 /* ROM power-on seed $A55A (main_game_entry). */
 void prng_reset(Prng *p);
 
+/* Set the three state bytes (side streams are seeded this way). */
+void prng_seed(Prng *p, uint8_t accum, uint8_t hi, uint8_t lo);
+
 /* One call of prng_update; returns DP[$84]. */
 uint8_t prng_step(Prng *p);
 

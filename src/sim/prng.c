@@ -7,6 +7,13 @@ void prng_reset(Prng *p)
     p->lo = 0x5A;
 }
 
+void prng_seed(Prng *p, uint8_t accum, uint8_t hi, uint8_t lo)
+{
+    p->accum = accum;
+    p->hi = hi;
+    p->lo = lo;
+}
+
 /*
  *   B = $84*3 + $11
  *   A = ($86 >> 3) ^ $86; LSRA          ; carry = feedback bit
