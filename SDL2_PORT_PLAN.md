@@ -1,5 +1,9 @@
 # SDL2 Handheld Port Plan (aarch64 + x86_64 Linux)
 
+> **2026-10-18:** the `sdl2-port` branch now holds only the C port; the web
+> build referred to below as `js/...` was removed from it and lives on `main`
+> (last web commit `627ca56`). Fixtures moved to `src/tests/`.
+
 Goal: run Robotron: 2084 natively on Linux handhelds (ArkOS/dArkOS, ROCKNIX,
 muOS, Knulli, AmberELEC; RK3326, RK3566, H700 class SoCs) and x86_64 Linux
 (Steam Deck, Legion Go/ROG Ally on Linux, desktops) using SDL2, with the same

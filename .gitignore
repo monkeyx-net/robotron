@@ -1,35 +1,20 @@
-# build output and caches
-dist/
-.vite/
-node_modules/
+# CMake build dirs (build, build-san, build-u2004, ...)
+/build*/
+
+# arcade ROM set (user-supplied; never commit or publish)
+/robotron/
+robotron.zip
 
 # OS and Finder/iCloud duplicates ("name 2.ext")
 .DS_Store
 * 2
 * 2.*
 
-# Playwright MCP logs and ad-hoc debug screenshots in the repo root
-.playwright-mcp/
+# ad-hoc debug screenshots in the repo root
 /*.png
 
-# scratch
-top-hn-posts.txt
-
-# local agent/editor state and private planning notes (kept on disk, not published)
+# local agent/editor state and private notes (kept on disk, not published)
 .claude/
 .remember/
-.kiro/settings/
 handoff.md
-docs/3d-reimagining/
-docs/superpowers/
-
-# local deploy settings (bucket, CloudFront distribution); see .env.deploy.example
 .env*
-!.env.deploy.example
-
-# native SDL2 build (CMake)
-/build*/
-
-# arcade ROM set (user-supplied; never commit or publish)
-/robotron/
-robotron.zip

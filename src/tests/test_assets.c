@@ -51,10 +51,6 @@ int main(int argc, char **argv)
     check_png(root, "atlas.png", 512, 67);
     check_png(root, "font_main.png", 237, 5);
     check_png(root, "font_alt.png", 301, 6);
-    check_png(root, "grunt.png", 9, 12);
-    check_png(root, "humans.png", 7, 13);
-    check_png(root, "player.png", 7, 11);
-    check_png(root, "players.png", 33, 13);
 
     /* JSON: escapes, nesting, numbers */
     const char *err = NULL;

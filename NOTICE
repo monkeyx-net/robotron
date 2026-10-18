@@ -1,4 +1,4 @@
-Robotron: 2084 Web Remake
+Robotron: 2084 native SDL2 port
 Copyright 2025-2026 Steven Hatch
 
 The source code of this project is licensed under the Apache License,
@@ -17,9 +17,9 @@ project's authors:
   sprites/        sprite atlas and bitmap fonts extracted from the ROM
   sounds/         the arcade game's sound effects and music (several
                   captured from its sound board running in MAME)
-  js/waveTable.ts, js/core/WaveParams.ts, js/core/ElectrodeShapes.ts
-                  data tables generated from the ROM
-  docs/images/    screenshots of this port, which show the ROM graphics
+  assets/data/    (release packages only) data tables generated from the
+                  ROM by `robotron --extract`; the source tree holds no
+                  ROM data, and the program embeds none
 
 They are included solely so this non-commercial, unofficial fan remake can
 be studied and played. No ROM images are distributed. If you hold rights

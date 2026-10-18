@@ -1,0 +1,5 @@
+# SHA-256 of robotron --extract output (regenerate with -DUPDATE=1 only after checking the tables)
+heroes 6df3cafbd5c8cb8046f1617b2aaadbc4732af98688d2c77d5a08c560a953060a
+waves 6dbcd3954b90a8b5f3063673851767f9440371b2b6c29109583537a5fc25a9e1
+waveparams b0043d12080e83fd86d66db5bfcb7f1d08857fac64193c7a5ac7acf36a6de196
+electrodes 2d82a7939043154327fd6fdf56210b755cfe8c3824837193cc4e8be7f1c185f9

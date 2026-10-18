@@ -1,5 +1,5 @@
 -- MAME probe: DP $84/$85/$86 after each call of the ROM's prng_update
--- ($D6CD), from power-on. Output format matches tests/fixtures/prng_golden.txt.
+-- ($D6CD), from power-on. Output format matches src/tests/fixtures/prng_golden.txt.
 --
 --   PROBE_OUT=out.txt PROBE_COUNT=1000 mame robotron -autoboot_script prng_probe.lua ...
 --

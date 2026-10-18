@@ -87,7 +87,7 @@ enable_testing()
 add_executable(test_prng src/tests/test_prng.c)
 target_link_libraries(test_prng PRIVATE robotron_core)
 add_test(NAME prng_golden
-  COMMAND test_prng ${CMAKE_SOURCE_DIR}/tests/fixtures/prng_golden.txt)
+  COMMAND test_prng ${CMAKE_SOURCE_DIR}/src/tests/fixtures/prng_golden.txt)
 
 add_executable(test_assets src/tests/test_assets.c)
 target_link_libraries(test_assets PRIVATE robotron_core)
@@ -109,9 +109,10 @@ if(EXISTS "${ROBOTRON_ROM_DIR}")
     COMMAND robotron --extract ${ROBOTRON_ROM_DIR} ${CMAKE_BINARY_DIR}/assets
     COMMENT "Extracting ROM tables to ${CMAKE_BINARY_DIR}/assets/data" VERBATIM)
 
-  add_executable(test_extract src/tests/test_extract.c)
-  target_link_libraries(test_extract PRIVATE robotron_core)
-  add_test(NAME rom_extract COMMAND test_extract ${ROBOTRON_ROM_DIR} ${CMAKE_SOURCE_DIR})
+  add_test(NAME rom_extract
+    COMMAND ${CMAKE_COMMAND} -DGAME=$<TARGET_FILE:robotron> -DROMS=${ROBOTRON_ROM_DIR}
+      -DGOLDEN=${CMAKE_SOURCE_DIR}/src/tests/golden/extract.txt -DWORKDIR=${CMAKE_BINARY_DIR}/extract_test
+      -P ${CMAKE_SOURCE_DIR}/src/tests/rom_extract.cmake)
   set_tests_properties(rom_extract PROPERTIES LABELS rom)
   add_test(NAME rom_zip_extract
     COMMAND ${CMAKE_COMMAND} -DGAME=$<TARGET_FILE:robotron> -DROMS=${ROBOTRON_ROM_DIR}
@@ -165,7 +166,7 @@ if(MAME_EXECUTABLE AND EXISTS "${ROBOTRON_ROM_DIR}")
     COMMAND ${CMAKE_COMMAND}
       -DMAME=${MAME_EXECUTABLE} -DROMPATH=${mame_dir}/roms -DWORKDIR=${mame_dir}
       -DPROBE=${CMAKE_SOURCE_DIR}/src/tests/mame/prng_probe.lua -DCOUNT=1000
-      -DFIXTURE=${CMAKE_SOURCE_DIR}/tests/fixtures/prng_golden.txt
+      -DFIXTURE=${CMAKE_SOURCE_DIR}/src/tests/fixtures/prng_golden.txt
       -P ${CMAKE_SOURCE_DIR}/src/tests/mame/run_probe.cmake)
   set_tests_properties(mame_prng_golden PROPERTIES LABELS mame TIMEOUT 300)
   message(STATUS "MAME reference tests enabled (${MAME_EXECUTABLE})")

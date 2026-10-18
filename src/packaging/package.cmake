@@ -46,15 +46,13 @@ else()
   file(COPY "${SRC}/src/packaging/portmaster/Robotron 2084.sh" DESTINATION "${stage}")
   file(COPY "${SRC}/src/packaging/portmaster/port.json" "${SRC}/src/packaging/portmaster/gameinfo.xml"
        DESTINATION "${root}")
-  if(EXISTS "${SRC}/docs/images")
-    file(GLOB shots "${SRC}/docs/images/*.png")
-    list(LENGTH shots n)
-    if(n GREATER 0)
-      list(GET shots 0 shot)
-      file(COPY "${shot}" DESTINATION "${root}")
-      get_filename_component(shotname "${shot}" NAME)
-      file(RENAME "${root}/${shotname}" "${root}/screenshot.png")
-    endif()
+  # screenshot: the game's own first wave, rendered headless
+  file(WRITE "${stage}/shot.txt" "1 start\n2\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" -E env SDL_VIDEODRIVER=dummy ROBOTRON_SAVE_DIR=${stage}/save
+                  "${GAME}" --input "${stage}/shot.txt" --frames 240 --screenshot "${root}/screenshot.png"
+                  RESULT_VARIABLE shot_rc OUTPUT_QUIET ERROR_QUIET)
+  if(NOT shot_rc EQUAL 0)
+    message(WARNING "could not render the PortMaster screenshot")
   endif()
   set(archive "${out}/robotron-${VERSION}-portmaster-${ARCH}.zip")
   execute_process(COMMAND "${CMAKE_COMMAND}" -E tar cf "${archive}" --format=zip "Robotron 2084.sh" robotron

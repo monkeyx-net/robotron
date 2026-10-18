@@ -1,0 +1,33 @@
+# --extract output matches the committed hashes of the four data tables.
+#   cmake -DGAME=robotron -DROMS=dir -DGOLDEN=file -DWORKDIR=dir [-DUPDATE=1] -P rom_extract.cmake
+# The hashes were recorded when the tables matched the web build's generated
+# TS tables byte for byte (waveTable.ts, WaveParams.ts, ElectrodeShapes.ts,
+# HighScoreEntry.ts; see git history before the web build was removed).
+file(REMOVE_RECURSE "${WORKDIR}")
+execute_process(COMMAND "${GAME}" --extract "${ROMS}" "${WORKDIR}" RESULT_VARIABLE rc OUTPUT_QUIET)
+if(NOT rc EQUAL 0)
+  message(FATAL_ERROR "--extract ${ROMS} failed")
+endif()
+set(out "# SHA-256 of robotron --extract output (regenerate with -DUPDATE=1 only after checking the tables)\n")
+if(EXISTS "${GOLDEN}")
+  file(STRINGS "${GOLDEN}" golden REGEX "^[^#]")
+endif()
+set(failed 0)
+foreach(t heroes waves waveparams electrodes)
+  file(SHA256 "${WORKDIR}/data/${t}.txt" h)
+  string(APPEND out "${t} ${h}\n")
+  if(NOT UPDATE)
+    list(FIND golden "${t} ${h}" found)
+    if(found EQUAL -1)
+      message(SEND_ERROR "${t}.txt differs from its recorded hash")
+      set(failed 1)
+    endif()
+  endif()
+endforeach()
+if(UPDATE)
+  file(WRITE "${GOLDEN}" "${out}")
+  message(STATUS "wrote ${GOLDEN}")
+elseif(NOT failed)
+  file(REMOVE_RECURSE "${WORKDIR}")
+  message(STATUS "extracted tables match their recorded hashes")
+endif()

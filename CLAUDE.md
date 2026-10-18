@@ -10,13 +10,16 @@ the web remake in this repo. **The plan, decisions and test plan live in
 [SDL2_PORT_PLAN.md](SDL2_PORT_PLAN.md)**; read it before larger changes and
 keep its phase table up to date.
 
-Work happens on the `sdl2-port` branch.
+Work happens on the `sdl2-port` branch, which holds only the C port. The web
+remake (TypeScript, PixiJS) it was ported from lives on the `main` branch (last web commit `627ca56`).
 
 ## Ground Rules
 
-- **Do not modify the web project** (`js/`, `package.json`, the lockfile,
-  `sprites/`, `sounds/`, `tests/`, web docs). It is read-only reference: when
-  porting behaviour, read the TypeScript and match it.
+- **The web build is the behaviour reference.** Read it from git, not from the
+  tree: `git show main:js/enemies.ts`. Comments in `src/` that cite
+  `js/...` files refer to that branch. Never port fixes back to `main` unasked.
+- `sprites/` and `sounds/` are ROM-derived assets from the web build: don't
+  hand-edit them; patch problems in C (e.g. synthesized glyphs in `gfx/font.c`).
 - **All new code and tooling is C** (built with CMake). The one exception is
   MAME probe scripts, which must be Lua (MAME's scripting language); they only
   dump RAM to text files, and C or CMake does the comparing.
@@ -88,9 +91,10 @@ Every change keeps `ctest` green (plan section 3).
 
 - `prng_golden`, `assets`, `hiscore` - always run
 - `rom_extract`, `rom_zip_extract`, `world_flow`, `play_golden` - label `rom`
-  (need `robotron/`); `rom_extract` cross-checks the extracted tables against
-  the web build's generated TS tables
-- `mame_prng_golden` - label `mame`: MAME reproduces `tests/fixtures/prng_golden.txt`
+  (need `robotron/`); `rom_extract` checks the extracted tables against hashes
+  recorded when they matched the web build's generated TS tables byte for byte
+  (`src/tests/golden/extract.txt`)
+- `mame_prng_golden` - label `mame`: MAME reproduces `src/tests/fixtures/prng_golden.txt`
 - `play_golden` compares screenshot hashes of scripted runs
   (`src/tests/golden/play.txt`). After an intended behaviour change, regenerate:
   `cmake -DGAME=build/robotron -DSCRIPTS=src/tests/scripts -DGOLDEN=src/tests/golden/play.txt -DWORKDIR=build/golden -DUPDATE=1 -P src/tests/run_golden.cmake`
@@ -103,4 +107,4 @@ Every change keeps `ctest` green (plan section 3).
   table addresses are listed in `src/assets/extract.h`.
 - MAME 0.289 runs it headless; see `src/tests/mame/run_probe.cmake` for the options.
 - Reverse-engineering notes are in the sibling `robotron-re` repo (REVERSE.md
-  Phase 21), cited by the web build's TS comments.
+  Phase 21), cited by the web build's TS comments (on `main`).

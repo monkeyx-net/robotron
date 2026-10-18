@@ -1,9 +1,9 @@
 /*
  * PRNG golden test: src/sim/prng.c must reproduce the ROM's prng_update
- * ($D6CD). Uses the same fixture as `npm test`: DP $84/$85/$86 after each of
- * the first 1000 calls from a cold boot, captured in MAME.
+ * ($D6CD). Fixture: DP $84/$85/$86 after each of the first 1000 calls from a cold
+ * boot, captured in MAME (re-captured by ctest mame_prng_golden).
  *
- *   ctest --test-dir build   (or: build/test_prng tests/fixtures/prng_golden.txt)
+ *   ctest --test-dir build   (or: build/test_prng src/tests/fixtures/prng_golden.txt)
  */
 #include <stdio.h>
 #include "sim/prng.h"
