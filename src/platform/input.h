@@ -16,7 +16,9 @@ typedef struct {
     int fire_x, fire_y;  /* -1, 0, 1 each */
     bool coin;           /* Select */
     bool start;          /* Start */
-    bool operator_menu;  /* Select+R1, edge-triggered */
+    bool start2;         /* 2-player start: key 2, or Start with L1 held */
+    bool operator_menu;  /* Select+R1 or F2, edge-triggered */
+    bool menu_held;      /* the same, while held */
     bool quit;           /* Select+Start held QUIT_HOLD_FRAMES, Esc, or window close */
 } InputFrame;
 

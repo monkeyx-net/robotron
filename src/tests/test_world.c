@@ -54,7 +54,7 @@ int main(int argc, char **argv)
     prng_reset(&prng);
     cycle_a_init(&cycle);
     w.qualify_min = 1u << 30; /* never qualifies: the full erase runs */
-    world_start(&w, &assets, &prng, &clk, &cycle);
+    world_start(&w, &assets, &prng, &clk, &cycle, &OPERATOR_FACTORY, 1);
 
     /* wave 1 from the ROM table, beaming in */
     CHECK(w.wave == 1 && w.lives == 3 && w.score == 0, "start: wave %d lives %d", w.wave, w.lives);
@@ -204,6 +204,41 @@ int main(int argc, char **argv)
     CHECK(w.state == W_GAME_OVER && !w.hud_visible, "game over");
     n = run_until(W_DONE, 400);
     CHECK(n == 246, "done after %d frames (120 death + 120 text + 6 erase)", n);
+
+    /* 2 players: a death hands over after the beat and the PLAYER 2 interstitial */
+    w.qualify_min = 1u << 30;
+    world_start(&w, &assets, &prng, &clk, &cycle, &OPERATOR_FACTORY, 2);
+    CHECK(w.player_count == 2 && w.current == 0 && w.lives == 3, "2P start");
+    run_until(W_PLAYING, 200);
+    w.score = 1234;
+    w.player.invuln_ms = 0;
+    w.enemies[0].x = w.player.x;
+    w.enemies[0].y = w.player.y;
+    clk++;
+    world_step(&w, &idle);
+    CHECK(w.state == W_DEATH && w.swap_after_beat && w.current == 1, "swap to player 2");
+    CHECK(w.slots[0].score == 1234 && w.slots[0].lives == 2 && w.score == 0 && w.lives == 3, "slots kept");
+    run_until(W_PLAYING, 200);
+    CHECK(w.inter_frames > 0 && !w.player.visible, "interstitial, player 2 not yet in");
+    for (int i = 0; i < 108; i++) {
+        clk++;
+        world_step(&w, &idle);
+    }
+    CHECK(w.inter_frames == 0 && w.player.visible && w.player.alive && w.wave == 1, "player 2 on wave 1");
+    CHECK(world_player_score(&w, 0) == 1234 && world_player_score(&w, 1) == 0, "scores per player");
+    /* both out: game over, best score kept */
+    w.slots[0].lives = 0;
+    w.lives = 1;
+    w.score = 99;
+    run_until(W_PLAYING, 200);
+    w.player.invuln_ms = 0;
+    w.enemies[0].x = w.player.x;
+    w.enemies[0].y = w.player.y;
+    clk++;
+    world_step(&w, &idle);
+    CHECK(w.state == W_GAME_OVER, "2P game over when both are out");
+    run_until(W_DONE, 400);
+    CHECK(w.score == 1234, "best score goes on: %u", w.score);
 
     if (failures) {
         fprintf(stderr, "world tests FAILED: %d\n", failures);

@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "game/entry.h"
+#include "game/opmenu.h"
 #include "game/hiscore.h"
 #include "game/storage.h"
 
@@ -109,6 +110,62 @@ int main(void)
     entry_step(&e, NONE);
     entry_step(&e, OK);
     CHECK(e.done && !strcmp(e.result, "A"), "trailing spaces trimmed: '%s'", e.result);
+
+    /* operator menu: select, change, exit on release; restore factory applies on exit */
+    static const MenuInput MNONE = { 0 }, MDOWN = { 0, 1, 0, 0, 0 }, MINC = { 0, 0, 1, 0, 0 }, MDEC = { 0, 0, 0, 1, 0 },
+                           MEXIT = { 0, 0, 0, 0, 1 };
+    OpMenu m;
+    opmenu_open(&m, &OPERATOR_FACTORY, MEXIT); /* opened while the menu button is held */
+    opmenu_step(&m, MNONE);
+    CHECK(!m.done, "the held button that opened it doesn't close it");
+    opmenu_step(&m, MINC);   /* extra man 25000 -> 30000 */
+    opmenu_step(&m, MNONE);
+    opmenu_step(&m, MDOWN);  /* turns */
+    opmenu_step(&m, MNONE);
+    opmenu_step(&m, MDEC);   /* 3 -> 2 */
+    opmenu_step(&m, MNONE);
+    opmenu_step(&m, MDOWN);  /* difficulty */
+    opmenu_step(&m, MNONE);
+    for (int i = 0; i < 24 + 7 * 10; i++) opmenu_step(&m, MINC); /* repeats up to the max */
+    CHECK(m.draft.extra_man_every == 30000 && m.draft.turns == 2 && m.draft.difficulty == 10, "values %d %d %d",
+          m.draft.extra_man_every, m.draft.turns, m.draft.difficulty);
+    opmenu_step(&m, MNONE);
+    opmenu_step(&m, MEXIT);
+    CHECK(!m.done, "exit fires on release");
+    opmenu_step(&m, MNONE);
+    CHECK(m.done, "closed");
+    opmenu_open(&m, &OPERATOR_FACTORY, MNONE);
+    for (int i = 0; i < 4; i++) { opmenu_step(&m, MDOWN); opmenu_step(&m, MNONE); }
+    opmenu_step(&m, MINC);  /* RESTORE FACTORY SETTINGS: YES */
+    opmenu_step(&m, MNONE);
+    m.draft.difficulty = 9;
+    opmenu_step(&m, MEXIT);
+    opmenu_step(&m, MNONE);
+    CHECK(m.done && m.draft.difficulty == 5, "factory restored on exit");
+
+    /* settings saved and sanitized on load */
+    char dir2[] = "/tmp/robotron_op_XXXXXX";
+    CHECK(mkdtemp(dir2) != NULL, "mkdtemp");
+    setenv("ROBOTRON_SAVE_DIR", dir2, 1);
+    SaveData sd;
+    storage_load(&sd);
+    CHECK(sd.op.turns == 3 && sd.op.extra_man_every == 25000, "factory when nothing saved");
+    sd.op.extra_man_every = 50000;
+    sd.op.turns = 7;
+    sd.op.difficulty = 0;
+    sd.op.letters = 20;
+    CHECK(storage_save(&sd) == 0, "save settings");
+    SaveData sd2;
+    storage_load(&sd2);
+    CHECK(!memcmp(&sd.op, &sd2.op, sizeof sd.op), "settings round trip");
+    FILE *f = fopen(storage_path(), "w");
+    fputs("operator 12345 99 -3 1\n", f);
+    fclose(f);
+    storage_load(&sd2);
+    CHECK(sd2.op.extra_man_every == 25000 && sd2.op.turns == 20 && sd2.op.difficulty == 0 && sd2.op.letters == 3,
+          "sanitized %d %d %d %d", sd2.op.extra_man_every, sd2.op.turns, sd2.op.difficulty, sd2.op.letters);
+    remove(storage_path());
+    rmdir(dir2);
 
     if (failures) {
         fprintf(stderr, "hiscore tests FAILED: %d\n", failures);

@@ -35,6 +35,22 @@
 #define MAX_PARTICLES 1024
 #define MAX_POPUPS 16
 
+/* Operator GAME ADJUSTMENT settings that affect play (OperatorSettings.ts) */
+typedef struct {
+    int extra_man_every;  /* 0 = no extra men */
+    int turns;            /* men per player, 1-20 */
+    int difficulty;       /* DIFFICULTY OF PLAY 0-10 */
+    int letters;          /* LETTERS FOR HIGHEST SCORE NAME 3-20 */
+} OperatorSettings;
+
+static const OperatorSettings OPERATOR_FACTORY = { 25000, 3, 5, 3 };
+
+/* One player's state in a 2-player game (TwoPlayer.ts PlayerSlot) */
+typedef struct {
+    unsigned score, bonus, next_extra;
+    int lives, wave;
+} PlayerSlot;
+
 typedef enum {
     W_PLAYING,          /* gameplay runs */
     W_BEAM_IN,          /* WAVE_TRANSITION: enemies beam in, then the player */
@@ -170,6 +186,11 @@ typedef struct {
 
     WorldState state;
     unsigned long frame;  /* updates since the game started */
+    OperatorSettings op;
+    int player_count, current;  /* 1 or 2 players; whose turn it is */
+    PlayerSlot slots[2];
+    int swap_after_beat;        /* the death hands over to the other player */
+    int inter_frames;           /* "PLAYER N" interstitial frames left, 0 = none */
     int wave, lives;
     unsigned score, next_extra, bonus;
     int extra_man_every;
@@ -235,7 +256,12 @@ typedef struct {
 /* Can a game start? Needs the extracted ROM tables. */
 int world_can_play(const Assets *a);
 /* startGameFromTitle: reset, wave 1, beam in. */
-void world_start(World *w, const Assets *a, Prng *prng, const unsigned long *clock, CycleA *cycle);
+void world_start(World *w, const Assets *a, Prng *prng, const unsigned long *clock, CycleA *cycle,
+                 const OperatorSettings *op, int players);
+/* Score shown for player 0/1 (the current player's is live). */
+unsigned world_player_score(const World *w, int player);
+/* Best score of the game (for the high-score flow). */
+unsigned world_best_score(const World *w);
 void world_step(World *w, const PlayInput *in);
 /* showDemoPlayScreen: a grunt, a hulk, a brain and a human against a demo man who
    stands and shoots; no deaths, no score, no sound. The caller ends it. */

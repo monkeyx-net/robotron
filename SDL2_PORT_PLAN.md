@@ -300,7 +300,7 @@ runs locally (`ctest -L mame`) and its fixtures are committed.
 | P2a | Sim port, wave 1 complete: player, shots, grunts, electrodes, family, collisions, scoring, HUD, wave start/clear transitions, death beat and re-lay, game over (done 2026-10-17; no sound or initials entry yet) | `world_flow` and `play_golden` CTest pass |
 | P2b | Hulks, spheroids, enforcers and sparks (waves 2-4 complete) (done 2026-10-18) | Waves 1-4 play with every enemy the ROM table spawns; `world_flow` covers them |
 | P3 | Remaining enemies (brains/progs/cruise missiles, quarks/tanks/shells), all 40 waves, pacing, mercy (done 2026-10-18) | `world_flow` lays out and plays every wave 1-41 |
-| P4 | Presentation: HUD, 2P, death beat, wave transition, attract story, heroes + wipe, initials entry, operator menu, sound priorities | Render goldens + audio event logs match |
+| P4 | Presentation: HUD, 2P, death beat, wave transition, attract story, heroes + wipe, initials entry, operator menu, sound priorities, demo play (done 2026-10-18) | `world_flow`, `hiscore`, `play_golden` pass; render goldens against MAME still to do |
 | P5 | Handheld polish: control schemes, scaling options, quit/operator combos, persistence paths, both packages, graphics/table extractor (`--extract`) | Device matrix checklist passes on ≥ 3 aarch64 devices + Steam Deck; extractor output matches full-release `assets/` |
 | P5b | Sound extraction: 6808 + DAC sound-board emulator renders the WAVs from the user's sound ROM | Rendered WAVs match the shipped ones (sample-exact, or within a tolerance for the MAME-captured ones) |
 | P6 | Release: CI artifacts, docs, PortMaster submission and GitHub release `v4.0-native` | Published |

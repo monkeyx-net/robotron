@@ -34,6 +34,8 @@ typedef struct {
 #define DEMO_PLAY_DURATION 450
 
 void attract_init(Attract *at, const Assets *a, const unsigned long *clock, CycleA *cycle);
+/* Back to the title (e.g. after the operator menu). */
+void attract_show_title(Attract *at);
 /* After a game: the heroes screen for `frames` (plus the wipe), then on with the cycle. */
 void attract_show_heroes(Attract *at, int frames);
 /* A score above this earns initials (either table's last row). */

@@ -9,8 +9,10 @@
 #include "gfx/title.h"
 
 /* HUD layout (ArcadeHud.ts, from MAME) */
-#define SCORE_RIGHT_P1 83
-#define ICONS_X_P1 86
+static const int SCORE_RIGHT[2] = { 83, 211 };
+static const int ICONS_X[2] = { 86, 214 };
+#define WAVE_LEFT_P2 160
+#define WAITING_RED 0xFF0000u
 #define ICON_PITCH 8
 #define MAX_ICONS 7
 #define HUD_TOP_Y 7
@@ -123,25 +125,32 @@ static void particle(Framebuffer *fb, const Particle *p)
         }
 }
 
+/* ArcadeHud: the player whose turn it is in entry A, the waiting player's score in red */
 static void hud(Framebuffer *fb, const World *w, uint32_t a_color, uint32_t b_color)
 {
     const Assets *as = w->assets;
     char text[32];
-    snprintf(text, sizeof text, "%02u", w->score);
-    font_draw_t(fb, as, FONT_ALT, text, SCORE_RIGHT_P1 - font_measure_t(as, FONT_ALT, text, 0), HUD_TOP_Y, 1, 0,
-                a_color);
-    int men = w->lives - 1;
-    if (men > MAX_ICONS) men = MAX_ICONS;
-    for (int i = 0; i < men; i++)
-        for (int y = 0; y < 7; y++)
-            for (int x = 0; x < 5; x++) {
-                char c = LIFE_ICON[y][x];
-                uint32_t col = c == 'o' ? 0xFF5100u : c == 'g' ? 0x8989A0u : c == 'm' ? 0xFF00FFu : b_color;
-                if (c != '.') fill_rectf(fb, ICONS_X_P1 + i * ICON_PITCH + x, HUD_TOP_Y + y, 1, 1, col);
-            }
-    snprintf(text, sizeof text, "%d", w->wave);
-    font_draw_t(fb, as, FONT_MAIN, text, WAVE_RIGHT_P1 - font_measure_t(as, FONT_MAIN, text, 0), HUD_BOTTOM_Y, 1,
-                0, a_color);
+    for (int p = 0; p < w->player_count; p++) {
+        int active = p == w->current;
+        unsigned score = active ? w->score : w->slots[p].score;
+        int lives = active ? w->lives : w->slots[p].lives;
+        int wave = active ? w->wave : w->slots[p].wave;
+        snprintf(text, sizeof text, "%02u", score);
+        font_draw_t(fb, as, FONT_ALT, text, SCORE_RIGHT[p] - font_measure_t(as, FONT_ALT, text, 0), HUD_TOP_Y, 1, 0,
+                    active ? a_color : WAITING_RED);
+        int men = lives - 1;
+        if (men > MAX_ICONS) men = MAX_ICONS;
+        for (int i = 0; i < men; i++)
+            for (int y = 0; y < 7; y++)
+                for (int x = 0; x < 5; x++) {
+                    char c = LIFE_ICON[y][x];
+                    uint32_t col = c == 'o' ? 0xFF5100u : c == 'g' ? 0x8989A0u : c == 'm' ? 0xFF00FFu : b_color;
+                    if (c != '.') fill_rectf(fb, ICONS_X[p] + i * ICON_PITCH + x, HUD_TOP_Y + y, 1, 1, col);
+                }
+        snprintf(text, sizeof text, "%d", wave);
+        double wx = p == 0 ? WAVE_RIGHT_P1 - font_measure_t(as, FONT_MAIN, text, 0) : WAVE_LEFT_P2;
+        font_draw_t(fb, as, FONT_MAIN, text, wx, HUD_BOTTOM_Y, 1, 0, a_color);
+    }
     font_draw_t(fb, as, FONT_MAIN, "WAVE", WAVE_LABEL_X, HUD_BOTTOM_Y, 1, 0, a_color);
 }
 
@@ -314,6 +323,12 @@ void play_draw(Framebuffer *fb, const World *w, CycleA *cycle, unsigned long clo
     }
 
     if (w->state == W_WAVE_CLEAR) wave_clear_fx(fb, w->t_frame);
+
+    if (w->inter_frames > 0) { /* TwoPlayer.showInterstitial */
+        char text[24];
+        snprintf(text, sizeof text, "PLAYER %d", w->current + 1);
+        font_draw(fb, a, FONT_ALT, text, (FB_WIDTH - font_measure(a, FONT_ALT, text)) / 2.0, FB_HEIGHT / 2 - 4, 1, 0xFFFF44);
+    }
 
     if (w->state == W_GAME_OVER) {
         if (w->go_text) font_draw(fb, a, FONT_MAIN, "GAME OVER", GAME_OVER_X, GAME_OVER_Y, 1, GAME_OVER_TINT);

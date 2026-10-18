@@ -75,7 +75,8 @@ void input_poll(InputFrame *out)
     in.fire_y = k[SDL_SCANCODE_DOWN] - k[SDL_SCANCODE_UP];
     in.coin = k[SDL_SCANCODE_5] || k[SDL_SCANCODE_SPACE];
     in.start = k[SDL_SCANCODE_1] || k[SDL_SCANCODE_RETURN] || k[SDL_SCANCODE_KP_ENTER];
-    bool select_held = false, start_held = false, r1_held = false;
+    in.start2 = k[SDL_SCANCODE_2];
+    bool select_held = false, start_held = false, r1_held = false, l1_held = false;
 
     for (int i = 0; i < MAX_PADS; i++) {
         SDL_GameController *c = pads[i];
@@ -102,6 +103,7 @@ void input_poll(InputFrame *out)
         select_held |= SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_BACK);
         start_held |= SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_START);
         r1_held |= SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
+        l1_held |= SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
     }
 
     in.move_x = clamp1(in.move_x);
@@ -115,11 +117,13 @@ void input_poll(InputFrame *out)
     } else {
         quit_hold = 0;
         in.coin |= select_held && !r1_held;
-        in.start |= start_held;
+        if (start_held && l1_held) in.start2 = true;
+        else in.start |= start_held;
     }
 
     bool menu_held = (select_held && r1_held) || k[SDL_SCANCODE_F2];
     in.operator_menu = menu_held && !menu_was_held;
+    in.menu_held = menu_held;
     menu_was_held = menu_held;
 
     in.quit = quit_requested || quit_hold >= QUIT_HOLD_FRAMES || k[SDL_SCANCODE_ESCAPE];

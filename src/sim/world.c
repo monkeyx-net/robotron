@@ -12,9 +12,7 @@
 #define INITIAL_BONUS 1000
 #define MAX_BONUS 5000
 #define BONUS_STEP 1000
-#define TURNS_PER_PLAYER 3
-#define EXTRA_MAN_EVERY 25000
-#define DIFFICULTY 5
+#define INTERSTITIAL_FRAMES 108 /* "PLAYER N", 1.8 s */
 #define POINTS_GRUNT 100
 #define POINTS_SPHEROID 1000
 #define POINTS_ENFORCER 150
@@ -668,7 +666,32 @@ static void player_hit(World *w)
     pl->dx = pl->dy = 0;
     pacing_on_death(&w->pacing, w->lives - 1 > 0 ? w->lives - 1 : 0);
     w->bonus = INITIAL_BONUS;
-    if (w->lives <= 0) {
+
+    /* TwoPlayer.onDeath */
+    int game_over = w->lives <= 0;
+    w->swap_after_beat = 0;
+    if (w->player_count == 2) {
+        PlayerSlot *cur = &w->slots[w->current];
+        cur->score = w->score;
+        cur->lives = w->lives;
+        cur->wave = w->wave;
+        cur->bonus = w->bonus;
+        cur->next_extra = w->next_extra;
+        int other = 1 - w->current;
+        if (w->slots[other].lives > 0) {
+            /* restore the other player; startNextWave increments first */
+            const PlayerSlot *s = &w->slots[other];
+            w->score = s->score;
+            w->lives = s->lives;
+            w->wave = s->wave - 1 > 0 ? s->wave - 1 : 0;
+            w->bonus = s->bonus;
+            w->next_extra = s->next_extra;
+            w->current = other;
+            w->swap_after_beat = 1;
+            game_over = 0;
+        }
+    }
+    if (game_over) {
         w->state = W_GAME_OVER;
         w->hud_visible = 0;
         w->go_frames = 0;
@@ -688,9 +711,11 @@ static void step_game_over(World *w)
     if (w->go_frames >= GO_DEATH_FRAMES) w->go_text = 1;
     if (w->go_frames < GO_DEATH_FRAMES + GO_TEXT_FRAMES) return;
     int erase = w->go_frames - (GO_DEATH_FRAMES + GO_TEXT_FRAMES);
-    int qualifies = w->score > 0 && w->score > w->qualify_min;
+    unsigned best = world_best_score(w);
+    int qualifies = best > 0 && best > w->qualify_min;
     if (erase >= 6 || qualifies) {
         clear_entities(w, 1);
+        w->score = best; /* afterGameOverText: the best of both players goes on */
         w->state = W_DONE;
         return;
     }
@@ -1648,9 +1673,31 @@ static void atlas_size(const Assets *a, const char *name, int *w, int *h, int dw
 
 static void world_init(World *w, const Assets *a, Prng *prng, const unsigned long *clock, CycleA *cycle);
 
-void world_start(World *w, const Assets *a, Prng *prng, const unsigned long *clock, CycleA *cycle)
+unsigned world_player_score(const World *w, int player)
 {
+    return player == w->current ? w->score : w->slots[player].score;
+}
+
+unsigned world_best_score(const World *w)
+{
+    unsigned best = w->score;
+    for (int i = 0; i < w->player_count; i++)
+        if (i != w->current && w->slots[i].score > best) best = w->slots[i].score;
+    return best;
+}
+
+void world_start(World *w, const Assets *a, Prng *prng, const unsigned long *clock, CycleA *cycle,
+                 const OperatorSettings *op, int players)
+{
+    w->op = *op;
     world_init(w, a, prng, clock, cycle);
+    w->player_count = players == 2 ? 2 : 1;
+    for (int i = 0; i < w->player_count; i++) {
+        w->slots[i].lives = w->op.turns;
+        w->slots[i].wave = 1;
+        w->slots[i].bonus = INITIAL_BONUS;
+        w->slots[i].next_extra = (unsigned)w->op.extra_man_every;
+    }
     sfx(w, SND_WAVE_START); /* pressing start: the game-start sound */
     start_next_wave(w);
     start_beam_in(w);
@@ -1659,7 +1706,10 @@ void world_start(World *w, const Assets *a, Prng *prng, const unsigned long *clo
 static void world_init(World *w, const Assets *a, Prng *prng, const unsigned long *clock, CycleA *cycle)
 {
     unsigned qualify = w->qualify_min, cursor = w->hulk_cursor;
+    OperatorSettings op = w->op;
     memset(w, 0, sizeof *w);
+    w->op = op;
+    if (w->op.turns < 1) w->op = OPERATOR_FACTORY; /* demo / unset */
     w->qualify_min = qualify;
     w->hulk_cursor = cursor;
     w->assets = a;
@@ -1668,7 +1718,7 @@ static void world_init(World *w, const Assets *a, Prng *prng, const unsigned lon
     w->cycle = cycle;
     prng_reset(&w->fx);
     prng_seed(&w->aux, 0x00, 0x13, 0x37);
-    pacing_init(&w->pacing, a, DIFFICULTY, TURNS_PER_PLAYER);
+    pacing_init(&w->pacing, a, w->op.difficulty, w->op.turns);
     atlas_size(a, "player_0", &w->player_w, &w->player_h, 8, 12);
     atlas_size(a, "grunt_0", &w->enemy_w[EN_GRUNT], &w->enemy_h[EN_GRUNT], 10, 13);
     atlas_size(a, "hulk_0", &w->enemy_w[EN_HULK], &w->enemy_h[EN_HULK], 14, 16);
@@ -1683,9 +1733,9 @@ static void world_init(World *w, const Assets *a, Prng *prng, const unsigned lon
     atlas_size(a, "mikey_0", &w->human_w[HU_MIKEY], &w->human_h[HU_MIKEY], 6, 11);
 
     /* resetGameVariables */
-    w->lives = TURNS_PER_PLAYER;
-    w->extra_man_every = EXTRA_MAN_EVERY;
-    w->next_extra = EXTRA_MAN_EVERY;
+    w->lives = w->op.turns;
+    w->extra_man_every = w->op.extra_man_every;
+    w->next_extra = (unsigned)w->op.extra_man_every;
     w->bonus = INITIAL_BONUS;
     w->border_visible = 1;
     w->hud_visible = 1;
@@ -1774,6 +1824,15 @@ void world_step(World *w, const PlayInput *in)
     border_tick(w);
     update_popups(w);
     ticker(w);
+    if (w->inter_frames > 0 && --w->inter_frames == 0 && w->state != W_GAME_OVER && w->state != W_DONE) {
+        /* the incoming player's wave starts fresh; restore the player even if a
+           wave clear took over meanwhile */
+        if (w->state == W_PLAYING) start_next_wave(w);
+        player_center(w);
+        w->player.visible = 1;
+        w->player.alive = 1;
+        w->player.invuln_ms = RESPAWN_INVULNERABILITY_MS;
+    }
 
     switch (w->state) {
     case W_PLAYING:
@@ -1799,7 +1858,16 @@ void world_step(World *w, const PlayInput *in)
         step_wave_clear(w);
         break;
     case W_DEATH:
-        if (beat_step(w)) relay_wave(w);
+        if (beat_step(w)) {
+            if (w->swap_after_beat) {
+                /* swapAfterDeath: play runs on unmanned under the PLAYER N interstitial */
+                w->state = W_PLAYING;
+                w->player.visible = 0;
+                w->inter_frames = INTERSTITIAL_FRAMES;
+            } else {
+                relay_wave(w);
+            }
+        }
         break;
     case W_GAME_OVER:
         step_game_over(w);

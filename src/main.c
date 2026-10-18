@@ -8,8 +8,8 @@
  *
  * --frames N stops after N updates; with --screenshot the last frame is
  * written as a 292x240 PNG (use SDL_VIDEODRIVER=dummy to run headless).
- * --input replays scripted controls: lines of "<frame> [start] [coin]
- * [move:x,y] [fire:x,y]", each holding from that frame until the next line.
+ * --input replays scripted controls: lines of "<frame> [start] [start2] [coin]
+ * [menu] [move:x,y] [fire:x,y]", each holding from that frame until the next line.
  * --extract reads the user's ROM set and writes the data tables to
  * <asset dir>/data (default: assets/ next to the program).
  */
@@ -24,6 +24,7 @@
 #include "game/attract.h"
 #include "game/entry.h"
 #include "game/hiscore.h"
+#include "game/opmenu.h"
 #include "game/storage.h"
 #include "gfx/play.h"
 #include "sim/world.h"
@@ -42,8 +43,7 @@ static Assets assets;
 
 #define GAME_OVER_HEROES_FRAMES 580 /* heroes screen after a game (MAME) */
 
-typedef enum { MODE_ATTRACT, MODE_PLAY, MODE_ENTRY } Mode;
-#define HIGH_SCORE_LETTERS 3 /* operator LETTERS FOR HIGHEST SCORE NAME (factory) */
+typedef enum { MODE_ATTRACT, MODE_PLAY, MODE_ENTRY, MODE_OPMENU } Mode;
 
 typedef struct {
     Prng prng;            /* the ROM PRNG, shared by everything, never reset */
@@ -53,8 +53,16 @@ typedef struct {
     Attract attract;
     World world;
     Entry entry;
+    OpMenu menu;
     SaveData save;
 } Game;
+
+static MenuInput menu_input(const InputFrame *in)
+{
+    MenuInput m = { in->move_y < 0, in->move_y > 0, in->fire_y < 0 || in->fire_x > 0, in->fire_y > 0 || in->fire_x < 0,
+                    in->start || in->menu_held };
+    return m;
+}
 
 static EntryInput entry_input(const InputFrame *in)
 {
@@ -84,10 +92,30 @@ static void play_sounds(World *w)
 static void step(Game *g, const InputFrame *in)
 {
     g->clock++;
+    if (g->mode == MODE_OPMENU) {
+        opmenu_step(&g->menu, menu_input(in));
+        if (g->menu.done) {
+            g->save.op = g->menu.draft;
+            if (g->menu.reset_scores) { /* ROBOTRON HEROES back to the ROM list; ALL TIME stays */
+                g->save.hero_count = 0;
+                g->save.high_score = g->attract.high_score = 0;
+            }
+            save_scores(g);
+            hiscore_tables(&g->save, &assets, &g->attract.tables);
+            attract_show_title(&g->attract);
+            g->mode = MODE_ATTRACT;
+        }
+        return;
+    }
     if (g->mode == MODE_ATTRACT) {
-        if ((in->start || in->coin) && world_can_play(&assets)) {
+        if (in->operator_menu) {
+            opmenu_open(&g->menu, &g->save.op, menu_input(in));
+            g->mode = MODE_OPMENU;
+            return;
+        }
+        if ((in->start || in->coin || in->start2) && world_can_play(&assets)) {
             g->world.qualify_min = attract_qualify_min(&g->attract);
-            world_start(&g->world, &assets, &g->prng, &g->clock, &g->cycle);
+            world_start(&g->world, &assets, &g->prng, &g->clock, &g->cycle, &g->save.op, in->start2 ? 2 : 1);
             g->mode = MODE_PLAY;
             play_sounds(&g->world);
             return;
@@ -124,7 +152,7 @@ static void step(Game *g, const InputFrame *in)
             save_scores(g);
         }
         if (hiscore_qualifies(&g->attract.tables, score)) {
-            int letters = hiscore_is_new_top(&g->attract.tables, score) ? HIGH_SCORE_LETTERS : 3;
+            int letters = hiscore_is_new_top(&g->attract.tables, score) ? g->save.op.letters : 3;
             entry_start(&g->entry, score, letters, entry_input(in));
             audio_play(SND_HIGH_SCORE_ENTRY);
             g->mode = MODE_ENTRY;
@@ -138,6 +166,7 @@ static void draw(Game *g)
 {
     if (g->mode == MODE_PLAY) play_draw(&fb, &g->world, &g->cycle, g->clock);
     else if (g->mode == MODE_ENTRY) entry_draw(&fb, &assets, &g->entry, g->world.border_color);
+    else if (g->mode == MODE_OPMENU) opmenu_draw(&fb, &assets, &g->menu);
     else if (g->attract.screen == ATTRACT_DEMO) play_draw(&fb, &g->world, &g->cycle, g->clock);
     else attract_draw(&fb, &assets, &g->attract);
 }
@@ -185,6 +214,8 @@ static int load_script(const char *path)
         l->frame = strtol(tok, NULL, 10);
         while ((tok = strtok(NULL, " \t\n"))) {
             if (!strcmp(tok, "start")) l->in.start = true;
+            else if (!strcmp(tok, "start2")) l->in.start2 = true;
+            else if (!strcmp(tok, "menu")) l->in.menu_held = true;
             else if (!strcmp(tok, "coin")) l->in.coin = true;
             else if (sscanf(tok, "move:%d,%d", &l->in.move_x, &l->in.move_y) == 2) {}
             else if (sscanf(tok, "fire:%d,%d", &l->in.fire_x, &l->in.fire_y) == 2) {}
@@ -200,10 +231,13 @@ static int load_script(const char *path)
 static void apply_script(InputFrame *in, long frame)
 {
     while (script_pos + 1 < script_len && script[script_pos + 1].frame <= frame) script_pos++;
+    static bool menu_was_held;
     bool quit = in->quit;
     if (script_len && script[script_pos].frame <= frame) *in = script[script_pos].in;
     else memset(in, 0, sizeof *in);
     in->quit = quit;
+    in->operator_menu = in->menu_held && !menu_was_held;
+    menu_was_held = in->menu_held;
 }
 
 static int save_screenshot(const char *path)

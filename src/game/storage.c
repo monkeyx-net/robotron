@@ -57,14 +57,24 @@ static int parse_row(const char *rest, HeroRow *r)
     return 0;
 }
 
+static int clampi(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }
+
 void storage_load(SaveData *d)
 {
     memset(d, 0, sizeof *d);
+    d->op = OPERATOR_FACTORY;
     FILE *f = fopen(storage_path(), "r");
     if (!f) return;
     char line[256];
     while (fgets(line, sizeof line, f)) {
-        if (!strncmp(line, "highscore ", 10)) {
+        int e, t, df, l;
+        if (sscanf(line, "operator %d %d %d %d", &e, &t, &df, &l) == 4) {
+            /* sanitize, as OperatorSettings.ts does with old or corrupt storage */
+            d->op.extra_man_every = e == 0 || e == 20000 || e == 25000 || e == 30000 || e == 50000 ? e : 25000;
+            d->op.turns = clampi(t, 1, 20);
+            d->op.difficulty = clampi(df, 0, 10);
+            d->op.letters = clampi(l, 3, 20);
+        } else if (!strncmp(line, "highscore ", 10)) {
             d->high_score = (unsigned)strtoul(line + 10, NULL, 10);
         } else if (!strncmp(line, "hero ", 5) && d->hero_count < SAVE_MAX_ROWS) {
             if (!parse_row(line + 5, &d->heroes[d->hero_count])) d->hero_count++;
@@ -83,7 +93,8 @@ int storage_save(const SaveData *d)
     snprintf(tmp, sizeof tmp, "%s.tmp", p);
     FILE *f = fopen(tmp, "w");
     if (!f) return -1;
-    int bad = fprintf(f, "# Robotron: 2084 saved scores\nhighscore %u\n", d->high_score) < 0;
+    int bad = fprintf(f, "# Robotron: 2084 saved settings and scores\noperator %d %d %d %d\nhighscore %u\n",
+                      d->op.extra_man_every, d->op.turns, d->op.difficulty, d->op.letters, d->high_score) < 0;
     for (int i = 0; i < d->hero_count; i++) bad |= fprintf(f, "hero %u %s\n", d->heroes[i].score, d->heroes[i].initials) < 0;
     for (int i = 0; i < d->all_time_count; i++)
         bad |= fprintf(f, "alltime %u %s\n", d->all_time[i].score, d->all_time[i].initials) < 0;

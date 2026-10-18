@@ -10,6 +10,11 @@ static void show_title(Attract *at)
     at->timer = TITLE_SCREEN_DURATION;
 }
 
+void attract_show_title(Attract *at)
+{
+    show_title(at);
+}
+
 static void show_story(Attract *at)
 {
     at->screen = ATTRACT_STORY;
