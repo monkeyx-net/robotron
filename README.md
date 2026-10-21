@@ -2,7 +2,7 @@
 
 A C11 / SDL2 rebuild of the 1982 Williams arcade game for Linux handhelds
 (aarch64: ArkOS, ROCKNIX, muOS, Knulli via PortMaster), x86_64 (Steam Deck,
-desktops), Windows and the web. It is a port of the
+desktops), Linux desktops, Windows, macOS and the web. It is a port of the
 [robotron.hatch.org](https://robotron.hatch.org/) web remake, whose waves,
 enemy pacing, spawn positions and PRNG were traced in the arcade ROM and
 checked against MAME.
@@ -137,11 +137,13 @@ holds ROM-derived data: keep it for local use.
 ```bash
 cmake -S . -B build -DROBOTRON_DEV_ASSETS=OFF && cmake --build build -j
 cmake --build build --target package_linux package_portmaster
+# macOS (on a Mac): cmake --build build --target package_macos
 ```
 
 Writes `build/packages/robotron-<version>-linux-<arch>.tar.gz` and a
 PortMaster layout `robotron-<version>-portmaster-<arch>.zip` (the launcher
-`Robotron 2084.sh` and a `robotron/` folder). Packages hold the program,
+`Robotron 2084.sh` and a `robotron/` folder); on macOS the `package_macos`
+target writes `robotron-<version>-macos-<arch>.tar.gz`. Packages hold the program,
 sprites, sounds, `README-native.txt`, `LICENSE` and `NOTICE`; the extracted
 tables only if the build had them (otherwise players run `--extract`).
 
@@ -164,8 +166,10 @@ arcade itself.
 `.github/workflows/build.yml` runs on pushes and pull requests to the
 `sdl2-port` branch, and by hand (Actions > Build > Run workflow):
 
-1. **Version:** reads `project(robotron VERSION x.y.z)` from `CMakeLists.txt`.
-   On a push, if the release `vx.y.z` already exists, the builds are skipped.
+1. **Version:** reads the top `### vx.y.z` entry from `CHANGELOG.md` (it must
+   match `project(robotron VERSION x.y.z)` in `CMakeLists.txt`, or the run
+   fails). On a push, if the release `vx.y.z` already exists, the builds are
+   skipped; to publish one, bump the version in both and push.
 2. **Linux x86_64 and aarch64:** in an Ubuntu 20.04 container (GCC 9,
    SDL 2.0.10, glibc 2.31 for PortMaster) on GitHub's x86_64 and arm64
    runners, with ccache: build with `ROBOTRON_DEV_ASSETS=OFF`, run `ctest`
@@ -173,15 +177,18 @@ arcade itself.
    `hiscore`, `enhance`), make the Linux and PortMaster archives.
 3. **Windows x86_64:** MSYS2 MinGW64 with Ninja; builds the game, copies the
    MinGW DLLs it links (SDL2.dll) next to it and makes the Windows zip.
-4. **Web:** Emscripten; zips `build-web/web` as `robotron-<version>-web.zip`
+4. **macOS arm64:** Homebrew SDL2 (and ccache); builds with
+   `ROBOTRON_DEV_ASSETS=OFF`, runs `ctest` and makes the macOS tarball.
+5. **Web:** Emscripten; zips `build-web/web` as `robotron-<version>-web.zip`
    (no ROM tables in CI: the page plays the attract screens only).
-5. **Release:** on a push whose version has no release yet, downloads every
+6. **Release:** on a push whose version has no release yet, downloads every
    build's archives and publishes GitHub release `vx.y.z` with generated
    notes.
 
 Every job uploads its archives as workflow artifacts. CI has no ROM set, so
 release packages carry no ROM tables; players run `--extract` with their own
-set. To publish a release, bump the version in `CMakeLists.txt` and push.
+set. To publish a release, bump the top `###` version in `CHANGELOG.md` and
+the matching `project(robotron VERSION ...)` in `CMakeLists.txt`, then push.
 
 ## License
 
