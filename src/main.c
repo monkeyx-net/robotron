@@ -351,6 +351,7 @@ static bool run_once(void)
     if (max_frames >= 0 && acc < step_ticks) acc = step_ticks;
 
     /* Sim advances in whole frames only; arcade logic is frame-quantised. */
+    long stepped = frames;
     while (acc >= step_ticks) {
         input_poll(&in);
 #ifndef __EMSCRIPTEN__
@@ -363,6 +364,13 @@ static bool run_once(void)
         frames++;
         acc -= step_ticks;
         if (max_frames >= 0 && frames >= max_frames) break;
+    }
+    if (frames == stepped) {
+#ifndef __EMSCRIPTEN__
+        Uint64 ms = (step_ticks - acc) * 1000 / SDL_GetPerformanceFrequency();
+        SDL_Delay(ms > 1 ? (Uint32)ms : 1);
+#endif
+        return true; /* the last picture stays */
     }
     /* Headless runs (--frames) only need the last frame, and skip vsync pacing. */
     if (max_frames < 0 || frames >= max_frames) draw(&g, video_display_scale());
