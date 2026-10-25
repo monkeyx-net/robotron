@@ -1,7 +1,7 @@
 # Native SDL2 build for Linux handhelds and desktops (aarch64, x86_64),
 # Windows (MinGW) and the web (Emscripten). See SDL2_PORT_PLAN.md.
 cmake_minimum_required(VERSION 3.13)
-project(robotron VERSION 0.1.2 LANGUAGES C)
+project(robotron VERSION 0.1.3 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
