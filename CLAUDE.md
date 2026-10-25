@@ -39,6 +39,7 @@ ctest --test-dir build -L rom                     # tests needing the ROM set
 ctest --test-dir build -L mame                    # tests needing MAME + the ROM set
 build/robotron --windowed                         # run
 build/robotron --windowed --gfx hd-glow           # enhanced graphics (presets: classic ... hd-glow-crt)
+build/robotron --scale fit --aspect 4:3           # screen: auto|integer|fit|stretch, 4:3|square (saved)
 SDL_VIDEODRIVER=dummy build/robotron --input src/tests/scripts/wave1.txt \
     --frames 600 --screenshot out.png             # headless replay + screenshot
 build/robotron --extract robotron/ [assets_dir]   # ROM tables from a folder or robotron.zip
@@ -59,7 +60,8 @@ The build dir is a runnable layout: `build/assets/` links to `sprites/` and
 - `main.c` - SDL setup, fixed 60 Hz loop, mode switch (attract / play /
   initials entry / operator menu), `--frames`, `--screenshot`, `--input`, `--extract`
 - `platform/` - the only code that includes SDL: `video.c` (292x240
-  framebuffer, integer scale), `input.c` (pads, ABXY fire, quit = hold
+  framebuffer; scale modes auto/integer/fit/stretch at 4:3 or square pixels,
+  non-integer sizes sharp bilinear through a render target), `input.c` (pads, ABXY fire, quit = hold
   Select+Start 1 s, operator menu = Select+R1 / F2, 2P = L1+Start / key 2),
   `audio.c` (mixer with the web build's priorities and crossfades)
 - `sim/` - pure C game simulation, no SDL, no drawing: `world.c` (all

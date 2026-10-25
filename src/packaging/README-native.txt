@@ -12,6 +12,15 @@ Controls
   Operator menu (attract screens): Select+R1 / F2
   Quit: hold Select+Start for 1 second / Esc
   Graphics: Select+L1 / F3 steps the presets, F4 glow, F5 CRT scanlines
+  Screen: Select+R2 / F7 steps the scale mode, Select+L2 / F8 the aspect
+
+Screen (--scale <mode>, --aspect 4:3|square)
+  auto     whole-number scaling if it fills at least 95% of the screen, else fit
+  integer  a whole number of screen rows per arcade row
+  fit      as large as fits (sizes between whole numbers stay sharp)
+  stretch  the whole screen, whatever its shape
+  4:3 is the shape of the arcade's monitor (the default); square keeps square
+  pixels. The last choice is saved.
 
 Graphics presets
   classic      the arcade picture, pixel for pixel (default)

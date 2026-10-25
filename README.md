@@ -43,6 +43,8 @@ Without them the attract screens run, but a game can't start.
 | Next graphics preset | Select + L1 | F3 |
 | Glow on / off | | F4 |
 | CRT scanlines on / off | | F5 |
+| Screen scale: auto, integer, fit, stretch | Select + R2 | F7 |
+| Screen aspect: 4:3 (the arcade monitor) or square pixels | Select + L2 | F8 |
 | Quit | hold Select + Start for 1 s | Esc |
 
 The players take turns; every connected pad drives the controls. Pads use
@@ -52,12 +54,18 @@ SDL's game controller database; set `ROBOTRON_GAMECONTROLLERDB` to a
 ## Running
 
 ```bash
-build/robotron [--windowed] [--gfx preset] [--frames N] [--screenshot out.png] [--input script.txt]
+build/robotron [--windowed] [--gfx preset] [--scale mode] [--aspect 4:3|square]
+               [--frames N] [--screenshot out.png] [--input script.txt]
 build/robotron --extract <rom dir or zip> [<asset dir>]
 ```
 
 - `--gfx`: `classic` (default), `classic-crt`, `crisp`, `smooth`, `hd-crisp`,
   `hd-smooth`, `hd-glow`, `hd-glow-crt`.
+- `--scale`: `auto` (default: `integer` if it fills 95% of the screen, else
+  `fit`), `integer`, `fit` (sizes between whole numbers stay sharp),
+  `stretch`. `--aspect`: `4:3` (default, the arcade monitor's shape) or
+  `square` pixels. The preset, scale and aspect are saved with the scores;
+  the command line overrides them.
 - `--input`, `--frames`, `--screenshot`: scripted, headless runs
   (`SDL_VIDEODRIVER=dummy`); see `src/main.c`.
 

@@ -18,6 +18,8 @@
 typedef struct {
     OperatorSettings op;  /* factory settings when none are saved */
     GfxSettings gfx;      /* classic when none are saved */
+    int screen_scale;     /* platform/video.h's VideoScale and VideoAspect: */
+    int screen_aspect;    /* auto and 4:3 when none are saved */
     unsigned high_score;
     HeroRow heroes[SAVE_MAX_ROWS];
     int hero_count;

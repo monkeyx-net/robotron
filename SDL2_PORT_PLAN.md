@@ -148,9 +148,13 @@ reads sim state. That makes the sim headless-testable and replayable.
 
 ### 2.3 Video
 - Software framebuffer 292x240 ARGB8888 → `SDL_UpdateTexture` → `SDL_RenderCopy`
-  with nearest scaling, integer scale by default (640x480 → 2x = 584x480;
-  720x720 → 2x letterboxed; 1280x800 → 3x = 876x720), optional "fit" and
-  scanline overlay settings.
+  with nearest scaling. Scale modes (2026-10-25, from the Joust port; F7 /
+  Select+R2): auto (integer if that fills 95% of fit, else fit), integer,
+  fit, stretch; aspect (F8 / Select+L2) 4:3 as the cabinet's monitor, or
+  square pixels; saved with the scores. Defaults auto 4:3: 640x480 → 2x =
+  640x480; 720x720 → 720x540; 1280x800 → 1067x800. Fractional sizes are
+  scaled up by whole numbers (nearest, a render target), then down
+  linearly; HD renders at the size's whole part.
 - `SDL_WINDOW_FULLSCREEN_DESKTOP`; honour `SDL_VIDEODRIVER` (kmsdrm, wayland, x11).
 - Tint/alpha are done in the blitter, which is also where palette colour cycling
   happens, as on the arcade.

@@ -158,12 +158,19 @@ int main(void)
     SaveData sd2;
     storage_load(&sd2);
     CHECK(!memcmp(&sd.op, &sd2.op, sizeof sd.op), "settings round trip");
+    CHECK(sd2.screen_scale == 0 && sd2.screen_aspect == 0, "screen auto 4:3 when nothing saved");
+    sd.screen_scale = 2;
+    sd.screen_aspect = 1;
+    CHECK(storage_save(&sd) == 0, "save screen");
+    storage_load(&sd2);
+    CHECK(sd2.screen_scale == 2 && sd2.screen_aspect == 1, "screen round trip");
     FILE *f = fopen(storage_path(), "w");
-    fputs("operator 12345 99 -3 1\n", f);
+    fputs("operator 12345 99 -3 1\nscreen 9 -1\n", f);
     fclose(f);
     storage_load(&sd2);
     CHECK(sd2.op.extra_man_every == 25000 && sd2.op.turns == 20 && sd2.op.difficulty == 0 && sd2.op.letters == 3,
           "sanitized %d %d %d %d", sd2.op.extra_man_every, sd2.op.turns, sd2.op.difficulty, sd2.op.letters);
+    CHECK(sd2.screen_scale == 3 && sd2.screen_aspect == 0, "screen sanitized %d %d", sd2.screen_scale, sd2.screen_aspect);
     remove(storage_path());
     rmdir(dir2);
 

@@ -3,7 +3,8 @@
  * See SDL2_PORT_PLAN.md. So far: the attract cycle (title, story, heroes)
  * and wave 1 of the game (START or coin from any attract screen).
  *
- *   robotron [--windowed] [--gfx preset] [--frames N] [--screenshot out.png] [--input script.txt]
+ *   robotron [--windowed] [--gfx preset] [--scale mode] [--aspect 4:3|square]
+ *            [--frames N] [--screenshot out.png] [--input script.txt]
  *   robotron --extract <rom dir> [<asset dir>]
  *
  * --frames N stops after N updates; with --screenshot the last frame is
@@ -12,6 +13,9 @@
  * [menu] [move:x,y] [fire:x,y]", each holding from that frame until the next line.
  * --gfx picks an enhanced graphics preset for this run (gfx/enhance.h); in
  * game, Select+L1 / F3 steps the presets, F4 toggles glow and F5 scanlines.
+ * --scale (auto, integer, fit, stretch) and --aspect (4:3, square) set how
+ * the picture fills the screen (platform/video.h); in game, Select+R2 / F7
+ * and Select+L2 / F8 step them. All are saved with the scores.
  * --extract reads the user's ROM set and writes the data tables to
  * <asset dir>/data (default: assets/ next to the program).
  */
@@ -68,6 +72,7 @@ typedef struct {
     OpMenu menu;
     SaveData save;
     int gfx_notice;       /* frames left showing the graphics mode */
+    int notice_screen;    /* the notice is the screen mode's, not the preset's */
 } Game;
 
 static MenuInput menu_input(const InputFrame *in)
@@ -187,7 +192,8 @@ static void draw_scene(Game *g, Framebuffer *t)
     else attract_draw(t, &assets, &g->attract);
     if (g->gfx_notice > 0) {
         char text[80];
-        snprintf(text, sizeof text, "GRAPHICS: %s", gfx_describe(&g->save.gfx));
+        if (g->notice_screen) snprintf(text, sizeof text, "SCREEN: %s", video_describe());
+        else snprintf(text, sizeof text, "GRAPHICS: %s", gfx_describe(&g->save.gfx));
         font_draw(t, &assets, FONT_MAIN, text, (FB_WIDTH - font_measure(&assets, FONT_MAIN, text)) / 2.0,
                   GFX_NOTICE_Y, 1, 0xFFFFFF);
     }
@@ -212,14 +218,23 @@ static void draw(Game *g, int display_scale)
     if (gs->glow) enhance_glow(shown);
 }
 
-/* Graphics hotkeys: cosmetic only, never seen by the sim. */
+/* Graphics and screen hotkeys: cosmetic only, never seen by the sim. */
 static void gfx_keys(Game *g, const InputFrame *in)
 {
+    if (in->screen_scale || in->screen_aspect) {
+        if (in->screen_scale) g->save.screen_scale = (g->save.screen_scale + 1) % VIDEO_SCALES;
+        if (in->screen_aspect) g->save.screen_aspect = (g->save.screen_aspect + 1) % VIDEO_ASPECTS;
+        video_set_mode(g->save.screen_scale, g->save.screen_aspect);
+        g->gfx_notice = GFX_NOTICE_FRAMES;
+        g->notice_screen = 1;
+        save_scores(g);
+    }
     if (!in->gfx_next && !in->gfx_glow && !in->gfx_scanlines) return;
     if (in->gfx_next) gfx_next_preset(&g->save.gfx);
     if (in->gfx_glow) g->save.gfx.glow = !g->save.gfx.glow;
     if (in->gfx_scanlines) g->save.gfx.scanlines = !g->save.gfx.scanlines;
     g->gfx_notice = GFX_NOTICE_FRAMES;
+    g->notice_screen = 0;
     save_scores(g);
 }
 
@@ -317,6 +332,7 @@ static Game g;
 static long max_frames = -1;
 static const char *screenshot;
 static const char *gfx_preset; /* --gfx */
+static int scale_arg = -1, aspect_arg = -1; /* --scale, --aspect */
 static Uint64 step_ticks, last, acc;
 static long frames;
 static int rc;
@@ -330,6 +346,9 @@ static void game_init(void)
     g.attract.demo_enabled = world_can_play(&assets);
     storage_load(&g.save);
     if (gfx_preset) gfx_parse(gfx_preset, &g.save.gfx);
+    if (scale_arg >= 0) g.save.screen_scale = scale_arg;
+    if (aspect_arg >= 0) g.save.screen_aspect = aspect_arg;
+    video_set_mode(g.save.screen_scale, g.save.screen_aspect);
     hiscore_tables(&g.save, &assets, &g.attract.tables);
     g.attract.high_score = g.save.high_score;
     if (!world_can_play(&assets))
@@ -412,11 +431,24 @@ int main(int argc, char **argv)
                 return 2;
             }
         }
+        else if (!strcmp(argv[i], "--scale") && i + 1 < argc) {
+            if ((scale_arg = video_parse_scale(argv[++i])) < 0) {
+                fprintf(stderr, "robotron: unknown --scale '%s' (one of: auto integer fit stretch)\n", argv[i]);
+                return 2;
+            }
+        }
+        else if (!strcmp(argv[i], "--aspect") && i + 1 < argc) {
+            if ((aspect_arg = video_parse_aspect(argv[++i])) < 0) {
+                fprintf(stderr, "robotron: unknown --aspect '%s' (4:3 or square)\n", argv[i]);
+                return 2;
+            }
+        }
         else if (!strcmp(argv[i], "--input") && i + 1 < argc) {
             if (load_script(argv[++i])) return 1;
         }
         else {
-            fprintf(stderr, "usage: %s [--windowed] [--gfx preset] [--frames N] [--screenshot out.png] [--input script.txt]\n"
+            fprintf(stderr, "usage: %s [--windowed] [--gfx preset] [--scale auto|integer|fit|stretch] [--aspect 4:3|square]\n"
+                            "          [--frames N] [--screenshot out.png] [--input script.txt]\n"
                             "       %s --extract <rom dir> [<asset dir>]\n", argv[0], argv[0]);
             return 2;
         }
